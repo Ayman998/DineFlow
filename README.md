@@ -8,18 +8,19 @@ The spec is the Df3Pay Developer Blueprint v1.1, and the screen designs are the 
 
 | Part | Tech |
 |---|---|
-| API | ASP.NET Core 8 Web API, modular monolith, Clean Architecture |
+| API | ASP.NET Core 8 Web API, one project organised by folder |
 | Data | EF Core 8 + PostgreSQL 16, Redis 7 |
 | Web | Angular 21 workspace: `guest` (mobile PWA, EN/AR + RTL) and `merchant` (dashboard), Tailwind CSS 4 |
 
 ## Layout
 
 ```
-src/
-  DineFlow.Domain/          entities, Money (integer minor units), tenant marker
-  DineFlow.Application/     use cases and abstractions (ITenantContext)
-  DineFlow.Infrastructure/  EF Core DbContext + migrations, health checks
-  DineFlow.Api/             controllers, Serilog, CORS, health endpoints
+DineFlow/                   ASP.NET Core API (DineFlow.csproj)
+  Controllers/              HTTP endpoints
+  Data/                     EF Core DbContext, entity configurations, migrations
+  Models/                   entities, Money (integer minor units), tenant marker
+  Services/                 business services, ITenantContext
+  Program.cs                Serilog, CORS, health checks, DI
 tests/DineFlow.Tests/       xUnit
 web/
   projects/guest/           guest PWA       → http://localhost:4200
@@ -44,11 +45,11 @@ dotnet tool restore
 ```
 
 ```bash
-dotnet ef database update -p src/DineFlow.Infrastructure -s src/DineFlow.Api
+dotnet ef database update --project DineFlow
 ```
 
 ```bash
-dotnet run --project src/DineFlow.Api --launch-profile http
+dotnet run --project DineFlow --launch-profile http
 ```
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (Postgres + Redis) is at `/health/ready`.

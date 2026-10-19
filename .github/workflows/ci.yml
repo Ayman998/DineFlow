@@ -15,7 +15,7 @@ jobs:
           global-json-file: global.json
           dotnet-version: 8.0.x
       # Build the .NET projects only; the Angular esproj in the solution is covered by the web job.
-      - run: dotnet build src/DineFlow.Api -c Release
+      - run: dotnet build DineFlow -c Release
       - run: dotnet test tests/DineFlow.Tests -c Release
 
   web:

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace DineFlow.Infrastructure.Persistence.Migrations
+namespace DineFlow.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

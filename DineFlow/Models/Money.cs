@@ -1,4 +1,4 @@
-namespace DineFlow.Domain.Common;
+namespace DineFlow.Models;
 
 /// <summary>
 /// Money as integer minor units (fils, halalas, cents) plus an ISO 4217 currency code.

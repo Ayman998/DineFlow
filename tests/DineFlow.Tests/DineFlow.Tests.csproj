@@ -21,8 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DineFlow.Domain\DineFlow.Domain.csproj" />
-    <ProjectReference Include="..\..\src\DineFlow.Application\DineFlow.Application.csproj" />
+    <ProjectReference Include="..\..\DineFlow\DineFlow.csproj" />
   </ItemGroup>
 
 </Project>

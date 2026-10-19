@@ -1,15 +1,10 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/DineFlow.Api/DineFlow.Api.csproj" />
-    <Project Path="src/DineFlow.Application/DineFlow.Application.csproj" />
-    <Project Path="src/DineFlow.Domain/DineFlow.Domain.csproj" />
-    <Project Path="src/DineFlow.Infrastructure/DineFlow.Infrastructure.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/DineFlow.Tests/DineFlow.Tests.csproj" />
-  </Folder>
+  <Project Path="DineFlow/DineFlow.csproj" />
   <Project Path="web/DineFlow.Web.esproj">
     <Build />
     <Deploy />
   </Project>
+  <Folder Name="/tests/">
+    <Project Path="tests/DineFlow.Tests/DineFlow.Tests.csproj" />
+  </Folder>
 </Solution>

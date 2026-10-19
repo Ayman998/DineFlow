@@ -1,10 +1,9 @@
 using System.Linq.Expressions;
-using DineFlow.Application.Abstractions;
-using DineFlow.Domain.Common;
-using DineFlow.Domain.Tenants;
+using DineFlow.Models;
+using DineFlow.Services;
 using Microsoft.EntityFrameworkCore;
 
-namespace DineFlow.Infrastructure.Persistence;
+namespace DineFlow.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : DbContext(options)
 {

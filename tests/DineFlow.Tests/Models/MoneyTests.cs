@@ -1,6 +1,6 @@
-using DineFlow.Domain.Common;
+using DineFlow.Models;
 
-namespace DineFlow.Tests.Domain;
+namespace DineFlow.Tests.Models;
 
 public class MoneyTests
 {

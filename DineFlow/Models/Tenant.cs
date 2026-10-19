@@ -1,6 +1,4 @@
-using DineFlow.Domain.Common;
-
-namespace DineFlow.Domain.Tenants;
+namespace DineFlow.Models;
 
 /// <summary>A merchant brand: the data-isolation boundary for everything it owns.</summary>
 public class Tenant : Entity
