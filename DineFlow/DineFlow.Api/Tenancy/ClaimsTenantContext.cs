@@ -1,4 +1,6 @@
-namespace DineFlow.Services;
+using DineFlow.Application.Abstractions;
+
+namespace DineFlow.Api.Tenancy;
 
 /// <summary>
 /// Reads the tenant from the authenticated user's "tenant_id" claim.

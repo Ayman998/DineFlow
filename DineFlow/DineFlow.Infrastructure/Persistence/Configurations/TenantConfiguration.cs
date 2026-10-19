@@ -1,8 +1,8 @@
-using DineFlow.Models;
+using DineFlow.Domain.Tenants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace DineFlow.Data.Configurations;
+namespace DineFlow.Infrastructure.Persistence.Configurations;
 
 public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 {

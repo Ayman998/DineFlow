@@ -8,20 +8,19 @@ The spec is the Df3Pay Developer Blueprint v1.1, and the screen designs are the 
 
 | Part | Tech |
 |---|---|
-| API | ASP.NET Core 8 Web API, one project organised by folder |
+| API | ASP.NET Core 8 Web API, modular monolith, Clean Architecture |
 | Data | EF Core 8 + PostgreSQL 16, Redis 7 |
 | Web | Angular 21 workspace: `guest` (mobile PWA, EN/AR + RTL) and `merchant` (dashboard), Tailwind CSS 4 |
 
 ## Layout
 
 ```
-DineFlow/                   ASP.NET Core API (DineFlow.csproj)
-  Controllers/              HTTP endpoints
-  Data/                     EF Core DbContext, entity configurations, migrations
-  Models/                   entities, Money (integer minor units), tenant marker
-  Services/                 business services, ITenantContext
-  Program.cs                Serilog, CORS, health checks, DI
-tests/DineFlow.Tests/       xUnit
+DineFlow/
+  DineFlow.Api/             controllers, Serilog, CORS, health endpoints
+  DineFlow.Application/     use cases and abstractions (ITenantContext)
+  DineFlow.Domain/          entities, Money (integer minor units), tenant marker
+  DineFlow.Infrastructure/  EF Core DbContext + migrations, health checks
+  DineFlow.Test/            xUnit
 web/
   projects/guest/           guest PWA       → http://localhost:4200
   projects/merchant/        merchant portal → http://localhost:4300
@@ -45,11 +44,11 @@ dotnet tool restore
 ```
 
 ```bash
-dotnet ef database update --project DineFlow
+dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFlow.Api
 ```
 
 ```bash
-dotnet run --project DineFlow --launch-profile http
+dotnet run --project DineFlow/DineFlow.Api --launch-profile http
 ```
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (Postgres + Redis) is at `/health/ready`.

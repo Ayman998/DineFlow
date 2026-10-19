@@ -3,7 +3,7 @@
     "Name": "API + Web",
     "Projects": [
       {
-        "Path": "DineFlow\\DineFlow.csproj",
+        "Path": "DineFlow\\DineFlow.Api\\DineFlow.Api.csproj",
         "Action": "Start"
       },
       {

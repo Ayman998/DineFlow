@@ -4,7 +4,7 @@
     {
       "name": "api",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "DineFlow", "--launch-profile", "http"],
+      "runtimeArgs": ["run", "--project", "DineFlow/DineFlow.Api", "--launch-profile", "http"],
       "port": 5266
     },
     {

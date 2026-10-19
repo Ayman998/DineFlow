@@ -1,4 +1,4 @@
-namespace DineFlow.Models;
+namespace DineFlow.Domain.Common;
 
 public abstract class Entity
 {
