@@ -1,0 +1,10 @@
+@DineFlow.Api_HostAddress = http://localhost:5266
+
+GET {{DineFlow.Api_HostAddress}}/v1/public/ping
+Accept: application/json
+
+###
+
+GET {{DineFlow.Api_HostAddress}}/health/ready
+
+###

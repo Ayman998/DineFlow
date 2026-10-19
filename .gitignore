@@ -1,0 +1,16 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
+
+# Secrets: keep real keys out of git (use dotnet user-secrets locally)
+appsettings.*.local.json
+.env
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/

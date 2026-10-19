@@ -1,0 +1,20 @@
+<div class="flex min-h-full">
+  <aside class="w-60 shrink-0 border-e border-line bg-white">
+    <div class="px-5 py-5 text-lg font-bold text-brand">DineFlow</div>
+    <nav class="flex flex-col gap-1 px-3">
+      @for (item of nav; track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive
+          ariaCurrentWhenActive="page"
+          class="rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand">
+          {{ item.title }}
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <main class="flex-1 bg-surface p-8">
+    <router-outlet />
+  </main>
+</div>

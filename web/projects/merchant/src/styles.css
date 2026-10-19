@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* DineFlow design tokens, taken from the Df3Pay mockups. */
+@theme {
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --color-brand: #0f766e;
+  --color-brand-dark: #115e59;
+  --color-accent: #f5a524;
+  --color-ink: #101828;
+  --color-ink-muted: #475467;
+  --color-line: #e4e7ec;
+  --color-surface: #f2f4f7;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: #ffffff;
+}

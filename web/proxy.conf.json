@@ -1,0 +1,5 @@
+{
+  "/v1": { "target": "http://localhost:5266", "secure": false },
+  "/health": { "target": "http://localhost:5266", "secure": false },
+  "/hubs": { "target": "http://localhost:5266", "secure": false, "ws": true }
+}

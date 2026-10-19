@@ -1,0 +1,24 @@
+@let t = text[lang()];
+
+<header class="flex items-center justify-between px-4 py-4">
+  <span class="text-xl font-bold text-brand">DineFlow</span>
+  <button
+    type="button"
+    class="rounded-full border border-line px-3 py-1 text-sm font-medium text-ink-muted"
+    (click)="toggleLang()">
+    {{ lang() === 'en' ? 'العربية' : 'English' }}
+  </button>
+</header>
+
+<main class="px-4 pt-16 text-center">
+  <div class="mx-auto mb-6 flex size-20 items-center justify-center rounded-2xl bg-brand text-3xl font-bold text-white">
+    DF
+  </div>
+  <h1 class="text-2xl font-bold">{{ t.title }}</h1>
+  <p class="mt-2 text-ink-muted">{{ t.body }}</p>
+
+  <p class="mt-10 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-sm text-ink-muted">
+    <span class="size-2 rounded-full" [class]="apiOnline() ? 'bg-brand' : 'bg-accent'"></span>
+    {{ t.api }}: {{ apiOnline() ? t.online : t.offline }}
+  </p>
+</main>

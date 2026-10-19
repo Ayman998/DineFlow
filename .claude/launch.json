@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/DineFlow.Api", "--launch-profile", "http"],
+      "port": 5266
+    },
+    {
+      "name": "guest",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "start:guest"],
+      "port": 4200
+    },
+    {
+      "name": "merchant",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "start:merchant"],
+      "port": 4300
+    }
+  ]
+}
