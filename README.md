@@ -67,6 +67,10 @@ npm --prefix web run start:merchant
 
 The Angular dev servers proxy `/v1`, `/health` and `/hubs` to the API, so both apps call relative URLs.
 
+### From Visual Studio
+
+`DineFlow.slnx` includes the Angular workspace as `DineFlow.Web` (`web/DineFlow.Web.esproj`). Pick the **API + Web** launch profile in the toolbar's startup dropdown and press F5. That starts the API and runs `npm start`, which serves both Angular apps.
+
 ## Test
 
 ```bash

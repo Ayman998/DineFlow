@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "start": "concurrently -n guest,merchant -c cyan,yellow \"ng serve guest\" \"ng serve merchant\"",
     "start:guest": "ng serve guest",
     "start:merchant": "ng serve merchant",
     "build": "ng build guest && ng build merchant",
@@ -27,6 +28,7 @@
     "@angular/cli": "^21.2.27",
     "@angular/compiler-cli": "^21.2.0",
     "@tailwindcss/postcss": "^4.3.3",
+    "concurrently": "^9.2.5",
     "jsdom": "^28.0.0",
     "postcss": "^8.5.31",
     "prettier": "^3.8.1",

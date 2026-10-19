@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "API + Web",
+    "Projects": [
+      {
+        "Path": "src\\DineFlow.Api\\DineFlow.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "web\\DineFlow.Web.esproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

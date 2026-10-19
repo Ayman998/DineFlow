@@ -8,4 +8,8 @@
   <Folder Name="/tests/">
     <Project Path="tests/DineFlow.Tests/DineFlow.Tests.csproj" />
   </Folder>
+  <Project Path="web/DineFlow.Web.esproj">
+    <Build />
+    <Deploy />
+  </Project>
 </Solution>
