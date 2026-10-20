@@ -80,6 +80,31 @@
       </label>
     </section>
 
+    <section class="card grid gap-4 sm:grid-cols-2">
+      <h2 class="font-semibold sm:col-span-2">Tips</h2>
+      <label class="flex items-start gap-3 sm:col-span-2">
+        <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="tipsEnabled" />
+        <span><span class="font-medium">Offer a tip when guests pay</span><br />
+          <span class="text-sm text-ink-muted">Tips are shown separately on receipts and in payment alerts.</span></span>
+      </label>
+      @if (form.controls.tipsEnabled.value) {
+        <label>
+          <span class="field-label">Suggestions (%)</span>
+          <input class="field" formControlName="tipPresets" inputmode="decimal" placeholder="5, 10, 15" />
+          @if (invalid('tipPresets')) { <span class="mt-1 block text-sm text-red-700">Enter one to four percentages between 0.01 and 30, separated by commas.</span> }
+          @else { <span class="mt-1 block text-sm text-ink-muted">Percent of the bill. Guests can also enter their own.</span> }
+        </label>
+        <label>
+          <span class="field-label">Highlight as "Most common"</span>
+          <select class="field" formControlName="mostCommonTip">
+            <option value="">None</option>
+            @for (p of tipPresetOptions(); track p) { <option [value]="'' + p">{{ p }}%</option> }
+          </select>
+          <span class="mt-1 block text-sm text-ink-muted">Pre-selected on the checkout screen; guests can change it or choose "Not now".</span>
+        </label>
+      }
+    </section>
+
     <section class="card grid gap-3">
       <h2 class="font-semibold">Guest features</h2>
       <label class="flex items-start gap-3">

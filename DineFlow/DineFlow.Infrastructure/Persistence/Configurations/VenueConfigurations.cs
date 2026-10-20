@@ -17,6 +17,7 @@ public class VenueConfiguration : IEntityTypeConfiguration<Venue>
         builder.Property(v => v.DefaultLocale).HasMaxLength(5).IsRequired();
         builder.Property(v => v.LogoUrl).HasMaxLength(500);
         builder.Property(v => v.BrandColor).HasMaxLength(7).IsRequired();
+        builder.PrimitiveCollection(v => v.TipPresetsBasisPoints).HasMaxLength(100);
 
         builder.HasOne(v => v.Tenant).WithMany().HasForeignKey(v => v.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(v => v.TenantId);

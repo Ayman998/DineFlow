@@ -1,5 +1,8 @@
+using DineFlow.Domain.Bills;
 using DineFlow.Domain.Menus;
 using DineFlow.Domain.Orders;
+using DineFlow.Domain.Payments;
+using DineFlow.Domain.Promotions;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
@@ -26,6 +29,11 @@ public interface IAppDbContext
     DbSet<MenuCategory> MenuCategories { get; }
     DbSet<MenuItem> MenuItems { get; }
     DbSet<Order> Orders { get; }
+    DbSet<Check> Checks { get; }
+    DbSet<Payment> Payments { get; }
+    DbSet<LedgerEntry> LedgerEntries { get; }
+    DbSet<PromoCode> PromoCodes { get; }
+    DbSet<ProcessedWebhook> ProcessedWebhooks { get; }
 
     /// <summary>Used to discard a failed save before retrying it.</summary>
     ChangeTracker ChangeTracker { get; }

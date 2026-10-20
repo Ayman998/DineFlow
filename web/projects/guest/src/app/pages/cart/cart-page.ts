@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 
 import { Cart, CartLine, MAX_QUANTITY } from '../../core/cart';
 import { GuestSession, errorCode } from '../../core/guest-session';
+import { newId } from '../../core/ids';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/menu';
 import { CartIssue, CartLineRequest, CartQuote, OrdersApi } from '../../core/orders';
@@ -136,14 +137,4 @@ export class CartPage {
       note: l.note || null
     }));
   }
-}
-
-/** A random UUID, also on plain-http test devices where crypto.randomUUID is unavailable. */
-function newId(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  const b = crypto.getRandomValues(new Uint8Array(16));
-  b[6] = (b[6]! & 0x0f) | 0x40;
-  b[8] = (b[8]! & 0x3f) | 0x80;
-  const hex = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

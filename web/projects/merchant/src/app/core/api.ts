@@ -17,6 +17,12 @@ export interface Venue {
   /** 500 = 5% */
   taxBasisPoints: number;
   pricesIncludeTax: boolean;
+  /** Guests are offered a tip when paying. */
+  tipsEnabled: boolean;
+  /** One to four suggestions in basis points, e.g. [500, 1000, 1500]. */
+  tipPresetsBasisPoints: number[];
+  /** The suggestion shown as "Most common" and pre-selected; null for none. */
+  mostCommonTipBasisPoints: number | null;
 }
 
 export type VenueSettings = Omit<Venue, 'id' | 'isActive'>;
@@ -327,5 +333,64 @@ export class OrdersAdminApi {
 
   changeStatus(orderId: string, status: OrderStatus, reason: string | null = null) {
     return this.http.post<OrderDto>(`/v1/merchant/orders/${orderId}/status`, { status, reason });
+  }
+}
+
+// ---- Payments and promotions (Sprint 4) ----
+
+/** Pushed to staff screens when a guest's payment is confirmed by the provider. */
+export interface PaymentNotice {
+  tenantId: string;
+  venueId: string;
+  serviceLocationId: string;
+  locationType: string;
+  locationLabel: string;
+  areaName: string | null;
+  paymentId: string;
+  reference: string;
+  currency: string;
+  amountMinor: number;
+  tipMinor: number;
+  remainingMinor: number;
+  fullyPaid: boolean;
+}
+
+export type DiscountType = 'Percent' | 'Amount';
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  headline: string;
+  type: DiscountType;
+  /** Percent in basis points (1000 = 10%) or a fixed amount in minor units. */
+  value: number;
+  maxDiscountMinor: number | null;
+  minBillMinor: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  maxRedemptions: number | null;
+  redemptionCount: number;
+  isActive: boolean;
+  /** Offered on the guest's payment confirmation for their next visit. */
+  showAfterPayment: boolean;
+}
+
+export type PromoCodeRequest = Omit<PromoCode, 'id' | 'redemptionCount'>;
+
+/** Promotion and voucher codes (blueprint 9.2 /v1/merchant/promotions). */
+@Injectable({ providedIn: 'root' })
+export class PromotionsApi {
+  private readonly http = inject(HttpClient);
+
+  list() {
+    return this.http.get<PromoCode[]>('/v1/merchant/promotions');
+  }
+
+  create(request: PromoCodeRequest) {
+    return this.http.post<PromoCode>('/v1/merchant/promotions', request);
+  }
+
+  update(id: string, request: PromoCodeRequest) {
+    return this.http.put<PromoCode>(`/v1/merchant/promotions/${id}`, request);
   }
 }

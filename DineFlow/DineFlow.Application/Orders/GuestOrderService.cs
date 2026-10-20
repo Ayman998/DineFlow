@@ -1,5 +1,6 @@
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
+using DineFlow.Domain.Bills;
 using DineFlow.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,6 +39,15 @@ public class GuestOrderService(IAppDbContext db, CartQuoteService quotes, IOrder
                 venue.Currency, venue.ServiceChargeBasisPoints, venue.TaxBasisPoints, venue.PricesIncludeTax,
                 priced.CreateLines(), request.Note, clock.GetUtcNow());
 
+            // The order joins the table's open bill; the first order at a table opens one.
+            var check = await db.Checks.SingleOrDefaultAsync(c => c.ServiceLocationId == location.Id && c.Status == CheckStatus.Open, ct);
+            if (check is null)
+            {
+                check = new Check(venue.TenantId, venue.Id, location.Id, venue.Currency, clock.GetUtcNow());
+                db.Checks.Add(check);
+            }
+            order.AssignToCheck(check.Id);
+
             db.Orders.Add(order);
             try
             {
@@ -45,7 +55,8 @@ public class GuestOrderService(IAppDbContext db, CartQuoteService quotes, IOrder
             }
             catch (DbUpdateException) when (attempt < NumberAttempts)
             {
-                // Either the same submission won a race (return it) or another order took this number (try the next).
+                // Either the same submission won a race (return it), or another order took this number or
+                // opened the table's bill at the same moment (try again with the latest of both).
                 db.ChangeTracker.Clear();
                 if (await FindExistingAsync(sessionId, request.ClientRequestId, ct) is { } raced) return raced;
                 continue;

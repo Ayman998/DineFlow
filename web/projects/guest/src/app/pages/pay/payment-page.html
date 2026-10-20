@@ -1,0 +1,109 @@
+@let t = i18n.t();
+@let p = payment();
+
+<div class="min-h-dvh bg-[#F6F7F9] pb-8">
+  @if (!p) {
+    <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
+      @if (notFound()) {
+        <h1 class="text-xl font-extrabold">{{ t.paymentNotFound }}</h1>
+        <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-brand px-6 font-bold text-white">{{ t.backToBill }}</a>
+      } @else {
+        <p class="text-ink-muted" aria-live="polite">{{ t.confirmingTitle }}</p>
+      }
+    </main>
+  } @else if (p.status === 'Succeeded') {
+    <main>
+      <div class="px-5 pt-7 text-center">
+        <div class="mx-auto flex size-16 items-center justify-center rounded-full bg-[#D1FADF] text-[#05603A]" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+        </div>
+        <h1 class="mt-3 text-2xl font-extrabold">{{ t.paymentSuccessful }}</h1>
+        <p class="mt-1 text-sm text-ink-muted">
+          {{ t.locationTypes[p.locationType] }} {{ p.locationLabel }}@if (p.areaName) { · {{ p.areaName }} }
+        </p>
+      </div>
+
+      <section class="mx-5 mt-4 rounded-[18px] border border-line bg-white px-[18px] py-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-[15px] font-extrabold">{{ t.billStatus }}</h2>
+          @if (p.fullyPaid) {
+            <span class="inline-flex items-center gap-1.5 rounded-xl bg-[#D1FADF] px-3 py-1 text-[13px] font-extrabold text-[#05603A]">✓ {{ t.fullyPaid }}</span>
+          } @else {
+            <span class="inline-flex items-center gap-1.5 rounded-xl bg-amber-100 px-3 py-1 text-[13px] font-extrabold text-amber-900">{{ t.partlyPaid }}</span>
+          }
+        </div>
+        <div class="mt-2 flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.youPaid }}</span><span class="text-lg font-extrabold">{{ money(p.amountMinor) }}</span></div>
+        @if (p.tipMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.ofWhichTip }}</span><span>{{ money(p.tipMinor) }}</span></div> }
+        @if (p.discountMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.promotion }} {{ p.promoCode }}</span><span>−{{ money(p.discountMinor) }}</span></div> }
+        <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.remainingBalance }}</span><span class="font-bold">{{ money(p.remainingMinor ?? 0) }}</span></div>
+        <p class="py-1 text-[13px] text-ink-muted">{{ t.paidWith(methodText(p)) }}</p>
+        <div class="mt-2.5 flex justify-between border-t border-dashed border-[#D0D5DD] pt-2.5 text-xs text-ink-muted">
+          <span>{{ t.reference(p.reference) }}</span><span>{{ when(p) }}</span>
+        </div>
+        <p class="mt-2.5 rounded-[10px] bg-surface px-3 py-2.5 text-center text-[13px] font-semibold">{{ t.showStaff }}</p>
+      </section>
+
+      <section class="mx-5 mt-3.5 rounded-[18px] border border-line bg-white px-3 pt-3.5 pb-3">
+        <df-order-tracker [stage]="stage()" />
+        <a routerLink="/orders" class="mt-1.5 flex min-h-11 items-center justify-between px-1.5 text-sm font-bold text-brand">
+          {{ t.viewOrderSummary }}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="rtl:rotate-180" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+        </a>
+      </section>
+
+      @if (p.nextVisitOffer; as offer) {
+        <section class="mx-5 mt-3.5 flex items-center gap-3.5 rounded-[18px] bg-[#0B3B38] px-[18px] py-4 text-white">
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-bold tracking-[.04em] text-[#9FD9D2] uppercase">{{ t.nextVisit }}</p>
+            <h2 class="mt-1 mb-0.5 text-xl font-extrabold">{{ offer.headline }}</h2>
+            <p class="text-[13px] text-[#CFE8E4]">{{ t.useCodeBefore }}<b class="text-white">{{ offer.code }}</b>{{ t.useCodeAfter }}</p>
+          </div>
+          <button type="button" class="min-h-11 shrink-0 rounded-xl border-[1.5px] border-white px-3.5 text-[13px] font-bold" (click)="copy(offer.code)">
+            {{ copied() ? t.copied : t.copy }}
+          </button>
+        </section>
+      }
+
+      <section class="mx-5 mt-3.5 flex flex-col gap-2.5">
+        @if (sentTo(); as to) {
+          <p class="rounded-xl bg-[#E6F4F1] px-4 py-3 text-sm font-semibold text-[#0B3B38]" role="status">{{ t.receiptSent(to) }}</p>
+        } @else {
+          <form class="flex flex-col gap-2.5" (submit)="$event.preventDefault(); sendReceipt()">
+            <label for="receipt-email" class="text-sm font-bold">{{ t.receiptTitle }}</label>
+            <input id="receipt-email" type="email" autocomplete="email" maxlength="254" required
+                   class="h-[50px] rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                   [placeholder]="t.emailPlaceholder" [value]="email()" (input)="email.set($any($event.target).value)"
+                   [attr.aria-invalid]="!!receiptError()" aria-describedby="receipt-error" />
+            @if (receiptError()) { <p id="receipt-error" class="text-[13px] font-semibold text-[#B42318]" role="alert">{{ receiptError() }}</p> }
+            <button type="submit" class="min-h-[52px] rounded-[14px] bg-ink font-bold text-white disabled:opacity-50" [disabled]="sending() || !email().trim()">
+              {{ sending() ? t.sendingReceipt : t.sendReceipt }}
+            </button>
+          </form>
+        }
+        <a routerLink="/menu" class="flex min-h-[52px] items-center justify-center rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white font-bold">{{ t.backToMenu }}</a>
+      </section>
+    </main>
+  } @else if (p.status === 'Failed' || p.status === 'Cancelled') {
+    <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
+      <div class="flex size-16 items-center justify-center rounded-full bg-[#FEE4E2] text-[#B42318]" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </div>
+      <h1 class="text-xl font-extrabold">{{ p.status === 'Failed' ? t.failedTitle : t.cancelledTitle }}</h1>
+      @if (p.status === 'Failed' && p.failureReason) { <p class="font-semibold">{{ p.failureReason }}</p> }
+      <p class="text-ink-muted">{{ p.status === 'Failed' ? t.failedBody : t.cancelledBody }}</p>
+      <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-brand px-6 font-bold text-white">
+        {{ p.status === 'Failed' ? t.tryAgain : t.backToBill }}
+      </a>
+    </main>
+  } @else {
+    <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center" aria-live="polite">
+      <div class="size-12 animate-spin rounded-full border-4 border-[#D0D5DD] border-t-brand motion-reduce:animate-none" aria-hidden="true"></div>
+      <h1 class="text-xl font-extrabold">{{ t.confirmingTitle }}</h1>
+      <p class="text-ink-muted">{{ slow() ? t.stillWaiting : t.confirmingBody }}</p>
+      @if (slow() && p.checkoutUrl) {
+        <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-ink px-6 font-bold text-white" (click)="returnToProvider()">{{ t.returnToPayment }}</button>
+        <button type="button" class="min-h-11 font-bold text-ink-muted" (click)="cancel()">{{ t.cancelPayment }}</button>
+      }
+    </main>
+  }
+</div>

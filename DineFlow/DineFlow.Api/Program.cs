@@ -24,10 +24,21 @@ builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(conte
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, ClaimsTenantContext>();
 builder.Services.AddScoped<IOrderNotifier, SignalROrderNotifier>();
+builder.Services.AddScoped<IPaymentNotifier, SignalRPaymentNotifier>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
+
+// The sandbox provider accepts test cards and marks bills paid without moving money, so it must be
+// switched on deliberately anywhere but a developer's machine (e.g. for a demo environment).
+if (!builder.Environment.IsDevelopment()
+    && builder.Configuration["Payments:Provider"] is null or "sandbox"
+    && !builder.Configuration.GetValue<bool>("Payments:Sandbox:AllowOutsideDevelopment"))
+{
+    throw new InvalidOperationException(
+        "The sandbox payment provider only runs in Development. Configure a real provider, or set Payments:Sandbox:AllowOutsideDevelopment for a demo.");
+}
 
 builder.Services.AddProblemDetails();
 

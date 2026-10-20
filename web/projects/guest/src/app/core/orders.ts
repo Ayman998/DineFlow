@@ -103,9 +103,18 @@ export class OrdersApi {
   }
 }
 
+/** Sent to everyone at the table when an order or payment changes what the table owes. */
+export interface BillChanged {
+  serviceLocationId: string;
+  reason: 'order' | 'payment';
+  remainingMinor: number | null;
+  fullyPaid: boolean | null;
+}
+
 /**
- * Live status of this table's orders over SignalR (P1-ORD-05). Emits each order whenever staff
- * move it along; reconnects by itself, and pages reload their list after a reconnect.
+ * Live updates over SignalR (P1-ORD-05): each of the guest's orders whenever staff move it
+ * along, and a nudge whenever the table's bill changes. Reconnects by itself, and pages reload
+ * after a reconnect.
  */
 @Injectable({ providedIn: 'root' })
 export class OrderUpdates implements OnDestroy {
@@ -113,6 +122,7 @@ export class OrderUpdates implements OnDestroy {
   private connection: HubConnection | null = null;
 
   readonly changed = new Subject<Order>();
+  readonly billChanged = new Subject<BillChanged>();
   /** Fires after the connection comes back, so pages can catch up on anything missed. */
   readonly reconnected = new Subject<void>();
   readonly connected = signal(false);
@@ -127,6 +137,7 @@ export class OrderUpdates implements OnDestroy {
       .build();
 
     connection.on('orderChanged', (order: Order) => this.changed.next(order));
+    connection.on('billChanged', (event: BillChanged) => this.billChanged.next(event));
     connection.onreconnecting(() => this.connected.set(false));
     connection.onreconnected(() => {
       this.connected.set(true);

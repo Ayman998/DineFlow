@@ -32,6 +32,26 @@ public class Venue : Entity, ITenantOwned
 
     public const int MaxRateBasisPoints = 3000;
 
+    /// <summary>Whether guests are offered a tip when paying (P1-PAY-10).</summary>
+    public bool TipsEnabled { get; private set; } = true;
+    /// <summary>Tip suggestions in basis points of the amount being paid, e.g. 5%, 10%, 15%.</summary>
+    public List<int> TipPresetsBasisPoints { get; private set; } = [500, 1000, 1500];
+    /// <summary>The preset highlighted as "Most common" and pre-selected (P1-PAY-11); null for none.</summary>
+    public int? MostCommonTipBasisPoints { get; private set; } = 1000;
+
+    public void SetTips(bool enabled, IReadOnlyList<int> presetsBasisPoints, int? mostCommonBasisPoints)
+    {
+        var presets = presetsBasisPoints.Distinct().Order().ToList();
+        if (presets.Count is 0 or > 4) throw new DomainException("Offer between one and four tip suggestions.");
+        if (presets.Any(p => p is < 1 or > MaxRateBasisPoints)) throw new DomainException("Tip suggestions must be between 0.01% and 30%.");
+        if (mostCommonBasisPoints is { } common && !presets.Contains(common))
+            throw new DomainException("The most common tip must be one of the suggestions.");
+
+        TipsEnabled = enabled;
+        TipPresetsBasisPoints = presets;
+        MostCommonTipBasisPoints = mostCommonBasisPoints;
+    }
+
     public void SetCharges(int serviceChargeBasisPoints, int taxBasisPoints, bool pricesIncludeTax)
     {
         if (serviceChargeBasisPoints is < 0 or > MaxRateBasisPoints)

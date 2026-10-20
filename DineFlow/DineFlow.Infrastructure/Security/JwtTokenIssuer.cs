@@ -20,7 +20,8 @@ public class JwtTokenIssuer(IOptions<JwtOptions> options, TimeProvider clock) : 
             [JwtRegisteredClaimNames.Sub] = session.Id.ToString(),
             [DineFlowClaims.Scope] = DineFlowClaims.GuestScope,
             [DineFlowClaims.TenantId] = session.TenantId.ToString(),
-            [DineFlowClaims.SessionId] = session.Id.ToString()
+            [DineFlowClaims.SessionId] = session.Id.ToString(),
+            [DineFlowClaims.LocationId] = session.ServiceLocationId.ToString()
         });
 
     public IssuedToken IssueStaffToken(StaffUser user) =>

@@ -1,17 +1,22 @@
 using System.Security.Cryptography;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Auth;
+using DineFlow.Application.Bills;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
 using DineFlow.Application.Orders;
+using DineFlow.Application.Payments;
+using DineFlow.Application.Promotions;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Venues;
 using DineFlow.Domain.Tenants;
+using DineFlow.Infrastructure.Payments;
 using DineFlow.Infrastructure.Persistence;
 using DineFlow.Infrastructure.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
@@ -29,7 +34,7 @@ public sealed class TestHost : IDisposable
     public TestHost()
     {
         _connection.Open();
-        Db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, _tenant);
+        Db = new SqliteAppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, _tenant);
         Db.Database.EnsureCreated();
 
         QrTokens = new QrTokenService(Options.Create(new QrOptions { TokenKey = RandomKey() }));
@@ -50,12 +55,20 @@ public sealed class TestHost : IDisposable
         CartQuotes = new CartQuoteService(Db, Clock);
         GuestOrders = new GuestOrderService(Db, CartQuotes, Notifier, Clock);
         MerchantOrders = new MerchantOrderService(Db, Notifier, Clock);
+
+        var paymentOptions = Options.Create(new PaymentOptions());
+        Sandbox = new SandboxPaymentProvider(Options.Create(new SandboxOptions { SecretKey = RandomKey() }), guestOptions, Clock);
+        Bills = new BillService(Db, Sandbox, paymentOptions, Clock);
+        Promotions = new PromotionService(Db, _tenant, Bills, Clock);
+        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, paymentOptions, guestOptions, Clock);
     }
 
     /// <summary>Controllable "now" for every service; starts at the real current time.</summary>
     public FakeTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
     public InMemoryFileStorage Files { get; } = new();
     public RecordingNotifier Notifier { get; } = new();
+    public RecordingPaymentNotifier PaymentNotifier { get; } = new();
+    public RecordingEmailSender Emails { get; } = new();
 
     public AppDbContext Db { get; }
     public IQrTokenService QrTokens { get; }
@@ -70,6 +83,10 @@ public sealed class TestHost : IDisposable
     public CartQuoteService CartQuotes { get; }
     public GuestOrderService GuestOrders { get; }
     public MerchantOrderService MerchantOrders { get; }
+    public SandboxPaymentProvider Sandbox { get; }
+    public BillService Bills { get; }
+    public PromotionService Promotions { get; }
+    public PaymentService Payments { get; }
 
     public Guid? CurrentTenant
     {
@@ -132,6 +149,41 @@ public sealed class TestHost : IDisposable
         {
             Events.Add(("changed", order));
             return Task.CompletedTask;
+        }
+    }
+
+    public sealed class RecordingPaymentNotifier : IPaymentNotifier
+    {
+        public List<PaymentNotice> Notices { get; } = [];
+
+        public Task PaymentSucceededAsync(PaymentNotice notice, CancellationToken ct)
+        {
+            Notices.Add(notice);
+            return Task.CompletedTask;
+        }
+    }
+
+    public sealed class RecordingEmailSender : IEmailSender
+    {
+        public List<EmailMessage> Sent { get; } = [];
+
+        public Task SendAsync(EmailMessage message, CancellationToken ct)
+        {
+            Sent.Add(message);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// SQLite can't compare or sort DateTimeOffset values, which SQL Server can. Storing them as
+    /// numbers here lets the same queries run. Every time DineFlow stores is UTC, so order is kept.
+    /// </summary>
+    private sealed class SqliteAppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenant) : AppDbContext(options, tenant)
+    {
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            base.ConfigureConventions(configurationBuilder);
+            configurationBuilder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
         }
     }
 

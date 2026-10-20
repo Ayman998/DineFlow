@@ -15,5 +15,9 @@
   "/media": {
     "target": "http://localhost:5266",
     "secure": false
+  },
+  "/sandbox": {
+    "target": "http://localhost:5266",
+    "secure": false
   }
 }

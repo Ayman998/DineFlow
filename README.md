@@ -17,9 +17,9 @@ The spec is the Df3Pay Developer Blueprint v1.1, and the screen designs are the 
 ```
 DineFlow/
   DineFlow.Api/             controllers, auth policies, rate limits, error responses
-  DineFlow.Application/     use cases (guests, venues, tables, auth) and abstractions
-  DineFlow.Domain/          entities: tenant, venue, area, location, QR token, guest session, staff
-  DineFlow.Infrastructure/  EF Core + SQL Server, migrations, QR/JWT/password services, demo seed
+  DineFlow.Application/     use cases (guests, venues, tables, menus, orders, bills, payments, promotions)
+  DineFlow.Domain/          entities: tenant, venue, location, QR, session, menu, order, check, payment, ledger, promo
+  DineFlow.Infrastructure/  EF Core + SQL Server, migrations, QR/JWT/password services, sandbox PSP, e-mail, demo seed
   DineFlow.Test/            xUnit (services run against in-memory SQLite)
 web/
   projects/guest/           guest PWA       → http://localhost:4200
@@ -50,7 +50,24 @@ npm --prefix web ci
 npm --prefix web start
 ```
 
-That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (Accept → Preparing → Ready → Served) updates the guest's tracker live. Manage menus, categories, items, modifiers and photos under **Menu**, and service charge and VAT under **Settings**. The Angular dev servers proxy `/v1`, `/health` and `/hubs` to the API, so both apps call relative URLs.
+That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (Accept → Preparing → Ready → Served) updates the guest's tracker live. Manage menus, categories, items, modifiers and photos under **Menu**, and service charge, VAT and tips under **Settings**. The Angular dev servers proxy `/v1`, `/health`, `/hubs`, `/media` and `/sandbox` to the API, so both apps call relative URLs.
+
+### Paying the bill
+
+On the guest side, **Pay Bill** opens checkout for everything the table has ordered. The guest picks a tip (the venue's "Most common" one starts selected), can enter a promo code and choose a payment method, then pays on the provider's page. The demo seeds two codes: **WELCOME10** (10% off, up to AED 50) and **NEXT15**, which is offered on the payment confirmation for the next visit. Manage codes under **Promotions** in the merchant portal. When the payment goes through, the guest sees the confirmation and can e-mail a receipt. Staff get a "Payment received" alert with the tip and what's still owed. Once nothing is left, the table's bill closes, and the next order opens a new one.
+
+Until a real PSP is connected, payments go through the built-in **sandbox provider**. It's a hosted test page at `/sandbox/pay/…` that takes these test cards (any future expiry, any CVC):
+
+| Card | Result |
+|---|---|
+| `4242 4242 4242 4242` | Visa, succeeds |
+| `5555 5555 5555 4444` | Mastercard, succeeds |
+| `4000 0000 0000 0002` | Declined |
+| `4000 0000 0000 9995` | Insufficient funds |
+
+Apple Pay, Google Pay and STC Pay show Approve and Decline buttons. The sandbox reports each result through a signed webhook, verified the same way a real provider's would be. No real money moves. Outside Development the API refuses to start with the sandbox, unless `Payments:Sandbox:AllowOutsideDevelopment` is set, e.g. for a demo server.
+
+Receipts aren't sent in Development. Each one is written as an `.eml` file to `DineFlow/DineFlow.Api/App_Data/outbox` (git-ignored), and any mail app can open it.
 
 To apply migrations without starting the API:
 
@@ -64,7 +81,7 @@ dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFl
 
 ### Keys and secrets
 
-`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key and the demo owner's password. Outside Development, `Jwt:SigningKey` and `Qr:TokenKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code.
+`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code.
 
 ### Uploaded images
 
@@ -102,12 +119,18 @@ npm --prefix web test
 | `POST /v1/public/sessions/{id}/orders`, `GET …/orders` | guest token | Place an order (idempotent per `clientRequestId`); the table's orders |
 | `GET /v1/merchant/venues/{id}/orders?filter=Active\|New\|Completed\|Rejected`, `GET …/orders/counts` | merchant | The order queue and badge counts |
 | `POST /v1/merchant/orders/{id}/status` | merchant | Accept, reject (with reason), preparing, ready, served |
+| `GET /v1/public/sessions/{id}/bill` | guest token | The table's bill: orders, totals, paid and remaining, tip options, payment methods |
+| `POST /v1/public/sessions/{id}/promotions/validate` | guest token | Check a promo code against the bill |
+| `POST /v1/public/payments`, `GET …/payments/{id}` | guest token | Start paying what's left (idempotent per `clientRequestId`); payment status |
+| `POST /v1/public/payments/{id}/cancel`, `POST …/{id}/receipt` | guest token | The guest came back without paying; e-mail the receipt |
+| `POST /v1/webhooks/payments/{provider}` | provider (signed) | Payment results. Only a verified webhook marks a payment paid. Repeats are ignored |
+| `GET/POST /v1/merchant/promotions`, `PUT …/promotions/{id}` | merchant / manager | Promotion and voucher codes |
 
 ### Real-time
 
-SignalR hubs push order events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced` and `orderChanged` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
+SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged` and `paymentReceived` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
-Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials` or `location_exists`.
+Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress` or `promo_expired`.
 
 ## Ground rules (from the blueprint)
 
@@ -127,7 +150,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 1 | Tenant / venue / table / QR token, guest session, merchant sign-in ✅ | E1, E2 |
 | 2 | Menu admin + guest e-menu, modifiers, schedules, photos ✅ | E4, E31 |
 | 3 | Cart, server-validated order, standalone queue, staff alerts (SignalR) ✅ | E6, E10 |
-| 4 | Bill, payment intent, PSP webhook, tip, promo | E5, E8, E30 |
+| 4 | Bill, pay in full, sandbox PSP + signed webhook, ledger, tips, promo codes, e-mail receipt ✅ | E5, E8, E30 |
 | 5 | Split ledger: equal and by item, with concurrency locks (adds Redis) | E7 |
 | 6 | Reviews and feedback | E27 |
 | 7 | Merchant overview, tables, transactions, refunds | E11, E12 |

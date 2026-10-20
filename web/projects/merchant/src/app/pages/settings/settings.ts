@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 
 import { MerchantApi, Venue, VenueSettings } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
@@ -40,8 +40,18 @@ export class Settings implements OnInit {
     payAtTableEnabled: [true],
     serviceChargePercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],
     taxPercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],
-    pricesIncludeTax: [true]
+    pricesIncludeTax: [true],
+    tipsEnabled: [true],
+    /** Comma-separated percentages, e.g. "5, 10, 15". */
+    tipPresets: ['5, 10, 15', [Validators.required, tipPresetsValidator]],
+    /** One of the presets as a percentage, or '' for none. */
+    mostCommonTip: ['10']
   });
+
+  /** The presets as typed, for the "Most common" picker. */
+  protected tipPresetOptions(): number[] {
+    return parsePercents(this.form.controls.tipPresets.value) ?? [];
+  }
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe({
@@ -72,13 +82,17 @@ export class Settings implements OnInit {
       return;
     }
 
-    const { serviceChargePercent, taxPercent, ...rest } = value;
+    const { serviceChargePercent, taxPercent, tipPresets, mostCommonTip, ...rest } = value;
+    const presets = (parsePercents(tipPresets) ?? []).map(p => Math.round(p * 100));
+    const mostCommon = mostCommonTip === '' ? null : Math.round(Number(mostCommonTip) * 100);
     const settings: VenueSettings = {
       ...rest,
       currency: value.currency.toUpperCase(),
       logoUrl: value.logoUrl.trim() || null,
       serviceChargeBasisPoints: Math.round(serviceChargePercent * 100),
-      taxBasisPoints: Math.round(taxPercent * 100)
+      taxBasisPoints: Math.round(taxPercent * 100),
+      tipPresetsBasisPoints: presets,
+      mostCommonTipBasisPoints: mostCommon !== null && presets.includes(mostCommon) ? mostCommon : null
     };
 
     this.saving.set(true);
@@ -112,6 +126,20 @@ function toForm(venue: Venue) {
     ...venue,
     logoUrl: venue.logoUrl ?? '',
     serviceChargePercent: venue.serviceChargeBasisPoints / 100,
-    taxPercent: venue.taxBasisPoints / 100
+    taxPercent: venue.taxBasisPoints / 100,
+    tipPresets: venue.tipPresetsBasisPoints.map(bp => bp / 100).join(', '),
+    mostCommonTip: venue.mostCommonTipBasisPoints === null ? '' : String(venue.mostCommonTipBasisPoints / 100)
   };
+}
+
+/** "5, 10, 15" → [5, 10, 15], sorted and without repeats; null when it isn't 1–4 percentages of 0.01–30. */
+function parsePercents(text: string): number[] | null {
+  const parts = text.split(/[,\s]+/).map(p => p.replace('%', '')).filter(Boolean);
+  if (!parts.length || parts.some(p => !/^\d+(\.\d{1,2})?$/.test(p))) return null;
+  const values = [...new Set(parts.map(Number))].sort((a, b) => a - b);
+  return values.length <= 4 && values.every(v => v >= 0.01 && v <= 30) ? values : null;
+}
+
+function tipPresetsValidator(control: AbstractControl<string>): ValidationErrors | null {
+  return parsePercents(control.value) ? null : { tipPresets: true };
 }

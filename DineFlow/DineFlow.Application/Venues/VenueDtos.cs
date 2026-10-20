@@ -15,7 +15,10 @@ public record VenueDto(
     bool IsActive,
     int ServiceChargeBasisPoints,
     int TaxBasisPoints,
-    bool PricesIncludeTax);
+    bool PricesIncludeTax,
+    bool TipsEnabled,
+    IReadOnlyList<int> TipPresetsBasisPoints,
+    int? MostCommonTipBasisPoints);
 
 public record VenueSettingsRequest(
     [Required, StringLength(120, MinimumLength = 1)] string Name,
@@ -30,4 +33,9 @@ public record VenueSettingsRequest(
     [Range(0, 3000)] int ServiceChargeBasisPoints = 0,
     /// <summary>VAT/sales tax in basis points: 500 = 5%.</summary>
     [Range(0, 3000)] int TaxBasisPoints = 0,
-    bool PricesIncludeTax = true);
+    bool PricesIncludeTax = true,
+    bool TipsEnabled = true,
+    /// <summary>One to four tip suggestions in basis points, e.g. [500, 1000, 1500].</summary>
+    IReadOnlyList<int>? TipPresetsBasisPoints = null,
+    /// <summary>The suggestion highlighted as "Most common"; must be one of the presets.</summary>
+    int? MostCommonTipBasisPoints = 1000);

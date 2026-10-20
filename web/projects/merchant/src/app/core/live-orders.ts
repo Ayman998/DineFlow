@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { Subject } from 'rxjs';
 
-import { OrderDto, OrdersAdminApi } from './api';
+import { OrderDto, OrdersAdminApi, PaymentNotice } from './api';
 import { Auth } from './auth';
 import { CurrentVenue } from './current-venue';
 import { OrderCountsStore } from './order-counts';
@@ -11,8 +11,8 @@ export type LiveState = 'connecting' | 'live' | 'reconnecting' | 'offline';
 
 /**
  * Real-time staff alerts (blueprint E10, P1-STAFF-01): a SignalR connection that announces new
- * and updated orders for the current venue, keeps the "new orders" count current and plays a
- * chime for each new order.
+ * and updated orders and confirmed payments for the current venue, keeps the "new orders" count
+ * current and plays a chime for each new order and payment.
  */
 @Injectable({ providedIn: 'root' })
 export class LiveOrders {
@@ -26,6 +26,7 @@ export class LiveOrders {
   readonly counts = inject(OrderCountsStore).counts;
   readonly placed = new Subject<OrderDto>();
   readonly changed = new Subject<OrderDto>();
+  readonly paid = new Subject<PaymentNotice>();
   /** Fires after a reconnect, so pages can reload anything they missed. */
   readonly reconnected = new Subject<void>();
 
@@ -48,6 +49,11 @@ export class LiveOrders {
       if (!this.isMine(order)) return;
       this.refreshCounts();
       this.changed.next(order);
+    });
+    connection.on('paymentReceived', (payment: PaymentNotice) => {
+      if (payment.venueId !== this.venue.venue()?.id) return;
+      this.chime();
+      this.paid.next(payment);
     });
     connection.onreconnecting(() => this.state.set('reconnecting'));
     connection.onreconnected(() => {
@@ -80,7 +86,7 @@ export class LiveOrders {
     if (venueId) this.api.counts(venueId).subscribe({ next: counts => this.counts.set(counts), error: () => undefined });
   }
 
-  private isMine(order: OrderDto): boolean {
+  private isMine(order: { venueId: string }): boolean {
     return order.venueId === this.venue.venue()?.id;
   }
 

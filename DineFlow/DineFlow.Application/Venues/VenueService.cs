@@ -25,6 +25,7 @@ public class VenueService(IAppDbContext db, ITenantContext tenant)
             v.UpdateSettings(request.Name, request.Currency, request.TimeZone, request.DefaultLocale,
                 request.LogoUrl, request.BrandColor, request.MenuEnabled, request.PayAtTableEnabled);
             v.SetCharges(request.ServiceChargeBasisPoints, request.TaxBasisPoints, request.PricesIncludeTax);
+            v.SetTips(request.TipsEnabled, request.TipPresetsBasisPoints ?? [500, 1000, 1500], request.MostCommonTipBasisPoints);
             return v;
         });
 
@@ -43,6 +44,7 @@ public class VenueService(IAppDbContext db, ITenantContext tenant)
             venue.UpdateSettings(request.Name, request.Currency, request.TimeZone, request.DefaultLocale,
                 request.LogoUrl, request.BrandColor, request.MenuEnabled, request.PayAtTableEnabled);
             venue.SetCharges(request.ServiceChargeBasisPoints, request.TaxBasisPoints, request.PricesIncludeTax);
+            venue.SetTips(request.TipsEnabled, request.TipPresetsBasisPoints ?? [500, 1000, 1500], request.MostCommonTipBasisPoints);
             return venue;
         });
 
@@ -69,5 +71,6 @@ public class VenueService(IAppDbContext db, ITenantContext tenant)
     private static VenueDto ToDto(Venue v) => new(
         v.Id, v.Name, v.Currency, v.TimeZone, v.DefaultLocale, v.LogoUrl, v.BrandColor,
         v.MenuEnabled, v.PayAtTableEnabled, v.IsActive,
-        v.ServiceChargeBasisPoints, v.TaxBasisPoints, v.PricesIncludeTax);
+        v.ServiceChargeBasisPoints, v.TaxBasisPoints, v.PricesIncludeTax,
+        v.TipsEnabled, v.TipPresetsBasisPoints, v.MostCommonTipBasisPoints);
 }

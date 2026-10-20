@@ -1,4 +1,5 @@
 using DineFlow.Application.Abstractions;
+using DineFlow.Domain.Promotions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
 using DineFlow.Domain.Venues;
@@ -43,6 +44,25 @@ public static class DatabaseInitialiser
         }
 
         await SeedDemoMenuAsync(db, logger, ct);
+        await SeedDemoPromotionsAsync(db, logger, ct);
+    }
+
+    /// <summary>Two demo codes: WELCOME10 to try at checkout, NEXT15 offered on the payment confirmation.</summary>
+    private static async Task SeedDemoPromotionsAsync(AppDbContext db, ILogger logger, CancellationToken ct)
+    {
+        var demoTenantId = await db.Tenants.Where(t => t.LegalName == DemoTenantLegalName).Select(t => (Guid?)t.Id).SingleOrDefaultAsync(ct);
+        if (demoTenantId is not { } tenantId || await db.PromoCodes.IgnoreQueryFilters().AnyAsync(p => p.TenantId == tenantId, ct)) return;
+
+        var welcome = new PromoCode(tenantId, "WELCOME10");
+        welcome.Update("10% off your bill", DiscountType.Percent, 1000, maxDiscountMinor: 5000, minBillMinor: null,
+            startsAt: null, endsAt: null, maxRedemptions: null, isActive: true, showAfterPayment: false);
+        var next = new PromoCode(tenantId, "NEXT15");
+        next.Update("15% off your next visit", DiscountType.Percent, 1500, maxDiscountMinor: 7500, minBillMinor: 2000,
+            startsAt: null, endsAt: null, maxRedemptions: null, isActive: true, showAfterPayment: true);
+
+        db.PromoCodes.AddRange(welcome, next);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded demo promotion codes.");
     }
 
     /// <summary>

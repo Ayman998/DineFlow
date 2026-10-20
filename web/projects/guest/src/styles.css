@@ -43,6 +43,32 @@ body {
   .qty-btn {
     @apply flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] bg-white text-lg font-bold disabled:cursor-not-allowed disabled:opacity-40;
   }
+
+  /* Checkout pieces, from the "Checkout" mockup. */
+  .tip-chip {
+    @apply inline-flex min-h-[52px] w-full flex-col items-center justify-center rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white px-1.5 text-[13px] font-bold whitespace-nowrap text-ink;
+  }
+  .tip-chip small {
+    @apply text-[11px] font-medium text-ink-muted;
+  }
+  .tip-on {
+    @apply border-brand bg-brand text-white;
+  }
+  .tip-on small {
+    @apply text-[#D1FADF];
+  }
+  .pm {
+    @apply mt-2 flex min-h-[52px] items-center gap-3 rounded-xl border-[1.5px] border-line px-3.5 text-[15px] font-semibold;
+  }
+  .pm-on {
+    @apply border-brand bg-[#E6F4F1];
+  }
+  .pm-dot {
+    @apply size-[22px] shrink-0 rounded-full border-2 border-[#98A2B3];
+  }
+  .pm-on .pm-dot {
+    @apply border-[6px] border-brand bg-white;
+  }
 }
 
 .no-scrollbar {

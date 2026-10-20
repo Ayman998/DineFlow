@@ -1,8 +1,11 @@
 using System.Linq.Expressions;
 using DineFlow.Application.Abstractions;
+using DineFlow.Domain.Bills;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Menus;
 using DineFlow.Domain.Orders;
+using DineFlow.Domain.Payments;
+using DineFlow.Domain.Promotions;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
@@ -29,6 +32,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<Check> Checks => Set<Check>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+    public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
+    public DbSet<ProcessedWebhook> ProcessedWebhooks => Set<ProcessedWebhook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,7 +65,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
         var entity = Expression.Parameter(entityClrType, "e");
         var tenantId = Expression.Convert(
             Expression.Property(entity, nameof(ITenantOwned.TenantId)), typeof(Guid?));
-        var current = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
+        // Typed as AppDbContext so the private property resolves on derived contexts too.
+        var current = Expression.Property(Expression.Constant(this, typeof(AppDbContext)), nameof(CurrentTenantId));
         return Expression.Lambda(Expression.Equal(tenantId, current), entity);
     }
 }

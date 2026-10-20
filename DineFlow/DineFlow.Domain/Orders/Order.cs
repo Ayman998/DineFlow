@@ -18,6 +18,8 @@ public class Order : Entity, ITenantOwned
     public Guid VenueId { get; private set; }
     public Guid ServiceLocationId { get; private set; }
     public Guid GuestSessionId { get; private set; }
+    /// <summary>The table's bill this order belongs to; null for orders placed before bills existed.</summary>
+    public Guid? CheckId { get; private set; }
     /// <summary>The guest app's id for this submission; makes retries safe (blueprint 7.3).</summary>
     public Guid ClientRequestId { get; private set; }
     /// <summary>Short number staff and guests use, e.g. 1024. Unique per venue.</summary>
@@ -82,6 +84,9 @@ public class Order : Entity, ITenantOwned
         TaxIncluded = price.TaxIncluded;
         TotalMinor = price.TotalMinor;
     }
+
+    /// <summary>Adds the order to the table's open bill.</summary>
+    public void AssignToCheck(Guid checkId) => CheckId = checkId;
 
     /// <summary>
     /// Moves the order along the kitchen flow. Allowed: Submitted → Accepted or Rejected;

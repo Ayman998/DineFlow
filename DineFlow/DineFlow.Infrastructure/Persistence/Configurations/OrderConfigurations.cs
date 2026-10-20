@@ -1,3 +1,4 @@
+using DineFlow.Domain.Bills;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Tenants;
@@ -25,6 +26,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasOne<Venue>().WithMany().HasForeignKey(o => o.VenueId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ServiceLocation>().WithMany().HasForeignKey(o => o.ServiceLocationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<GuestSession>().WithMany().HasForeignKey(o => o.GuestSessionId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Check>().WithMany().HasForeignKey(o => o.CheckId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(o => o.Lines).WithOne().HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -32,6 +34,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => new { o.VenueId, o.Number }).IsUnique();
         builder.HasIndex(o => new { o.GuestSessionId, o.ClientRequestId }).IsUnique();
         builder.HasIndex(o => new { o.VenueId, o.Status, o.CreatedAt });
+        builder.HasIndex(o => o.CheckId);
     }
 }
 

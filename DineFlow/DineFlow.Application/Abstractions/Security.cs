@@ -39,6 +39,8 @@ public static class DineFlowClaims
 {
     public const string TenantId = "tenant_id";
     public const string SessionId = "session_id";
+    /// <summary>On guest tokens: the table, so everyone at it can be told when the bill changes.</summary>
+    public const string LocationId = "location_id";
     public const string Role = "role";
     public const string Scope = "scope";
 

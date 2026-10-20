@@ -23,8 +23,14 @@ export const routes: Routes = [
   },
   {
     path: 'bill',
-    data: { feature: 'bill' },
-    loadComponent: () => import('./pages/coming-soon/coming-soon').then(m => m.ComingSoon)
+    canActivate: [sessionGuard],
+    loadComponent: () => import('./pages/bill/bill-page').then(m => m.BillPage)
+  },
+  // The payment provider sends the guest back here: /pay/{paymentId}[?cancelled=1]
+  {
+    path: 'pay/:id',
+    canActivate: [sessionGuard],
+    loadComponent: () => import('./pages/pay/payment-page').then(m => m.PaymentPage)
   },
   { path: '**', redirectTo: '' }
 ];

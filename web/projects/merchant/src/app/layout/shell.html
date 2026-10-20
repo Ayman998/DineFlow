@@ -44,21 +44,41 @@
   </div>
 </div>
 
-<!-- New-order alerts -->
+<!-- Live alerts: new orders and payments -->
 <div class="fixed end-6 bottom-6 z-50 flex w-80 flex-col gap-2 print:hidden" aria-live="assertive">
   @for (toast of toasts(); track toast.id) {
-    <div class="rounded-xl border-s-4 border-accent bg-white p-4 shadow-lg" role="alert">
-      <div class="flex items-start justify-between gap-2">
-        <div>
-          <div class="font-bold">New order #{{ toast.order.number }}</div>
-          <div class="text-sm text-ink-muted">
-            {{ toast.order.locationType }} {{ toast.order.locationLabel }}@if (toast.order.areaName) { · {{ toast.order.areaName }} }
-            · {{ money(toast.order) }}
+    @if (toast.kind === 'order') {
+      <div class="rounded-xl border-s-4 border-accent bg-white p-4 shadow-lg" role="alert">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="font-bold">New order #{{ toast.order.number }}</div>
+            <div class="text-sm text-ink-muted">
+              {{ toast.order.locationType }} {{ toast.order.locationLabel }}@if (toast.order.areaName) { · {{ toast.order.areaName }} }
+              · {{ money(toast.order.totalMinor, toast.order.currency) }}
+            </div>
           </div>
+          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
         </div>
-        <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+        <a routerLink="/orders" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open orders</a>
       </div>
-      <a routerLink="/orders" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open orders</a>
-    </div>
+    } @else {
+      @let p = toast.payment;
+      <div class="rounded-xl border-s-4 border-emerald-500 bg-white p-4 shadow-lg" role="alert">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="font-bold">Payment received · {{ money(p.amountMinor, p.currency) }}</div>
+            <div class="text-sm text-ink-muted">
+              {{ p.locationType }} {{ p.locationLabel }}@if (p.areaName) { · {{ p.areaName }} }
+              @if (p.tipMinor) { · tip {{ money(p.tipMinor, p.currency) }} }
+            </div>
+            <div class="mt-1 text-sm font-semibold" [class]="p.fullyPaid ? 'text-emerald-700' : 'text-amber-800'">
+              {{ p.fullyPaid ? 'Bill fully paid' : money(p.remainingMinor, p.currency) + ' still to pay' }}
+            </div>
+            <div class="text-xs text-ink-muted">Ref {{ p.reference }}</div>
+          </div>
+          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+        </div>
+      </div>
+    }
   }
 </div>

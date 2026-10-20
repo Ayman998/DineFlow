@@ -26,7 +26,11 @@ public class MerchantHub : Hub
     }
 }
 
-/// <summary>Live status of a guest's own orders (P1-ORD-05). Event: "orderChanged".</summary>
+/// <summary>
+/// Live updates for guests (P1-ORD-05): "orderChanged" for the guest's own orders, and
+/// "billChanged" (a <see cref="BillChangedEvent"/>) for everyone at the same table, whenever an
+/// order or payment changes what the table owes.
+/// </summary>
 [Authorize(Policy = Policies.Guest)]
 public class GuestHub : Hub
 {
@@ -34,13 +38,20 @@ public class GuestHub : Hub
 
     public static string Group(Guid sessionId) => $"session:{sessionId:N}";
 
+    public static string LocationGroup(Guid serviceLocationId) => $"location:{serviceLocationId:N}";
+
     public override async Task OnConnectedAsync()
     {
         if (Context.User?.GuestSessionId() is { } sessionId)
             await Groups.AddToGroupAsync(Context.ConnectionId, Group(sessionId));
+        if (Guid.TryParse(Context.User?.FindFirst(DineFlowClaims.LocationId)?.Value, out var locationId))
+            await Groups.AddToGroupAsync(Context.ConnectionId, LocationGroup(locationId));
         await base.OnConnectedAsync();
     }
 }
+
+/// <summary>Tells the table to reload its bill. Remaining and FullyPaid are set after a payment.</summary>
+public record BillChangedEvent(Guid ServiceLocationId, string Reason, long? RemainingMinor = null, bool? FullyPaid = null);
 
 /// <summary>Sends order events over SignalR. Failures are logged, never thrown at the caller.</summary>
 public class SignalROrderNotifier(
@@ -62,6 +73,8 @@ public class SignalROrderNotifier(
             if (tenant.TenantId is { } tenantId)
                 await merchants.Clients.Group(MerchantHub.Group(tenantId)).SendAsync(merchantEvent, order, ct);
             await guests.Clients.Group(GuestHub.Group(order.GuestSessionId)).SendAsync("orderChanged", order, ct);
+            await guests.Clients.Group(GuestHub.LocationGroup(order.ServiceLocationId))
+                .SendAsync("billChanged", new BillChangedEvent(order.ServiceLocationId, "order"), ct);
         }
         catch (Exception ex)
         {
