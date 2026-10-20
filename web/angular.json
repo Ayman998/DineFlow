@@ -104,6 +104,9 @@
             ],
             "styles": [
               "projects/merchant/src/styles.css"
+            ],
+            "allowedCommonJsDependencies": [
+              "qrcode"
             ]
           },
           "configurations": {

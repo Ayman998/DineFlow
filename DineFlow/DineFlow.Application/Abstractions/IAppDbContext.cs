@@ -1,0 +1,24 @@
+using DineFlow.Domain.Sessions;
+using DineFlow.Domain.Staff;
+using DineFlow.Domain.Tenants;
+using DineFlow.Domain.Venues;
+using Microsoft.EntityFrameworkCore;
+
+namespace DineFlow.Application.Abstractions;
+
+/// <summary>
+/// The database as the use cases see it. Every tenant-owned set is already filtered to the
+/// current tenant; use IgnoreQueryFilters() only for public lookups such as QR resolution.
+/// </summary>
+public interface IAppDbContext
+{
+    DbSet<Tenant> Tenants { get; }
+    DbSet<Venue> Venues { get; }
+    DbSet<DiningArea> DiningAreas { get; }
+    DbSet<ServiceLocation> ServiceLocations { get; }
+    DbSet<QrToken> QrTokens { get; }
+    DbSet<GuestSession> GuestSessions { get; }
+    DbSet<StaffUser> StaffUsers { get; }
+
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+}

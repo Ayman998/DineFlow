@@ -1,0 +1,154 @@
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold">Tables & QR codes</h1>
+    @if (plan(); as p) {
+      <p class="mt-1 text-sm text-ink-muted">
+        {{ p.venueName }} · {{ totals().locations }} locations · {{ totals().active }} active QR codes
+      </p>
+    }
+  </div>
+  <div class="flex flex-wrap gap-2">
+    @if (auth.canManage()) {
+      <button type="button" class="btn-secondary" [attr.aria-expanded]="panel() === 'area'" (click)="togglePanel('area')">
+        Add area
+      </button>
+      <button type="button" class="btn-secondary" [attr.aria-expanded]="panel() === 'tables'" (click)="togglePanel('tables')">
+        Add tables
+      </button>
+    }
+    <button type="button" class="btn-primary" [disabled]="!totals().locations" (click)="print()">Print QR codes</button>
+  </div>
+</div>
+
+@if (panel() === 'area') {
+  <form class="card mb-6 flex flex-wrap items-end gap-3 print:hidden" [formGroup]="areaForm" (ngSubmit)="addArea()">
+    <label class="min-w-56 flex-1">
+      <span class="field-label">Area name</span>
+      <input class="field" formControlName="name" placeholder="e.g. Terrace" />
+    </label>
+    <button type="submit" class="btn-primary">Add area</button>
+    <button type="button" class="btn-ghost" (click)="togglePanel('none')">Cancel</button>
+  </form>
+}
+
+@if (panel() === 'tables') {
+  @let mode = tablesForm.controls.mode.value;
+  <form class="card mb-6 print:hidden" [formGroup]="tablesForm" (ngSubmit)="addTables()">
+    <div class="mb-4 flex gap-4 text-sm">
+      <label class="flex items-center gap-2">
+        <input type="radio" formControlName="mode" value="range" /> Numbered tables
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="radio" formControlName="mode" value="single" /> One location (counter, room, pool…)
+      </label>
+    </div>
+    <div class="flex flex-wrap items-end gap-3">
+      <label class="min-w-48">
+        <span class="field-label">Area</span>
+        <select class="field" formControlName="areaId">
+          <option value="">No area</option>
+          @for (area of plan()?.areas ?? []; track area.id) {
+            <option [value]="area.id">{{ area.name }}</option>
+          }
+        </select>
+      </label>
+      @if (mode === 'range') {
+        <label class="w-28">
+          <span class="field-label">From</span>
+          <input class="field" type="number" min="1" max="999" formControlName="from" />
+        </label>
+        <label class="w-28">
+          <span class="field-label">To</span>
+          <input class="field" type="number" min="1" max="999" formControlName="to" />
+        </label>
+      } @else {
+        <label class="min-w-40">
+          <span class="field-label">Type</span>
+          <select class="field" formControlName="type">
+            @for (type of types; track type.value) {
+              <option [value]="type.value">{{ type.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="w-36">
+          <span class="field-label">Label</span>
+          <input class="field" formControlName="label" placeholder="e.g. 204" />
+        </label>
+      }
+      <button type="submit" class="btn-primary">{{ mode === 'range' ? 'Add tables' : 'Add location' }}</button>
+      <button type="button" class="btn-ghost" (click)="togglePanel('none')">Cancel</button>
+    </div>
+    <p class="mt-3 text-sm text-ink-muted">Each new location gets its own QR code straight away.</p>
+  </form>
+}
+
+@if (error()) {
+  <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 print:hidden" role="alert">{{ error() }}</p>
+}
+@if (notice()) {
+  <p class="mb-4 rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark print:hidden" role="status">{{ notice() }}</p>
+}
+
+@if (loading()) {
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4" aria-busy="true">
+    @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+      <div class="h-72 animate-pulse rounded-xl bg-white"></div>
+    }
+  </div>
+} @else if (plan() && !totals().locations) {
+  <div class="card text-center text-ink-muted">
+    No tables yet. Use <strong>Add tables</strong> to create them; each one gets a QR code.
+  </div>
+} @else {
+  @for (section of sections(); track section.id) {
+    <section class="mb-8">
+      <h2 class="mb-3 text-sm font-semibold tracking-wide text-ink-muted uppercase print:hidden">
+        {{ section.title }} · {{ section.locations.length }}
+      </h2>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 print:grid-cols-3 print:gap-6">
+        @for (location of section.locations; track location.id) {
+          @let qr = location.qr;
+          <article
+            class="flex flex-col rounded-xl border border-line bg-white p-4 break-inside-avoid"
+            [class.opacity-60]="qr?.status === 'Disabled'">
+            <div class="hidden text-center print:block">
+              <div class="text-sm font-semibold">{{ brandName() }}</div>
+            </div>
+
+            <div class="flex items-start justify-between gap-2 print:justify-center">
+              <div class="font-bold print:text-center print:text-lg">{{ location.displayName }}</div>
+              @if (qr) {
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs font-medium print:hidden"
+                  [class]="qr.status === 'Active' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'">
+                  {{ qr.status === 'Active' ? '● Active' : '◐ Disabled' }}
+                </span>
+              }
+            </div>
+
+            @if (qr) {
+              <df-qr-code class="mx-auto my-3 aspect-square w-full max-w-44" [url]="qr.url" [alt]="'QR code for ' + location.displayName" />
+              <div class="text-center text-xs text-ink-muted print:hidden">Version {{ qr.version }}</div>
+              <div class="hidden text-center text-xs print:block">Scan to view the menu and pay</div>
+
+              <div class="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm print:hidden">
+                <a class="link" [href]="qr.url" target="_blank" rel="noopener">Open</a>
+                <button type="button" class="link" (click)="download(location)">Download</button>
+                @if (auth.canManage()) {
+                  @if (qr.status === 'Active') {
+                    <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, false)">Disable</button>
+                  } @else {
+                    <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, true)">Enable</button>
+                  }
+                  <button type="button" class="link" [disabled]="isBusy(location)" (click)="rotate(location)">Rotate</button>
+                }
+              </div>
+            } @else {
+              <p class="my-6 text-center text-sm text-ink-muted">No QR code</p>
+            }
+          </article>
+        }
+      </div>
+    </section>
+  }
+}

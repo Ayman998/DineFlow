@@ -1,0 +1,113 @@
+<h1 class="mb-1 text-2xl font-bold">Venue settings</h1>
+<p class="mb-6 text-sm text-ink-muted">What guests see when they scan a QR code at this venue.</p>
+
+@if (!auth.canManage()) {
+  <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">Only owners and managers can change settings.</p>
+}
+
+<form class="grid max-w-4xl gap-6 lg:grid-cols-[1fr_280px]" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <div class="flex flex-col gap-6">
+    <section class="card grid gap-4 sm:grid-cols-2">
+      <h2 class="font-semibold sm:col-span-2">Venue</h2>
+
+      <label class="sm:col-span-2">
+        <span class="field-label">Branch name</span>
+        <input class="field" formControlName="name" />
+        @if (invalid('name')) { <span class="mt-1 block text-sm text-red-700">Enter a name (up to 120 characters).</span> }
+      </label>
+
+      <label>
+        <span class="field-label">Currency</span>
+        <input class="field uppercase" formControlName="currency" list="currencies" maxlength="3" />
+        <datalist id="currencies">
+          @for (c of currencies; track c) { <option [value]="c"></option> }
+        </datalist>
+        @if (invalid('currency')) { <span class="mt-1 block text-sm text-red-700">Use a 3-letter code such as AED.</span> }
+      </label>
+
+      <label>
+        <span class="field-label">Timezone</span>
+        <input class="field" formControlName="timeZone" list="timezones" />
+        <datalist id="timezones">
+          @for (tz of timeZones; track tz) { <option [value]="tz"></option> }
+        </datalist>
+        @if (invalid('timeZone')) { <span class="mt-1 block text-sm text-red-700">Enter a timezone such as Asia/Dubai.</span> }
+      </label>
+
+      <label>
+        <span class="field-label">Guest default language</span>
+        <select class="field" formControlName="defaultLocale">
+          <option value="en">English</option>
+          <option value="ar">العربية (Arabic)</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card grid gap-4">
+      <h2 class="font-semibold">Branding</h2>
+
+      <label>
+        <span class="field-label">Logo URL <span class="font-normal text-ink-muted">(optional)</span></span>
+        <input class="field" type="url" formControlName="logoUrl" placeholder="https://…/logo.png" />
+      </label>
+
+      <div>
+        <span class="field-label">Brand colour</span>
+        <div class="flex items-center gap-3">
+          <input type="color" class="h-10 w-14 cursor-pointer rounded border border-line" formControlName="brandColor" aria-label="Brand colour picker" />
+          <input class="field max-w-32 font-mono" formControlName="brandColor" aria-label="Brand colour hex" />
+        </div>
+        @if (invalid('brandColor')) { <span class="mt-1 block text-sm text-red-700">Use a hex colour such as #0B3B38.</span> }
+      </div>
+    </section>
+
+    <section class="card grid gap-3">
+      <h2 class="font-semibold">Guest features</h2>
+      <label class="flex items-start gap-3">
+        <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="menuEnabled" />
+        <span><span class="font-medium">Digital menu</span><br /><span class="text-sm text-ink-muted">Guests can browse the menu and order.</span></span>
+      </label>
+      <label class="flex items-start gap-3">
+        <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="payAtTableEnabled" />
+        <span><span class="font-medium">Pay at Table</span><br /><span class="text-sm text-ink-muted">Guests can view and pay the bill from their phone.</span></span>
+      </label>
+    </section>
+
+    @if (error()) {
+      <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
+    }
+    @if (saved()) {
+      <p class="rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">Settings saved. Guests see the changes on their next scan.</p>
+    }
+
+    @if (auth.canManage()) {
+      <div>
+        <button type="submit" class="btn-primary" [disabled]="saving() || form.pristine">
+          {{ saving() ? 'Saving…' : 'Save settings' }}
+        </button>
+      </div>
+    }
+  </div>
+
+  @let preview = form.getRawValue();
+  <aside class="lg:sticky lg:top-8 lg:self-start">
+    <div class="field-label">Guest preview</div>
+    <div class="overflow-hidden rounded-2xl border border-line" aria-hidden="true">
+      <div class="flex flex-col items-center gap-2 px-4 pt-8 pb-6 text-center text-white" [style.background-color]="preview.brandColor">
+        <div class="flex size-14 items-center justify-center overflow-hidden rounded-full bg-white text-sm font-extrabold" [style.color]="preview.brandColor">
+          @if (preview.logoUrl) { <img [src]="preview.logoUrl" alt="" class="size-full object-cover" /> } @else { Logo }
+        </div>
+        <div class="text-lg font-extrabold">{{ auth.profile()?.tenantName }}</div>
+        <div class="text-xs opacity-80">{{ preview.name }}</div>
+      </div>
+      <div class="flex flex-col gap-2 bg-white p-4">
+        @if (preview.menuEnabled) {
+          <div class="rounded-lg py-2 text-center text-sm font-bold text-white" [style.background-color]="preview.brandColor">View Menu</div>
+        }
+        @if (preview.payAtTableEnabled) {
+          <div class="rounded-lg border border-line py-2 text-center text-sm font-bold">Pay Bill</div>
+        }
+      </div>
+    </div>
+  </aside>
+</form>

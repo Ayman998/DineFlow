@@ -1,25 +1,38 @@
-import { Routes } from '@angular/router';
+import { Route, Routes } from '@angular/router';
 
-/** Merchant navigation from the blueprint (section 4.4), with the sprint that builds each area. */
-export const NAV_ITEMS = [
-  { path: 'overview', title: 'Overview', sprint: 7 },
-  { path: 'orders', title: 'Orders', sprint: 3 },
-  { path: 'tables', title: 'Tables', sprint: 1 },
-  { path: 'transactions', title: 'Transactions', sprint: 7 },
-  { path: 'menu', title: 'Menu', sprint: 2 },
-  { path: 'payment-links', title: 'Payment Links', sprint: 8 },
-  { path: 'reviews', title: 'Reviews', sprint: 6 },
-  { path: 'reports', title: 'Reports', sprint: 9 },
-  { path: 'settings', title: 'Settings', sprint: 1 }
-] as const;
+import { authGuard } from './core/auth';
+import { NAV_ITEMS } from './layout/nav';
+import { Shell } from './layout/shell';
+
+type LoadComponent = NonNullable<Route['loadComponent']>;
+
+/** Areas built so far; the rest show a placeholder until their sprint. */
+const PAGES: Partial<Record<string, LoadComponent>> = {
+  tables: () => import('./pages/tables/tables').then(m => m.Tables),
+  settings: () => import('./pages/settings/settings').then(m => m.Settings)
+};
+
+const placeholder: LoadComponent = () => import('./pages/placeholder/placeholder').then(m => m.Placeholder);
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'overview' },
-  ...NAV_ITEMS.map(item => ({
-    path: item.path,
-    title: `${item.title} · DineFlow`,
-    data: { title: item.title, sprint: item.sprint },
-    loadComponent: () => import('./pages/placeholder/placeholder').then(m => m.Placeholder)
-  })),
-  { path: '**', redirectTo: 'overview' }
+  {
+    path: 'login',
+    title: 'Sign in · DineFlow',
+    loadComponent: () => import('./pages/login/login').then(m => m.Login)
+  },
+  {
+    path: '',
+    component: Shell,
+    canActivate: [authGuard],
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'tables' },
+      ...NAV_ITEMS.map(item => ({
+        path: item.path,
+        title: `${item.title} · DineFlow`,
+        data: { title: item.title, sprint: item.sprint },
+        loadComponent: PAGES[item.path] ?? placeholder
+      }))
+    ]
+  },
+  { path: '**', redirectTo: '' }
 ];

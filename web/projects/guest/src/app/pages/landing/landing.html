@@ -1,0 +1,109 @@
+@let t = i18n.t();
+@let ctx = context();
+
+<div
+  class="flex min-h-dvh flex-col text-white"
+  [style.background-color]="ctx?.venue?.brandColor ?? '#0B3B38'">
+  <div class="flex justify-end px-5 pt-5">
+    <button
+      type="button"
+      class="inline-flex min-h-11 items-center gap-2 rounded-full border-[1.5px] border-white/40 px-3.5 text-sm font-semibold"
+      [attr.aria-label]="t.changeLanguage"
+      (click)="i18n.toggle()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
+      </svg>
+      {{ t.otherLanguage }}
+    </button>
+  </div>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <div class="flex flex-1 flex-col items-center justify-center gap-4 px-8" aria-busy="true">
+        <div class="size-26 animate-pulse rounded-full bg-white/20"></div>
+        <div class="h-8 w-48 animate-pulse rounded-lg bg-white/20"></div>
+        <div class="h-4 w-32 animate-pulse rounded bg-white/15"></div>
+        <p class="sr-only">{{ t.loading }}</p>
+      </div>
+    }
+
+    @case ('ready') {
+      <div class="flex flex-1 flex-col items-center justify-center gap-3.5 px-8 text-center">
+        <div class="flex size-26 items-center justify-center overflow-hidden rounded-full bg-white text-2xl font-extrabold"
+             [style.color]="ctx!.venue.brandColor">
+          @if (ctx!.venue.logoUrl) {
+            <img [src]="ctx!.venue.logoUrl" [alt]="ctx!.venue.brandName" class="size-full object-cover" />
+          } @else {
+            <span aria-hidden="true">{{ initials() }}</span>
+          }
+        </div>
+        <h1 class="text-[30px] leading-tight font-extrabold">{{ ctx!.venue.brandName }}</h1>
+        <p class="text-[15px] text-[#CFE8E4]">{{ ctx!.venue.branchName }}</p>
+        <div class="inline-flex min-h-10 items-center gap-2 rounded-full bg-white/15 px-4 text-[15px] font-semibold">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" />
+          </svg>
+          {{ locationLabel() }}
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3.5 rounded-t-[28px] bg-white px-5 pt-7 pb-6 text-ink">
+        <div>
+          <h2 class="text-xl font-extrabold">{{ t.welcome }}</h2>
+          <p class="mt-1 text-[15px] text-ink-muted">{{ t.whatToDo }}</p>
+        </div>
+
+        @if (ctx!.features.menu) {
+          <a routerLink="/menu"
+             class="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-[14px] text-base font-bold text-white"
+             [style.background-color]="ctx!.venue.brandColor">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 4h16v16H4z" /><path d="M8 9h8M8 13h8M8 17h5" />
+            </svg>
+            {{ t.viewMenu }}
+          </a>
+        }
+
+        @if (ctx!.features.payAtTable) {
+          <a routerLink="/bill"
+             class="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-[14px] border-[1.5px] border-[#D0D5DD] text-base font-bold"
+             [class.text-white]="!ctx!.features.menu"
+             [style.background-color]="ctx!.features.menu ? null : ctx!.venue.brandColor">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" />
+            </svg>
+            {{ t.payBill }}
+          </a>
+        }
+
+        <p class="mt-1.5 text-center text-xs text-ink-muted">
+          {{ t.noAppNeeded }} · {{ t.poweredBy }} · <a href="#" class="underline">{{ t.terms }}</a>
+        </p>
+      </div>
+    }
+
+    @case ('error') {
+      @let code = $any(state()).code;
+      <div class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center" role="alert">
+        <div class="mb-2 flex size-20 items-center justify-center rounded-full bg-white/15">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14l7 7M21 14l-7 7" />
+          </svg>
+        </div>
+        @if (code === 'qr_invalid') {
+          <h1 class="text-2xl font-extrabold">{{ t.invalidTitle }}</h1>
+          <p class="text-[15px] text-[#CFE8E4]">{{ t.invalidBody }}</p>
+        } @else if (code === 'venue_unavailable') {
+          <h1 class="text-2xl font-extrabold">{{ t.unavailableTitle }}</h1>
+          <p class="text-[15px] text-[#CFE8E4]">{{ t.unavailableBody }}</p>
+        } @else {
+          <h1 class="text-2xl font-extrabold">{{ t.errorTitle }}</h1>
+          <p class="text-[15px] text-[#CFE8E4]">{{ t.errorBody }}</p>
+          <button type="button" class="mt-4 min-h-12 rounded-[14px] bg-white px-6 font-bold text-ink" (click)="load()">
+            {{ t.tryAgain }}
+          </button>
+        }
+      </div>
+    }
+  }
+</div>

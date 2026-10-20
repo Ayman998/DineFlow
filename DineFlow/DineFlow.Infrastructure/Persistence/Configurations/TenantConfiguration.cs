@@ -8,7 +8,7 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 {
     public void Configure(EntityTypeBuilder<Tenant> builder)
     {
-        builder.ToTable("tenants");
+        builder.ToTable("Tenants");
         builder.HasKey(t => t.Id);
         builder.Property(t => t.LegalName).HasMaxLength(200).IsRequired();
         builder.Property(t => t.DisplayName).HasMaxLength(200).IsRequired();

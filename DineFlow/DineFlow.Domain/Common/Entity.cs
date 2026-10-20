@@ -14,3 +14,6 @@ public interface ITenantOwned
 {
     Guid TenantId { get; }
 }
+
+/// <summary>Thrown when an operation would break a domain rule.</summary>
+public class DomainException(string message) : Exception(message);

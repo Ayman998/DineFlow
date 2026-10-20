@@ -1,13 +1,9 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-
-import { NAV_ITEMS } from './app.routes';
+import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'df-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
-  templateUrl: './app.html'
+  imports: [RouterOutlet],
+  template: '<router-outlet />'
 })
-export class App {
-  protected readonly nav = NAV_ITEMS;
-}
+export class App {}

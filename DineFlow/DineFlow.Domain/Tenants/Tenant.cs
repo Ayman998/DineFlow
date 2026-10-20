@@ -19,6 +19,10 @@ public class Tenant : Entity
         DisplayName = displayName;
         Country = country.ToUpperInvariant();
     }
+
+    public void Activate() => Status = TenantStatus.Active;
+
+    public void Suspend() => Status = TenantStatus.Suspended;
 }
 
 public enum TenantStatus
