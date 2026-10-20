@@ -25,26 +25,50 @@ public static class DatabaseInitialiser
 
         await db.Database.MigrateAsync(ct);
 
-        if (!config.GetValue<bool>("Seed:Enabled") || await db.Tenants.AnyAsync(ct)) return;
+        if (!config.GetValue<bool>("Seed:Enabled")) return;
 
-        var email = config["Seed:Owner:Email"];
-        var password = config["Seed:Owner:Password"];
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        if (!await db.Tenants.AnyAsync(ct))
         {
-            logger.LogWarning("Seed:Enabled is true but Seed:Owner:Email/Password are not set; skipping demo data.");
-            return;
+            var email = config["Seed:Owner:Email"];
+            var password = config["Seed:Owner:Password"];
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            {
+                logger.LogWarning("Seed:Enabled is true but Seed:Owner:Email/Password are not set; skipping demo data.");
+                return;
+            }
+
+            await SeedDemoTenantAsync(db, sp.GetRequiredService<IQrTokenService>(), sp.GetRequiredService<IPasswordService>(),
+                email, password, ct);
+            logger.LogInformation("Seeded demo tenant 'Demo Bistro' with owner {Email}.", email);
         }
 
-        await SeedDemoTenantAsync(db, sp.GetRequiredService<IQrTokenService>(), sp.GetRequiredService<IPasswordService>(),
-            email, password, ct);
-        logger.LogInformation("Seeded demo tenant 'Demo Bistro' with owner {Email}.", email);
+        await SeedDemoMenuAsync(db, logger, ct);
     }
+
+    /// <summary>
+    /// Gives the demo venue a menu if it has none, including demo databases created before menus
+    /// existed. Startup has no tenant, so these queries bypass the tenant filter.
+    /// </summary>
+    private static async Task SeedDemoMenuAsync(AppDbContext db, ILogger logger, CancellationToken ct)
+    {
+        var demoTenantId = await db.Tenants.Where(t => t.LegalName == DemoTenantLegalName).Select(t => (Guid?)t.Id).SingleOrDefaultAsync(ct);
+        if (demoTenantId is null) return;
+
+        var venue = await db.Venues.IgnoreQueryFilters().FirstOrDefaultAsync(v => v.TenantId == demoTenantId, ct);
+        if (venue is null || await db.Menus.IgnoreQueryFilters().AnyAsync(m => m.VenueId == venue.Id, ct)) return;
+
+        DemoMenuSeed.Add(db, venue);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded demo menus for venue {Venue}.", venue.Name);
+    }
+
+    private const string DemoTenantLegalName = "Demo Bistro LLC";
 
     private static async Task SeedDemoTenantAsync(
         AppDbContext db, IQrTokenService qrTokens, IPasswordService passwords,
         string ownerEmail, string ownerPassword, CancellationToken ct)
     {
-        var tenant = new Tenant("Demo Bistro LLC", "Demo Bistro", "AE");
+        var tenant = new Tenant(DemoTenantLegalName, "Demo Bistro", "AE");
         tenant.Activate();
         db.Tenants.Add(tenant);
 

@@ -1,0 +1,257 @@
+@let t = i18n.t();
+@let ctx = context();
+
+@if (!ctx || errorCode() === 'session_expired') {
+  <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
+    <h1 class="text-2xl font-extrabold">{{ t.sessionEndedTitle }}</h1>
+    <p class="text-ink-muted">{{ t.sessionEndedBody }}</p>
+  </main>
+} @else if (errorCode() === 'menu_unavailable') {
+  <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
+    <h1 class="text-2xl font-extrabold">{{ t.menuOffTitle }}</h1>
+    <p class="text-ink-muted">{{ t.menuOffBody }}</p>
+  </main>
+} @else {
+  <div class="flex min-h-dvh flex-col">
+    <!-- Header: venue, table, language, Pay bill shortcut (P1-QR-03) -->
+    <header class="flex items-center gap-3 px-5 pt-4 pb-3">
+      <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-extrabold text-white"
+           [style.background-color]="ctx.venue.brandColor" aria-hidden="true">
+        @if (ctx.venue.logoUrl) {
+          <img [src]="ctx.venue.logoUrl" alt="" class="size-full object-cover" />
+        } @else {
+          {{ initials(ctx.venue.brandName) }}
+        }
+      </div>
+      <div class="min-w-0 flex-1">
+        <h1 class="truncate text-base font-extrabold">{{ ctx.venue.brandName }}</h1>
+        <p class="truncate text-[13px] text-ink-muted">
+          {{ t.locationTypes[ctx.location.type] }} {{ ctx.location.label }}@if (ctx.location.areaName) { · {{ ctx.location.areaName }} }
+        </p>
+      </div>
+      <button type="button" class="chip px-3" [attr.aria-label]="t.changeLanguage" (click)="i18n.toggle()">
+        {{ i18n.lang() === 'en' ? 'ع' : 'EN' }}
+      </button>
+      @if (ctx.features.payAtTable) {
+        <a routerLink="/bill" class="chip border-brand text-brand">{{ t.payBillShort }}</a>
+      }
+    </header>
+
+    <div class="flex flex-col gap-3 px-5">
+      <div class="flex gap-2.5">
+        <!-- Menu switcher (P1-MENU-04) -->
+        <div class="relative flex-1">
+          <button
+            type="button"
+            class="flex min-h-12 w-full items-center justify-between rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-bold disabled:opacity-60"
+            [attr.aria-label]="t.chooseMenu"
+            [attr.aria-expanded]="pickerOpen()"
+            [disabled]="!tree() || (tree()?.menus?.length ?? 0) < 2"
+            (click)="pickerOpen.set(!pickerOpen())">
+            @if (menu(); as m) {
+              <span class="truncate">
+                {{ i18n.localize(m.name, m.nameAr) }}
+                @if (m.startTime || !m.availableNow) {
+                  <span class="text-[13px] font-medium text-ink-muted">· {{ schedule(m) }}</span>
+                }
+              </span>
+            } @else {
+              <span class="h-4 w-32 animate-pulse rounded bg-surface"></span>
+            }
+            @if ((tree()?.menus?.length ?? 0) > 1) {
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            }
+          </button>
+          @if (pickerOpen()) {
+            <ul class="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-white shadow-lg" role="listbox">
+              @for (m of tree()?.menus ?? []; track m.id) {
+                <li role="option" [attr.aria-selected]="m.id === menuId()">
+                  <button type="button" class="flex w-full items-center justify-between px-4 py-3 text-start hover:bg-surface" (click)="selectMenu(m)">
+                    <span class="font-semibold">{{ i18n.localize(m.name, m.nameAr) }}</span>
+                    <span class="text-[13px]" [class]="m.availableNow ? 'text-brand' : 'text-ink-muted'">{{ schedule(m) }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <!-- Grid / list toggle (P1-MENU-05) -->
+        <div class="flex overflow-hidden rounded-xl border-[1.5px] border-[#D0D5DD]" role="group">
+          <button type="button" class="flex w-[46px] items-center justify-center" [class]="view() === 'grid' ? 'bg-ink text-white' : 'bg-white'"
+                  [attr.aria-label]="t.gridView" [attr.aria-pressed]="view() === 'grid'" (click)="setView('grid')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></svg>
+          </button>
+          <button type="button" class="flex w-[46px] items-center justify-center" [class]="view() === 'list' ? 'bg-ink text-white' : 'bg-white'"
+                  [attr.aria-label]="t.listView" [attr.aria-pressed]="view() === 'list'" (click)="setView('list')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <label class="flex min-h-12 items-center gap-2.5 rounded-xl bg-surface px-3.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="text-ink-muted" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+        <input
+          type="search"
+          class="flex-1 border-0 bg-transparent text-[15px] font-medium outline-none"
+          [placeholder]="t.searchMenu"
+          [attr.aria-label]="t.searchMenu"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)" />
+      </label>
+
+      <!-- Category chips -->
+      <div class="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+        <button type="button" class="chip" [class.chip-on]="categoryId() === null" (click)="categoryId.set(null)">{{ t.all }}</button>
+        @for (c of categories(); track c.id) {
+          <button type="button" class="chip" [class.chip-on]="categoryId() === c.id" (click)="categoryId.set(c.id)">
+            {{ i18n.localize(c.name, c.nameAr) }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (menu(); as m) {
+      @if (!m.availableNow) {
+        <p class="mx-5 mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          @if (m.startTime && m.endTime) {
+            {{ t.menuClosedNotice(i18n.localize(m.name, m.nameAr), schedule(m)) }}
+          } @else {
+            {{ t.menuClosedToday(i18n.localize(m.name, m.nameAr)) }}
+          }
+        </p>
+      }
+    }
+
+    <main class="flex-1 px-5 pb-32">
+      @if (!tree() && !errorCode()) {
+        <!-- Skeleton while the menu loads (P1-MENU-07) -->
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="flex gap-3.5 border-b border-line py-4" aria-hidden="true">
+            <div class="flex-1 space-y-2">
+              <div class="h-4 w-2/3 animate-pulse rounded bg-surface"></div>
+              <div class="h-3 w-full animate-pulse rounded bg-surface"></div>
+              <div class="h-4 w-1/4 animate-pulse rounded bg-surface"></div>
+            </div>
+            <div class="size-24 animate-pulse rounded-xl bg-surface"></div>
+          </div>
+        }
+      } @else if (errorCode()) {
+        <div class="py-12 text-center" role="alert">
+          <p class="font-semibold">{{ t.errorTitle }}</p>
+          <p class="text-sm text-ink-muted">{{ t.errorBody }}</p>
+        </div>
+      } @else if (!sections().length) {
+        <p class="py-12 text-center text-ink-muted">{{ search() ? t.noResults : t.emptyMenu }}</p>
+      }
+
+      @for (section of sections(); track section.id) {
+        <section class="mt-5">
+          <h2 class="mb-1 text-lg font-extrabold">{{ section.title }}</h2>
+          <div [class]="view() === 'grid' ? 'grid grid-cols-2 gap-3 pt-2' : ''">
+            @for (item of section.items; track item.id) {
+              @let name = i18n.localize(item.name, item.nameAr);
+              @let qty = cart.quantityOf(item.id);
+              @if (view() === 'list') {
+                <article class="flex gap-3.5 border-b border-line py-4" [class.opacity-75]="!item.isAvailable">
+                  <div class="min-w-0 flex-1">
+                    <button type="button" class="block w-full text-start" (click)="openItem.set(item)">
+                      <h3 class="text-base font-bold">{{ name }}</h3>
+                      @if (i18n.localize(item.description, item.descriptionAr); as description) {
+                        <p class="mt-1 mb-1.5 line-clamp-2 text-[13px] leading-snug text-ink-muted">{{ description }}</p>
+                      }
+                      @if (!item.isAvailable) {
+                        <span class="mt-1 inline-block rounded-[10px] bg-[#FEE4E2] px-2.5 py-1 text-xs font-bold text-[#B42318]">{{ t.unavailableNow }}</span>
+                      } @else {
+                        <span class="flex flex-wrap gap-1">
+                          @for (label of labels(item); track label) { <span class="tag">{{ label }}</span> }
+                        </span>
+                      }
+                    </button>
+                    @if (item.isAvailable) {
+                      <div class="mt-2 flex items-center gap-2">
+                        <span class="flex-1 text-base font-extrabold">{{ money(item.priceMinor) }}</span>
+                        @if (isSimple(item) && qty > 0) {
+                          <button type="button" class="qty-btn" [attr.aria-label]="t.removeOne(name)" (click)="removeOne(item)">−</button>
+                          <span class="min-w-4 text-center font-bold" aria-live="polite">{{ qty }}</span>
+                        } @else if (qty > 0) {
+                          <span class="text-[13px] font-semibold text-brand">{{ t.inOrder(qty) }}</span>
+                        }
+                        <button type="button" class="qty-btn" [disabled]="!orderable(item)"
+                                [attr.aria-label]="isSimple(item) ? t.addOne(name) : t.customize(name)" (click)="add(item)">+</button>
+                      </div>
+                    }
+                  </div>
+                  <button type="button" class="photo" (click)="openItem.set(item)" [attr.aria-label]="name">
+                    @if (item.imageUrl) {
+                      <img [src]="item.imageUrl" [alt]="name" loading="lazy" decoding="async" width="96" height="96" class="size-full object-cover" />
+                    } @else {
+                      <span aria-hidden="true">{{ initials(item.name) }}</span>
+                    }
+                  </button>
+                </article>
+              } @else {
+                <article class="flex flex-col overflow-hidden rounded-2xl border border-line" [class.opacity-75]="!item.isAvailable">
+                  <button type="button" class="text-start" (click)="openItem.set(item)">
+                    <div class="photo aspect-[4/3] h-auto w-full rounded-none">
+                      @if (item.imageUrl) {
+                        <img [src]="item.imageUrl" [alt]="name" loading="lazy" decoding="async" class="size-full object-cover" />
+                      } @else {
+                        <span aria-hidden="true">{{ initials(item.name) }}</span>
+                      }
+                    </div>
+                    <div class="px-3 pt-2">
+                      <h3 class="line-clamp-2 text-sm font-bold">{{ name }}</h3>
+                      @if (!item.isAvailable) {
+                        <span class="mt-1 inline-block rounded-[10px] bg-[#FEE4E2] px-2 py-0.5 text-[11px] font-bold text-[#B42318]">{{ t.unavailableNow }}</span>
+                      } @else if (item.tags.length) {
+                        <span class="tag mt-1">{{ item.tags[0] }}</span>
+                      }
+                    </div>
+                  </button>
+                  <div class="mt-auto flex items-center gap-2 px-3 pt-2 pb-3">
+                    <span class="flex-1 text-sm font-extrabold">{{ money(item.priceMinor) }}</span>
+                    @if (qty > 0) { <span class="text-xs font-bold text-brand">×{{ qty }}</span> }
+                    @if (item.isAvailable) {
+                      <button type="button" class="qty-btn size-9" [disabled]="!orderable(item)"
+                              [attr.aria-label]="isSimple(item) ? t.addOne(name) : t.customize(name)" (click)="add(item)">+</button>
+                    }
+                  </div>
+                </article>
+              }
+            }
+          </div>
+        </section>
+      }
+    </main>
+
+    <!-- Sticky order bar -->
+    @if (cart.count() > 0) {
+      <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
+        <a routerLink="/cart" class="flex min-h-14 w-full items-center justify-between rounded-[14px] bg-brand px-4.5 text-base font-bold text-white">
+          <span class="flex items-center gap-2.5">
+            <span class="flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-sm text-brand">{{ cart.count() }}</span>
+            {{ t.viewOrder }}
+          </span>
+          <span>{{ money(cart.totalMinor()) }}</span>
+        </a>
+      </div>
+    }
+
+    @if (toast(); as message) {
+      <div class="fixed inset-x-0 bottom-28 z-30 mx-auto w-fit max-w-[90%] rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white shadow-lg" role="status">
+        {{ message }}
+      </div>
+    }
+  </div>
+
+  @if (openItem(); as item) {
+    <df-item-sheet
+      [item]="item"
+      [currency]="tree()?.currency ?? 'AED'"
+      [canOrder]="canOrder()"
+      [menuSchedule]="menu() ? schedule(menu()!) : ''"
+      (closed)="openItem.set(null)"
+      (added)="added($event)" />
+  }
+}

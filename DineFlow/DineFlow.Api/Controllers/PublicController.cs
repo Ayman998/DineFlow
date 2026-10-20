@@ -1,6 +1,7 @@
 using DineFlow.Api.Common;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
+using DineFlow.Application.Menus;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -32,8 +33,22 @@ public class PublicController(GuestService guests) : ControllerBase
     [Authorize(Policy = Policies.Guest)]
     public Task<GuestContextDto> GetSession(Guid sessionId, CancellationToken ct)
     {
+        EnsureOwnSession(sessionId);
+        return guests.GetSessionAsync(sessionId, ct);
+    }
+
+    /// <summary>The venue's published menus for this session, with what can be ordered right now.</summary>
+    [HttpGet("sessions/{sessionId:guid}/menu")]
+    [Authorize(Policy = Policies.Guest)]
+    public Task<MenuTreeDto> GetMenu(Guid sessionId, [FromServices] GuestMenuService menus, CancellationToken ct)
+    {
+        EnsureOwnSession(sessionId);
+        return menus.GetMenuAsync(sessionId, ct);
+    }
+
+    private void EnsureOwnSession(Guid sessionId)
+    {
         if (User.GuestSessionId() != sessionId)
             throw AppException.NotFound("session_not_found", "Session not found.");
-        return guests.GetSessionAsync(sessionId, ct);
     }
 }

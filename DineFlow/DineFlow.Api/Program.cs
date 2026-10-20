@@ -7,8 +7,10 @@ using DineFlow.Application.Abstractions;
 using DineFlow.Infrastructure;
 using DineFlow.Infrastructure.Persistence;
 using DineFlow.Infrastructure.Security;
+using DineFlow.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -21,10 +23,9 @@ builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(conte
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, ClaimsTenantContext>();
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 
 builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<AppExceptionHandler>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
@@ -71,7 +72,7 @@ builder.Services.AddCors(options => options.AddPolicy("web", policy => policy
     .AllowAnyMethod()
     .AllowCredentials()));
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(o => o.Filters.Add<AppExceptionFilter>())
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -104,8 +105,9 @@ if (app.Environment.IsDevelopment())
     }
 }
 
-app.UseExceptionHandler();
+// Request logging wraps the exception handler so it records the status code the client actually got.
 app.UseSerilogRequestLogging();
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -114,6 +116,21 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Uploaded menu images. File names are random and never reused, so they can be cached for a year.
+var media = app.Services.GetRequiredService<LocalFileStorage>();
+Directory.CreateDirectory(media.RootPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(media.RootPath),
+    RequestPath = app.Services.GetRequiredService<IOptions<StorageOptions>>().Value.PublicPath,
+    OnPrepareResponse = file =>
+    {
+        file.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        file.Context.Response.Headers.XContentTypeOptions = "nosniff";
+    }
+});
+
 app.UseCors("web");
 app.UseAuthentication();
 app.UseAuthorization();

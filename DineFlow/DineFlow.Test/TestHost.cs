@@ -3,6 +3,7 @@ using DineFlow.Application.Abstractions;
 using DineFlow.Application.Auth;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
+using DineFlow.Application.Menus;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Venues;
 using DineFlow.Domain.Tenants;
@@ -11,6 +12,7 @@ using DineFlow.Infrastructure.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
 namespace DineFlow.Test;
 
@@ -34,14 +36,21 @@ public sealed class TestHost : IDisposable
         var tokenIssuer = new JwtTokenIssuer(Options.Create(new JwtOptions
         {
             Issuer = "test", Audience = "test", SigningKey = RandomKey()
-        }), TimeProvider.System);
+        }), Clock);
         var guestOptions = Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" });
 
-        Guests = new GuestService(Db, QrTokens, tokenIssuer, guestOptions, TimeProvider.System);
+        Guests = new GuestService(Db, QrTokens, tokenIssuer, guestOptions, Clock);
         Venues = new VenueService(Db, _tenant);
-        Tables = new TableService(Db, _tenant, QrTokens, guestOptions, TimeProvider.System);
+        Tables = new TableService(Db, _tenant, QrTokens, guestOptions, Clock);
         Auth = new AuthService(Db, Passwords, tokenIssuer);
+        GuestMenu = new GuestMenuService(Db, Clock);
+        Menus = new MenuAdminService(Db, _tenant, Clock);
+        Images = new MenuImageService(Files, _tenant);
     }
+
+    /// <summary>Controllable "now" for every service; starts at the real current time.</summary>
+    public FakeTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
+    public InMemoryFileStorage Files { get; } = new();
 
     public AppDbContext Db { get; }
     public IQrTokenService QrTokens { get; }
@@ -50,6 +59,9 @@ public sealed class TestHost : IDisposable
     public VenueService Venues { get; }
     public TableService Tables { get; }
     public AuthService Auth { get; }
+    public GuestMenuService GuestMenu { get; }
+    public MenuAdminService Menus { get; }
+    public MenuImageService Images { get; }
 
     public Guid? CurrentTenant
     {
@@ -81,6 +93,21 @@ public sealed class TestHost : IDisposable
     }
 
     private static string RandomKey() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    /// <summary>Keeps "uploaded" files in memory.</summary>
+    public sealed class InMemoryFileStorage : IFileStorage
+    {
+        public Dictionary<string, byte[]> Saved { get; } = [];
+
+        public async Task<string> SaveAsync(Guid tenantId, string folder, string extension, Stream content, CancellationToken ct)
+        {
+            using var copy = new MemoryStream();
+            await content.CopyToAsync(copy, ct);
+            var url = $"/media/{tenantId:N}/{folder}/{Guid.NewGuid():N}.{extension}";
+            Saved[url] = copy.ToArray();
+            return url;
+        }
+    }
 
     private sealed class TestTenantContext : ITenantContext
     {

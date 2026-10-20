@@ -53,3 +53,20 @@ body {
     margin: 12mm;
   }
 }
+
+/* Dialogs and the item drawer. */
+@layer components {
+  .modal-backdrop {
+    @apply fixed inset-0 z-40 bg-[#101828]/50;
+  }
+  .modal {
+    @apply fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl;
+  }
+  .drawer {
+    @apply fixed inset-y-0 end-0 z-50 flex w-full max-w-3xl flex-col bg-white shadow-xl;
+  }
+  .toggle {
+    @apply relative h-5 w-9 cursor-pointer appearance-none rounded-full bg-[#D0D5DD] transition-colors checked:bg-brand
+      before:absolute before:top-0.5 before:left-0.5 before:size-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4;
+  }
+}

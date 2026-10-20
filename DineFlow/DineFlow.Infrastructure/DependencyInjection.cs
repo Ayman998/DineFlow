@@ -2,20 +2,26 @@ using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Infrastructure.Persistence;
 using DineFlow.Infrastructure.Security;
+using DineFlow.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DineFlow.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    /// <param name="contentRootPath">The API's content root; relative storage paths resolve against it.</param>
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services, IConfiguration configuration, string contentRootPath)
     {
         var connectionString = configuration.GetConnectionString("DineFlow")
             ?? throw new InvalidOperationException("Connection string 'DineFlow' is missing.");
 
-        services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+        // Split queries keep menu loads (items → modifier groups → options) from multiplying rows.
+        services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString,
+            sql => sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
         services.AddOptions<JwtOptions>()
@@ -34,6 +40,10 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(GuestOptions.Section))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+
+        services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.Section));
+        services.AddSingleton(sp => new LocalFileStorage(sp.GetRequiredService<IOptions<StorageOptions>>(), contentRootPath));
+        services.AddSingleton<IFileStorage>(sp => sp.GetRequiredService<LocalFileStorage>());
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IQrTokenService, QrTokenService>();

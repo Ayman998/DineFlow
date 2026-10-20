@@ -14,3 +14,6 @@ appsettings.*.local.json
 .DS_Store
 Thumbs.db
 .idea/
+
+# Uploaded files in development
+App_Data/

@@ -1,3 +1,4 @@
+using DineFlow.Domain.Menus;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
@@ -19,6 +20,9 @@ public interface IAppDbContext
     DbSet<QrToken> QrTokens { get; }
     DbSet<GuestSession> GuestSessions { get; }
     DbSet<StaffUser> StaffUsers { get; }
+    DbSet<Menu> Menus { get; }
+    DbSet<MenuCategory> MenuCategories { get; }
+    DbSet<MenuItem> MenuItems { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

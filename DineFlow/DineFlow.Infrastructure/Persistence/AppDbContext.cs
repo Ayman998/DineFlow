@@ -1,11 +1,13 @@
 using System.Linq.Expressions;
 using DineFlow.Application.Abstractions;
 using DineFlow.Domain.Common;
+using DineFlow.Domain.Menus;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
 using DineFlow.Domain.Venues;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace DineFlow.Infrastructure.Persistence;
 
@@ -22,6 +24,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<QrToken> QrTokens => Set<QrToken>();
     public DbSet<GuestSession> GuestSessions => Set<GuestSession>();
     public DbSet<StaffUser> StaffUsers => Set<StaffUser>();
+    public DbSet<Menu> Menus => Set<Menu>();
+    public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
+    public DbSet<MenuItem> MenuItems => Set<MenuItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +34,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
+            if (typeof(Entity).IsAssignableFrom(entityType.ClrType))
+            {
+                // Ids are created in code (Entity.Id), never by the database. Saying so lets EF
+                // treat a new child added to a tracked parent's collection as an insert.
+                var id = entityType.FindProperty(nameof(Entity.Id));
+                if (id is not null) id.ValueGenerated = ValueGenerated.Never;
+            }
+
             if (typeof(ITenantOwned).IsAssignableFrom(entityType.ClrType))
             {
                 entityType.SetQueryFilter(BuildTenantFilter(entityType.ClrType));

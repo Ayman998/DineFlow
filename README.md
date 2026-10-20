@@ -38,7 +38,7 @@ web/
 dotnet run --project DineFlow/DineFlow.Api --launch-profile http
 ```
 
-In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Dubai Marina**: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, and an owner account. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
+In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Dubai Marina**: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (SQL Server) is at `/health/ready`.
 
@@ -50,7 +50,7 @@ npm --prefix web ci
 npm --prefix web start
 ```
 
-That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. The Angular dev servers proxy `/v1`, `/health` and `/hubs` to the API, so both apps call relative URLs.
+That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Manage menus, categories, items, modifiers and photos under **Menu**. The Angular dev servers proxy `/v1`, `/health` and `/hubs` to the API, so both apps call relative URLs.
 
 To apply migrations without starting the API:
 
@@ -66,6 +66,10 @@ dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFl
 
 `appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key and the demo owner's password. Outside Development, `Jwt:SigningKey` and `Qr:TokenKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code.
 
+### Uploaded images
+
+Menu photos (JPEG, PNG or WebP, up to 5 MB, checked by file content) are saved under `Storage:LocalRoot`, which defaults to `DineFlow/DineFlow.Api/App_Data/media`. The API serves them at `/media/...` with year-long caching, and that folder is git-ignored. Production should swap `LocalFileStorage` for S3-compatible storage behind the same `IFileStorage` interface.
+
 ## Test
 
 ```bash
@@ -76,7 +80,7 @@ dotnet test DineFlow.slnx
 npm --prefix web test
 ```
 
-## API (Sprint 1)
+## API
 
 | Endpoint | Who | Purpose |
 |---|---|---|
@@ -87,6 +91,13 @@ npm --prefix web test
 | `GET /v1/merchant/venues/{id}/tables`, `POST /v1/merchant/venues/{id}/areas` | merchant / manager | Floor plan, areas |
 | `POST /v1/merchant/tables`, `POST /v1/merchant/tables/bulk` | manager | Add locations (each gets a QR) |
 | `POST /v1/merchant/tables/{id}/qr/rotate`, `/qr/disable`, `/qr/enable` | manager | Manage a location's QR |
+| `GET /v1/public/sessions/{id}/menu` | guest token | Published menus, with what can be ordered right now |
+| `GET /v1/merchant/venues/{id}/menu` | merchant | Every menu, including drafts |
+| `POST /v1/merchant/venues/{id}/menus`, `PUT`/`DELETE /v1/merchant/menu/menus/{id}` | manager | Menus and their schedules |
+| `POST /v1/merchant/menu/categories`, `PUT`/`DELETE …/categories/{id}` | manager | Categories and subcategories |
+| `POST /v1/merchant/menu/items`, `PUT`/`DELETE …/items/{id}` | manager | Items with modifiers, allergens and tags |
+| `PUT /v1/merchant/menu/items/{id}/availability` | merchant | Sold out / back in stock (any staff role) |
+| `POST /v1/merchant/menu/reorder`, `POST /v1/merchant/menu/images` | manager | Reordering and photo upload |
 
 Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials` or `location_exists`.
 
@@ -105,7 +116,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 |---|---|---|
 | 0 | Scaffold, DB, CI ✅ | — |
 | 1 | Tenant / venue / table / QR token, guest session, merchant sign-in ✅ | E1, E2 |
-| 2 | Menu admin + guest e-menu, modifiers | E4, E31 |
+| 2 | Menu admin + guest e-menu, modifiers, schedules, photos ✅ | E4, E31 |
 | 3 | Cart, server-validated order, staff alerts (SignalR) | E6, E10 |
 | 4 | Bill, payment intent, PSP webhook, tip, promo | E5, E8, E30 |
 | 5 | Split ledger: equal and by item, with concurrency locks (adds Redis) | E7 |

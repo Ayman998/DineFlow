@@ -22,3 +22,29 @@ body {
   color: var(--color-ink);
   background: #ffffff;
 }
+
+/* e-Menu pieces, from the "e-Menu home" and "Item customization" mockups. */
+@layer components {
+  .chip {
+    @apply inline-flex min-h-11 shrink-0 items-center rounded-full border-[1.5px] border-[#D0D5DD] bg-white px-4.5 text-sm font-semibold whitespace-nowrap text-ink;
+  }
+  .chip-on {
+    @apply border-ink bg-ink text-white;
+  }
+  .tag {
+    @apply inline-block rounded-[10px] bg-surface px-2 py-0.5 text-[11px] font-semibold text-[#344054];
+  }
+  .photo {
+    @apply flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-linear-gradient(135deg,#EAECF0_0_10px,#F2F4F7_10px_20px)] text-sm font-bold text-ink-muted;
+  }
+  .qty-btn {
+    @apply flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] bg-white text-lg font-bold disabled:cursor-not-allowed disabled:opacity-40;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

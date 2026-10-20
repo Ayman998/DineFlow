@@ -1,5 +1,6 @@
 using DineFlow.Application.Auth;
 using DineFlow.Application.Guests;
+using DineFlow.Application.Menus;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Venues;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,9 @@ public static class DependencyInjection
         services.AddScoped<VenueService>();
         services.AddScoped<TableService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<GuestMenuService>();
+        services.AddScoped<MenuAdminService>();
+        services.AddScoped<MenuImageService>();
         return services;
     }
 }
