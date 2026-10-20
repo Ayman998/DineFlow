@@ -61,6 +61,25 @@
       </div>
     </section>
 
+    <section class="card grid gap-4 sm:grid-cols-2">
+      <h2 class="font-semibold sm:col-span-2">Charges</h2>
+      <label>
+        <span class="field-label">Service charge (%)</span>
+        <input class="field" type="number" min="0" max="30" step="0.01" formControlName="serviceChargePercent" />
+        @if (invalid('serviceChargePercent')) { <span class="mt-1 block text-sm text-red-700">Enter 0–30.</span> }
+      </label>
+      <label>
+        <span class="field-label">VAT / tax (%)</span>
+        <input class="field" type="number" min="0" max="30" step="0.01" formControlName="taxPercent" />
+        @if (invalid('taxPercent')) { <span class="mt-1 block text-sm text-red-700">Enter 0–30.</span> }
+      </label>
+      <label class="flex items-start gap-3 sm:col-span-2">
+        <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="pricesIncludeTax" />
+        <span><span class="font-medium">Menu prices include VAT</span><br />
+          <span class="text-sm text-ink-muted">Shown to guests as "Includes VAT" instead of being added on top. Service charge is added to the subtotal either way.</span></span>
+      </label>
+    </section>
+
     <section class="card grid gap-3">
       <h2 class="font-semibold">Guest features</h2>
       <label class="flex items-start gap-3">

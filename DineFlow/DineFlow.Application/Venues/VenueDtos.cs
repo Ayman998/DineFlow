@@ -12,7 +12,10 @@ public record VenueDto(
     string BrandColor,
     bool MenuEnabled,
     bool PayAtTableEnabled,
-    bool IsActive);
+    bool IsActive,
+    int ServiceChargeBasisPoints,
+    int TaxBasisPoints,
+    bool PricesIncludeTax);
 
 public record VenueSettingsRequest(
     [Required, StringLength(120, MinimumLength = 1)] string Name,
@@ -22,4 +25,9 @@ public record VenueSettingsRequest(
     [Url, StringLength(500)] string? LogoUrl,
     [Required, RegularExpression("^#[0-9A-Fa-f]{6}$", ErrorMessage = "Use a hex colour such as #0B3B38.")] string BrandColor,
     bool MenuEnabled,
-    bool PayAtTableEnabled);
+    bool PayAtTableEnabled,
+    /// <summary>Service charge in basis points: 1000 = 10%.</summary>
+    [Range(0, 3000)] int ServiceChargeBasisPoints = 0,
+    /// <summary>VAT/sales tax in basis points: 500 = 5%.</summary>
+    [Range(0, 3000)] int TaxBasisPoints = 0,
+    bool PricesIncludeTax = true);

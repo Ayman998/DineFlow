@@ -12,6 +12,11 @@ export interface Venue {
   menuEnabled: boolean;
   payAtTableEnabled: boolean;
   isActive: boolean;
+  /** 1000 = 10% */
+  serviceChargeBasisPoints: number;
+  /** 500 = 5% */
+  taxBasisPoints: number;
+  pricesIncludeTax: boolean;
 }
 
 export type VenueSettings = Omit<Venue, 'id' | 'isActive'>;
@@ -255,5 +260,72 @@ export class MenuAdminApi {
     const form = new FormData();
     form.append('file', file);
     return this.http.post<{ url: string }>('/v1/merchant/menu/images', form);
+  }
+}
+
+// ---- Orders (Sprint 3) ----
+
+export type OrderStatus = 'Submitted' | 'Accepted' | 'Preparing' | 'Ready' | 'Completed' | 'Rejected';
+export type OrderFilter = 'Active' | 'New' | 'Completed' | 'Rejected';
+
+export interface OrderModifierDto {
+  optionId: string;
+  groupName: string;
+  name: string;
+  priceDeltaMinor: number;
+}
+
+export interface OrderDto {
+  id: string;
+  number: number;
+  status: OrderStatus;
+  venueId: string;
+  serviceLocationId: string;
+  locationType: string;
+  locationLabel: string;
+  areaName: string | null;
+  currency: string;
+  lines: {
+    itemId: string;
+    name: string;
+    quantity: number;
+    unitPriceMinor: number;
+    lineTotalMinor: number;
+    modifiers: OrderModifierDto[];
+    note: string | null;
+  }[];
+  note: string | null;
+  subtotalMinor: number;
+  serviceChargeMinor: number;
+  taxMinor: number;
+  taxIncluded: boolean;
+  totalMinor: number;
+  rejectReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderCounts {
+  new: number;
+  accepted: number;
+  preparing: number;
+  ready: number;
+}
+
+/** The standalone order queue (blueprint 9.2: /v1/merchant/orders/*). */
+@Injectable({ providedIn: 'root' })
+export class OrdersAdminApi {
+  private readonly http = inject(HttpClient);
+
+  list(venueId: string, filter: OrderFilter) {
+    return this.http.get<OrderDto[]>(`/v1/merchant/venues/${venueId}/orders`, { params: { filter } });
+  }
+
+  counts(venueId: string) {
+    return this.http.get<OrderCounts>(`/v1/merchant/venues/${venueId}/orders/counts`);
+  }
+
+  changeStatus(orderId: string, status: OrderStatus, reason: string | null = null) {
+    return this.http.post<OrderDto>(`/v1/merchant/orders/${orderId}/status`, { status, reason });
   }
 }

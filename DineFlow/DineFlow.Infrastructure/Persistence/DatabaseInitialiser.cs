@@ -73,6 +73,7 @@ public static class DatabaseInitialiser
         db.Tenants.Add(tenant);
 
         var venue = new Venue(tenant.Id, "Dubai Marina", "AED", "Asia/Dubai", "en");
+        venue.SetCharges(serviceChargeBasisPoints: 1000, taxBasisPoints: 500, pricesIncludeTax: true);
         db.Venues.Add(venue);
 
         var mainHall = new DiningArea(tenant.Id, venue.Id, "Main hall", 0);

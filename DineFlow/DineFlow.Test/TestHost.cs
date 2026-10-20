@@ -4,6 +4,7 @@ using DineFlow.Application.Auth;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
+using DineFlow.Application.Orders;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Venues;
 using DineFlow.Domain.Tenants;
@@ -46,11 +47,15 @@ public sealed class TestHost : IDisposable
         GuestMenu = new GuestMenuService(Db, Clock);
         Menus = new MenuAdminService(Db, _tenant, Clock);
         Images = new MenuImageService(Files, _tenant);
+        CartQuotes = new CartQuoteService(Db, Clock);
+        GuestOrders = new GuestOrderService(Db, CartQuotes, Notifier, Clock);
+        MerchantOrders = new MerchantOrderService(Db, Notifier, Clock);
     }
 
     /// <summary>Controllable "now" for every service; starts at the real current time.</summary>
     public FakeTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
     public InMemoryFileStorage Files { get; } = new();
+    public RecordingNotifier Notifier { get; } = new();
 
     public AppDbContext Db { get; }
     public IQrTokenService QrTokens { get; }
@@ -62,6 +67,9 @@ public sealed class TestHost : IDisposable
     public GuestMenuService GuestMenu { get; }
     public MenuAdminService Menus { get; }
     public MenuImageService Images { get; }
+    public CartQuoteService CartQuotes { get; }
+    public GuestOrderService GuestOrders { get; }
+    public MerchantOrderService MerchantOrders { get; }
 
     public Guid? CurrentTenant
     {
@@ -106,6 +114,24 @@ public sealed class TestHost : IDisposable
             var url = $"/media/{tenantId:N}/{folder}/{Guid.NewGuid():N}.{extension}";
             Saved[url] = copy.ToArray();
             return url;
+        }
+    }
+
+    /// <summary>Remembers the order events that would have been pushed to screens.</summary>
+    public sealed class RecordingNotifier : IOrderNotifier
+    {
+        public List<(string Event, OrderDto Order)> Events { get; } = [];
+
+        public Task OrderPlacedAsync(OrderDto order, CancellationToken ct)
+        {
+            Events.Add(("placed", order));
+            return Task.CompletedTask;
+        }
+
+        public Task OrderChangedAsync(OrderDto order, CancellationToken ct)
+        {
+            Events.Add(("changed", order));
+            return Task.CompletedTask;
         }
     }
 

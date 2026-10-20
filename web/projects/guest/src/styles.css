@@ -37,6 +37,9 @@ body {
   .photo {
     @apply flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-linear-gradient(135deg,#EAECF0_0_10px,#F2F4F7_10px_20px)] text-sm font-bold text-ink-muted;
   }
+  .sum {
+    @apply flex justify-between py-1 text-sm text-ink-muted;
+  }
   .qty-btn {
     @apply flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] bg-white text-lg font-bold disabled:cursor-not-allowed disabled:opacity-40;
   }

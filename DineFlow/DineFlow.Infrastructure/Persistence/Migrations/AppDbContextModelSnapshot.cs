@@ -263,6 +263,154 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("ModifierOptions", (string)null);
                 });
 
+            modelBuilder.Entity("DineFlow.Domain.Orders.Order", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AreaName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("GuestSessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LocationLabel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("LocationType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ServiceChargeBasisPoints")
+                        .HasColumnType("int");
+
+                    b.Property<long>("ServiceChargeMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ServiceLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<long>("SubtotalMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TaxBasisPoints")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("TaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("TaxMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("TotalMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceLocationId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("GuestSessionId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("VenueId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("VenueId", "Status", "CreatedAt");
+
+                    b.ToTable("Orders", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Orders.OrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("LineTotalMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("MenuItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("NameAr")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("UnitPriceMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("OrderLines", (string)null);
+                });
+
             modelBuilder.Entity("DineFlow.Domain.Sessions.GuestSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -547,6 +695,15 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("PayAtTableEnabled")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("PricesIncludeTax")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ServiceChargeBasisPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaxBasisPoints")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -640,6 +797,91 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Orders.Order", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Sessions.GuestSession", null)
+                        .WithMany()
+                        .HasForeignKey("GuestSessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.ServiceLocation", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Orders.OrderLine", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Orders.Order", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsMany("DineFlow.Domain.Orders.OrderLineModifier", "Modifiers", b1 =>
+                        {
+                            b1.Property<Guid>("OrderLineId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            b1.Property<string>("GroupName")
+                                .IsRequired()
+                                .HasMaxLength(80)
+                                .HasColumnType("nvarchar(80)");
+
+                            b1.Property<string>("GroupNameAr")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(80)
+                                .HasColumnType("nvarchar(80)");
+
+                            b1.Property<string>("NameAr")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.Property<Guid>("OptionId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<long>("PriceDeltaMinor")
+                                .HasColumnType("bigint");
+
+                            b1.HasKey("OrderLineId", "Id");
+
+                            b1.ToTable("OrderLines");
+
+                            b1.ToJson("Modifiers");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderLineId");
+                        });
+
+                    b.Navigation("Modifiers");
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Sessions.GuestSession", b =>
@@ -752,6 +994,11 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("DineFlow.Domain.Menus.ModifierGroup", b =>
                 {
                     b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Orders.Order", b =>
+                {
+                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }

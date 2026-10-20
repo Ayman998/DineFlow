@@ -1,76 +1,149 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 
 import { Cart, CartLine, MAX_QUANTITY } from '../../core/cart';
-import { GuestSession } from '../../core/guest-session';
+import { GuestSession, errorCode } from '../../core/guest-session';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/menu';
+import { CartIssue, CartLineRequest, CartQuote, OrdersApi } from '../../core/orders';
+import { OrderTracker } from '../../shared/order-tracker';
 
 /**
- * The order so far. Sprint 2 lets guests build and adjust it; sending it to the kitchen and
- * server-side pricing arrive in Sprint 3 (mockup "Cart / order review").
+ * Order review (blueprint 4.2 step 5, mockup "Cart / order review"). The server prices the
+ * cart (P1-ORD-01) every time it changes, and placing the order is safe to retry (P1-ORD-02).
  */
 @Component({
   selector: 'df-cart-page',
-  imports: [RouterLink],
-  template: `
-    @let t = i18n.t();
-    <header class="flex items-center gap-3 px-5 pt-4 pb-3">
-      <a routerLink="/menu" class="chip px-3" [attr.aria-label]="t.backToMenu">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="rtl:rotate-180" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-      </a>
-      <h1 class="text-xl font-extrabold">{{ t.yourOrder }}</h1>
-    </header>
-
-    <main class="px-5 pb-10">
-      @if (!cart.lines().length) {
-        <p class="py-12 text-center text-ink-muted">{{ t.orderEmpty }}</p>
-        <a routerLink="/menu" class="mx-auto block w-fit rounded-[14px] bg-brand px-6 py-3 font-bold text-white">{{ t.backToMenu }}</a>
-      } @else {
-        @for (line of cart.lines(); track line.key) {
-          <article class="flex gap-3 border-b border-line py-4">
-            <div class="min-w-0 flex-1">
-              <h2 class="font-bold">{{ i18n.localize(line.name, line.nameAr) }}</h2>
-              @if (line.options.length) {
-                <p class="text-[13px] text-ink-muted">{{ optionText(line) }}</p>
-              }
-              @if (line.note) {
-                <p class="text-[13px] text-ink-muted italic">“{{ line.note }}”</p>
-              }
-              <div class="mt-2 flex items-center gap-2">
-                <button type="button" class="qty-btn size-9" [attr.aria-label]="t.decreaseQuantity" (click)="cart.setQuantity(line.key, line.quantity - 1)">−</button>
-                <span class="min-w-4 text-center font-bold">{{ line.quantity }}</span>
-                <button type="button" class="qty-btn size-9" [attr.aria-label]="t.increaseQuantity" [disabled]="line.quantity >= max"
-                        (click)="cart.setQuantity(line.key, line.quantity + 1)">+</button>
-                <button type="button" class="ms-2 text-sm font-semibold text-red-700" (click)="cart.setQuantity(line.key, 0)">{{ t.remove }}</button>
-              </div>
-            </div>
-            <span class="font-extrabold">{{ money(line.unitPriceMinor * line.quantity) }}</span>
-          </article>
-        }
-
-        <div class="flex items-center justify-between py-4 text-lg font-extrabold">
-          <span>{{ t.total }}</span>
-          <span>{{ money(cart.totalMinor()) }}</span>
-        </div>
-        <p class="rounded-xl bg-surface px-4 py-3 text-sm text-ink-muted" role="note">{{ t.orderingSoon }}</p>
-      }
-    </main>
-  `
+  imports: [RouterLink, OrderTracker],
+  templateUrl: './cart-page.html'
 })
 export class CartPage {
+  private readonly api = inject(OrdersApi);
+  private readonly session = inject(GuestSession);
+  private readonly router = inject(Router);
   protected readonly cart = inject(Cart);
   protected readonly i18n = inject(I18n);
-  private readonly session = inject(GuestSession);
 
   protected readonly max = MAX_QUANTITY;
-  private readonly currency = computed(() => this.session.current()?.context.venue.currency ?? 'AED');
+  protected readonly context = computed(() => this.session.current()?.context ?? null);
+  protected readonly quote = signal<CartQuote | null>(null);
+  protected readonly quoting = signal(false);
+  protected readonly placing = signal(false);
+  protected readonly placeError = signal<string | null>(null);
+  protected readonly priceChanged = signal(false);
+  protected readonly note = signal('');
+
+  /** The same id is reused while the cart is unchanged, so a retry can't create a second order. */
+  private clientRequestId: string | null = null;
+  private requestKey = '';
+  private quoteTimer: ReturnType<typeof setTimeout> | undefined;
+
+  protected readonly canPlace = computed(() =>
+    !!this.quote()?.canOrder && !this.quoting() && !this.placing() && this.cart.count() > 0);
+
+  constructor() {
+    // Re-price on the server whenever the cart changes (a short pause batches quick taps).
+    effect(() => {
+      this.cart.lines();
+      untracked(() => {
+        clearTimeout(this.quoteTimer);
+        this.quoteTimer = setTimeout(() => this.requote(), 250);
+      });
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.quoteTimer));
+  }
 
   protected money(minor: number): string {
-    return formatMoney(minor, this.currency(), this.i18n.lang());
+    return formatMoney(minor, this.quote()?.currency ?? this.context()?.venue.currency ?? 'AED', this.i18n.lang());
+  }
+
+  protected percent(basisPoints: number): string {
+    return `${+(basisPoints / 100).toFixed(2)}%`;
   }
 
   protected optionText(line: CartLine): string {
-    return line.options.map(o => this.i18n.localize(o.name, o.nameAr)).join(', ');
+    return line.options.map(o => this.i18n.localize(o.name, o.nameAr)).join(' · ');
   }
+
+  /** The server's price for a line, falling back to the price shown when it was added. */
+  protected lineTotal(index: number, line: CartLine): number {
+    return this.quote()?.lines.find(l => l.index === index)?.lineTotalMinor ?? line.unitPriceMinor * line.quantity;
+  }
+
+  protected issuesFor(index: number): CartIssue[] {
+    return this.quote()?.issues.filter(i => i.index === index) ?? [];
+  }
+
+  protected place(): void {
+    const sessionId = this.context()?.sessionId;
+    const quote = this.quote();
+    if (!sessionId || !quote || !this.canPlace()) return;
+
+    const lines = this.requestLines();
+    const note = this.note().trim() || null;
+    const key = JSON.stringify([lines, note]);
+    if (key !== this.requestKey || !this.clientRequestId) {
+      this.clientRequestId = newId();
+      this.requestKey = key;
+    }
+
+    this.placing.set(true);
+    this.placeError.set(null);
+    this.api.place(sessionId, this.clientRequestId, lines, note, quote.totalMinor).subscribe({
+      next: order => {
+        this.cart.clear();
+        this.router.navigate(['/orders'], { queryParams: { placed: order.number } });
+      },
+      error: (error: unknown) => {
+        this.placing.set(false);
+        const code = errorCode(error);
+        const details = error instanceof HttpErrorResponse ? (error.error?.details as CartQuote | undefined) : undefined;
+        if ((code === 'price_changed' || code === 'cart_invalid') && details) {
+          // Nothing was ordered; show the server's new prices and let the guest confirm again.
+          this.quote.set(details);
+          this.priceChanged.set(code === 'price_changed');
+        } else {
+          this.placeError.set(this.i18n.t().placeFailed);
+        }
+      }
+    });
+  }
+
+  private requote(): void {
+    const sessionId = this.context()?.sessionId;
+    if (!sessionId || !this.cart.lines().length) {
+      this.quote.set(null);
+      return;
+    }
+
+    this.quoting.set(true);
+    this.api.quote(sessionId, this.requestLines()).subscribe({
+      next: quote => {
+        this.quote.set(quote);
+        this.priceChanged.set(false);
+        this.quoting.set(false);
+      },
+      error: () => this.quoting.set(false)
+    });
+  }
+
+  private requestLines(): CartLineRequest[] {
+    return this.cart.lines().map(l => ({
+      itemId: l.itemId,
+      quantity: l.quantity,
+      optionIds: l.options.map(o => o.optionId),
+      note: l.note || null
+    }));
+  }
+}
+
+/** A random UUID, also on plain-http test devices where crypto.randomUUID is unavailable. */
+function newId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const hex = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

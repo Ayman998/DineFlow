@@ -127,7 +127,7 @@ export class MenuPage implements OnInit {
       return;
     }
     this.cart.add({
-      itemId: item.id, name: item.name, nameAr: item.nameAr,
+      itemId: item.id, name: item.name, nameAr: item.nameAr, imageUrl: item.imageUrl,
       unitPriceMinor: item.priceMinor, quantity: 1, options: [], note: ''
     });
   }

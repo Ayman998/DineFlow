@@ -23,6 +23,27 @@ public class Venue : Entity, ITenantOwned
     public bool PayAtTableEnabled { get; private set; } = true;
     public bool IsActive { get; private set; } = true;
 
+    /// <summary>Service charge added to the subtotal, in basis points (1000 = 10%).</summary>
+    public int ServiceChargeBasisPoints { get; private set; }
+    /// <summary>VAT or sales tax rate in basis points (500 = 5%).</summary>
+    public int TaxBasisPoints { get; private set; }
+    /// <summary>True when menu prices already include tax (usual in the UAE), so tax is shown, not added.</summary>
+    public bool PricesIncludeTax { get; private set; } = true;
+
+    public const int MaxRateBasisPoints = 3000;
+
+    public void SetCharges(int serviceChargeBasisPoints, int taxBasisPoints, bool pricesIncludeTax)
+    {
+        if (serviceChargeBasisPoints is < 0 or > MaxRateBasisPoints)
+            throw new DomainException("Service charge must be between 0% and 30%.");
+        if (taxBasisPoints is < 0 or > MaxRateBasisPoints)
+            throw new DomainException("Tax must be between 0% and 30%.");
+
+        ServiceChargeBasisPoints = serviceChargeBasisPoints;
+        TaxBasisPoints = taxBasisPoints;
+        PricesIncludeTax = pricesIncludeTax;
+    }
+
     private Venue() { }
 
     public Venue(Guid tenantId, string name, string currency, string timeZone, string defaultLocale)

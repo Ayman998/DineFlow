@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DineFlow.Api.Common;
+using DineFlow.Api.Hubs;
 using DineFlow.Api.Tenancy;
 using DineFlow.Application;
 using DineFlow.Application.Abstractions;
@@ -22,6 +23,9 @@ builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(conte
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, ClaimsTenantContext>();
+builder.Services.AddScoped<IOrderNotifier, SignalROrderNotifier>();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 
@@ -40,6 +44,19 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             NameClaimType = "sub",
             RoleClaimType = DineFlowClaims.Role,
             ClockSkew = TimeSpan.FromSeconds(30)
+        };
+        // Browsers can't set headers on WebSocket requests, so SignalR sends the token in the query string.
+        bearer.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments("/hubs")
+                    && context.Request.Query["access_token"] is { Count: > 0 } token)
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -137,6 +154,8 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<MerchantHub>(MerchantHub.Path);
+app.MapHub<GuestHub>(GuestHub.Path);
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready");
 

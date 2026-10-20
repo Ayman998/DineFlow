@@ -37,7 +37,10 @@ export class Settings implements OnInit {
     logoUrl: ['', Validators.maxLength(500)],
     brandColor: ['#0B3B38', [Validators.required, Validators.pattern(/^#[0-9A-Fa-f]{6}$/)]],
     menuEnabled: [true],
-    payAtTableEnabled: [true]
+    payAtTableEnabled: [true],
+    serviceChargePercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],
+    taxPercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],
+    pricesIncludeTax: [true]
   });
 
   ngOnInit(): void {
@@ -48,7 +51,7 @@ export class Settings implements OnInit {
           return;
         }
         this.venue.set(venue);
-        this.form.reset({ ...venue, logoUrl: venue.logoUrl ?? '' });
+        this.form.reset(toForm(venue));
         if (!this.auth.canManage()) this.form.disable();
       },
       error: error => this.error.set(errorMessage(error))
@@ -69,10 +72,13 @@ export class Settings implements OnInit {
       return;
     }
 
+    const { serviceChargePercent, taxPercent, ...rest } = value;
     const settings: VenueSettings = {
-      ...value,
+      ...rest,
       currency: value.currency.toUpperCase(),
-      logoUrl: value.logoUrl.trim() || null
+      logoUrl: value.logoUrl.trim() || null,
+      serviceChargeBasisPoints: Math.round(serviceChargePercent * 100),
+      taxBasisPoints: Math.round(taxPercent * 100)
     };
 
     this.saving.set(true);
@@ -83,7 +89,7 @@ export class Settings implements OnInit {
       next: updated => {
         this.venue.set(updated);
         this.currentVenue.venue.set(updated);
-        this.form.reset({ ...updated, logoUrl: updated.logoUrl ?? '' });
+        this.form.reset(toForm(updated));
         this.saving.set(false);
         this.saved.set(true);
       },
@@ -98,4 +104,14 @@ export class Settings implements OnInit {
     const c = this.form.controls[control];
     return c.touched && c.invalid;
   }
+}
+
+/** Rates are edited as percentages and stored as basis points (10% = 1000). */
+function toForm(venue: Venue) {
+  return {
+    ...venue,
+    logoUrl: venue.logoUrl ?? '',
+    serviceChargePercent: venue.serviceChargeBasisPoints / 100,
+    taxPercent: venue.taxBasisPoints / 100
+  };
 }

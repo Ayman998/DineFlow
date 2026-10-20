@@ -8,7 +8,7 @@ The spec is the Df3Pay Developer Blueprint v1.1, and the screen designs are the 
 
 | Part | Tech |
 |---|---|
-| API | ASP.NET Core 8 Web API, modular monolith, Clean Architecture, JWT auth |
+| API | ASP.NET Core 8 Web API, modular monolith, Clean Architecture, JWT auth, SignalR |
 | Data | EF Core 8 + SQL Server 2022 |
 | Web | Angular 21 workspace: `guest` (mobile PWA, EN/AR + RTL) and `merchant` (dashboard), Tailwind CSS 4 |
 
@@ -38,7 +38,7 @@ web/
 dotnet run --project DineFlow/DineFlow.Api --launch-profile http
 ```
 
-In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Dubai Marina**: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
+In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Dubai Marina**: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, 10% service charge with 5% VAT included in prices, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (SQL Server) is at `/health/ready`.
 
@@ -50,7 +50,7 @@ npm --prefix web ci
 npm --prefix web start
 ```
 
-That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Manage menus, categories, items, modifiers and photos under **Menu**. The Angular dev servers proxy `/v1`, `/health` and `/hubs` to the API, so both apps call relative URLs.
+That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (Accept → Preparing → Ready → Served) updates the guest's tracker live. Manage menus, categories, items, modifiers and photos under **Menu**, and service charge and VAT under **Settings**. The Angular dev servers proxy `/v1`, `/health` and `/hubs` to the API, so both apps call relative URLs.
 
 To apply migrations without starting the API:
 
@@ -98,6 +98,14 @@ npm --prefix web test
 | `POST /v1/merchant/menu/items`, `PUT`/`DELETE …/items/{id}` | manager | Items with modifiers, allergens and tags |
 | `PUT /v1/merchant/menu/items/{id}/availability` | merchant | Sold out / back in stock (any staff role) |
 | `POST /v1/merchant/menu/reorder`, `POST /v1/merchant/menu/images` | manager | Reordering and photo upload |
+| `POST /v1/public/sessions/{id}/cart/validate` | guest token | Server prices for a cart, with service charge, VAT and any problems per line |
+| `POST /v1/public/sessions/{id}/orders`, `GET …/orders` | guest token | Place an order (idempotent per `clientRequestId`); the table's orders |
+| `GET /v1/merchant/venues/{id}/orders?filter=Active\|New\|Completed\|Rejected`, `GET …/orders/counts` | merchant | The order queue and badge counts |
+| `POST /v1/merchant/orders/{id}/status` | merchant | Accept, reject (with reason), preparing, ready, served |
+
+### Real-time
+
+SignalR hubs push order events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced` and `orderChanged` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
 Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials` or `location_exists`.
 
@@ -106,7 +114,8 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 - Money is `long` minor units plus an ISO currency code. Never use floating point. See `Money`.
 - Every tenant-owned entity implements `ITenantOwned` and gets an automatic `TenantId` query filter.
 - QR tokens are opaque, rotatable and never stored. Only their SHA-256 hash is saved.
-- Only the verified PSP webhook confirms a payment. Every write carries an idempotency key.
+- The server prices every cart and order. Guests confirm the server's total, and a changed total is never ordered silently.
+- Only the verified PSP webhook confirms a payment. Every write carries an idempotency key; orders are unique per session + `clientRequestId`.
 - If the payment succeeds but posting to the POS fails, the state becomes `POSTING_PENDING` and the post is retried. The guest is never charged twice.
 - Never store card numbers or CVV. Use the PSP's hosted fields.
 
@@ -117,7 +126,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 0 | Scaffold, DB, CI ✅ | — |
 | 1 | Tenant / venue / table / QR token, guest session, merchant sign-in ✅ | E1, E2 |
 | 2 | Menu admin + guest e-menu, modifiers, schedules, photos ✅ | E4, E31 |
-| 3 | Cart, server-validated order, staff alerts (SignalR) | E6, E10 |
+| 3 | Cart, server-validated order, standalone queue, staff alerts (SignalR) ✅ | E6, E10 |
 | 4 | Bill, payment intent, PSP webhook, tip, promo | E5, E8, E30 |
 | 5 | Split ledger: equal and by item, with concurrency locks (adds Redis) | E7 |
 | 6 | Reviews and feedback | E27 |

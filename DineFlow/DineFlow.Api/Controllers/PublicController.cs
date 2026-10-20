@@ -2,6 +2,7 @@ using DineFlow.Api.Common;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
+using DineFlow.Application.Orders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -44,6 +45,36 @@ public class PublicController(GuestService guests) : ControllerBase
     {
         EnsureOwnSession(sessionId);
         return menus.GetMenuAsync(sessionId, ct);
+    }
+
+    /// <summary>Prices the cart on the server and reports anything that can't be ordered right now.</summary>
+    [HttpPost("sessions/{sessionId:guid}/cart/validate")]
+    [Authorize(Policy = Policies.Guest)]
+    public Task<CartQuoteDto> ValidateCart(Guid sessionId, CartRequest request, [FromServices] CartQuoteService quotes, CancellationToken ct)
+    {
+        EnsureOwnSession(sessionId);
+        return quotes.QuoteAsync(sessionId, request, ct);
+    }
+
+    /// <summary>
+    /// Places an order. Safe to retry with the same clientRequestId. Returns 409 with an updated
+    /// quote in "details" when items changed or the total differs from what the guest saw.
+    /// </summary>
+    [HttpPost("sessions/{sessionId:guid}/orders")]
+    [Authorize(Policy = Policies.Guest)]
+    [EnableRateLimiting(Policies.PublicRateLimit)]
+    public Task<OrderDto> PlaceOrder(Guid sessionId, PlaceOrderRequest request, [FromServices] GuestOrderService orders, CancellationToken ct)
+    {
+        EnsureOwnSession(sessionId);
+        return orders.PlaceAsync(sessionId, request, ct);
+    }
+
+    [HttpGet("sessions/{sessionId:guid}/orders")]
+    [Authorize(Policy = Policies.Guest)]
+    public Task<IReadOnlyList<OrderDto>> ListOrders(Guid sessionId, [FromServices] GuestOrderService orders, CancellationToken ct)
+    {
+        EnsureOwnSession(sessionId);
+        return orders.ListAsync(sessionId, ct);
     }
 
     private void EnsureOwnSession(Guid sessionId)

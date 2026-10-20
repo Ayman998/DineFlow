@@ -82,7 +82,49 @@ const EN = {
   sessionEndedTitle: 'Your table session has ended',
   sessionEndedBody: 'Scan the QR code on your table again to keep browsing.',
   menuOffTitle: "This venue doesn't have a digital menu",
-  menuOffBody: 'Please ask a member of staff for a menu.'
+  menuOffBody: 'Please ask a member of staff for a menu.',
+  orderProgress: 'Order progress',
+  stageSelection: 'Selection',
+  stageCheckout: 'Checkout',
+  stagePreparing: 'Preparing',
+  stageDelivered: 'Delivered',
+  orderHistory: 'Your orders',
+  kitchenRequest: 'Special request for the kitchen',
+  kitchenRequestPlaceholder: 'Allergies, dietary restrictions, etc.',
+  subtotal: 'Subtotal',
+  serviceCharge: (percent: string) => `Service charge (${percent})`,
+  tax: (percent: string) => `VAT (${percent})`,
+  taxIncluded: (percent: string) => `Includes VAT (${percent})`,
+  placeOrder: (price: string) => `Place order · ${price}`,
+  placingOrder: 'Sending your order…',
+  checkingPrices: 'Checking prices…',
+  payLaterNote: "You'll pay at the end of your visit · Add more items any time",
+  pricesChanged: 'Prices changed since you added these items. Please check the new total before ordering.',
+  cartHasIssues: "Some items can't be ordered right now. Remove or change them to continue.",
+  issueText: {
+    item_not_found: 'No longer on the menu',
+    item_unavailable: 'Sold out right now',
+    menu_closed: "This menu isn't being served right now",
+    option_not_found: 'The choices changed. Remove it and add it again.',
+    option_unavailable: 'One of the choices is sold out',
+    invalid_choices: 'Please choose the options again'
+  } as Partial<Record<string, string>>,
+  placeFailed: "We couldn't send your order. Check your connection and try again; you won't be charged twice.",
+  orderNumber: (n: number) => `Order #${n}`,
+  orderSent: "Order sent! This page updates as the kitchen works on it.",
+  orderStatus: {
+    Submitted: 'Sent — waiting for the kitchen to confirm',
+    Accepted: 'Confirmed by the kitchen',
+    Preparing: 'Being prepared',
+    Ready: 'Ready — on its way to you',
+    Completed: 'Served. Enjoy!',
+    Rejected: "Couldn't be accepted"
+  } as Record<string, string>,
+  rejectedReason: (reason: string) => `Reason: ${reason}`,
+  orderMore: 'Order more',
+  noOrdersYet: "You haven't ordered anything yet.",
+  liveUpdates: 'Live updates on',
+  reconnecting: 'Reconnecting…'
 };
 
 type Strings = typeof EN;
@@ -165,7 +207,49 @@ const AR: Strings = {
   sessionEndedTitle: 'انتهت جلسة طاولتك',
   sessionEndedBody: 'امسح رمز QR على طاولتك مرة أخرى لمتابعة التصفح.',
   menuOffTitle: 'لا توجد قائمة رقمية في هذا المكان',
-  menuOffBody: 'يرجى طلب القائمة من أحد الموظفين.'
+  menuOffBody: 'يرجى طلب القائمة من أحد الموظفين.',
+  orderProgress: 'مراحل الطلب',
+  stageSelection: 'الاختيار',
+  stageCheckout: 'الطلب',
+  stagePreparing: 'التحضير',
+  stageDelivered: 'التقديم',
+  orderHistory: 'طلباتك',
+  kitchenRequest: 'طلب خاص للمطبخ',
+  kitchenRequestPlaceholder: 'الحساسية، القيود الغذائية، إلخ.',
+  subtotal: 'المجموع الفرعي',
+  serviceCharge: (percent: string) => `رسوم الخدمة (${percent})`,
+  tax: (percent: string) => `ضريبة القيمة المضافة (${percent})`,
+  taxIncluded: (percent: string) => `يشمل ضريبة القيمة المضافة (${percent})`,
+  placeOrder: (price: string) => `أرسل الطلب · ${price}`,
+  placingOrder: 'جارٍ إرسال طلبك…',
+  checkingPrices: 'جارٍ التحقق من الأسعار…',
+  payLaterNote: 'تدفع في نهاية زيارتك · يمكنك إضافة المزيد في أي وقت',
+  pricesChanged: 'تغيرت الأسعار منذ أن أضفت هذه الأصناف. يرجى مراجعة المجموع الجديد قبل الطلب.',
+  cartHasIssues: 'لا يمكن طلب بعض الأصناف حالياً. احذفها أو عدّلها للمتابعة.',
+  issueText: {
+    item_not_found: 'لم يعد متوفراً في القائمة',
+    item_unavailable: 'نفد حالياً',
+    menu_closed: 'هذه القائمة غير متاحة الآن',
+    option_not_found: 'تغيرت الخيارات. احذفه وأضفه من جديد.',
+    option_unavailable: 'أحد الخيارات نفد',
+    invalid_choices: 'يرجى اختيار الإضافات من جديد'
+  },
+  placeFailed: 'تعذّر إرسال طلبك. تحقق من اتصالك وحاول مرة أخرى؛ لن يتم احتساب الطلب مرتين.',
+  orderNumber: (n: number) => `الطلب #${n}`,
+  orderSent: 'تم إرسال الطلب! تتحدث هذه الصفحة أثناء تحضيره.',
+  orderStatus: {
+    Submitted: 'تم الإرسال — بانتظار تأكيد المطبخ',
+    Accepted: 'أكّد المطبخ طلبك',
+    Preparing: 'قيد التحضير',
+    Ready: 'جاهز — في الطريق إليك',
+    Completed: 'تم التقديم. بالهناء والشفاء!',
+    Rejected: 'تعذّر قبول الطلب'
+  },
+  rejectedReason: (reason: string) => `السبب: ${reason}`,
+  orderMore: 'اطلب المزيد',
+  noOrdersYet: 'لم تطلب شيئاً بعد.',
+  liveUpdates: 'التحديث المباشر يعمل',
+  reconnecting: 'جارٍ إعادة الاتصال…'
 };
 
 const STRINGS: Record<Lang, Strings> = { en: EN, ar: AR };

@@ -123,7 +123,7 @@ export class ItemSheet implements OnInit, OnDestroy {
       })));
 
     this.cart.add({
-      itemId: item.id, name: item.name, nameAr: item.nameAr,
+      itemId: item.id, name: item.name, nameAr: item.nameAr, imageUrl: item.imageUrl,
       unitPriceMinor: this.unitPrice(), quantity: this.quantity(), options, note: this.note().trim()
     });
     this.added.emit(this.name());

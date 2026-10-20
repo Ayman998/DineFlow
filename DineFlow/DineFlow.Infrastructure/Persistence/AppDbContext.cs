@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using DineFlow.Application.Abstractions;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Menus;
+using DineFlow.Domain.Orders;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
@@ -27,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+    public DbSet<Order> Orders => Set<Order>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

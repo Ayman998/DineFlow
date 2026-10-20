@@ -1,9 +1,11 @@
 using DineFlow.Domain.Menus;
+using DineFlow.Domain.Orders;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
 using DineFlow.Domain.Tenants;
 using DineFlow.Domain.Venues;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace DineFlow.Application.Abstractions;
 
@@ -23,6 +25,10 @@ public interface IAppDbContext
     DbSet<Menu> Menus { get; }
     DbSet<MenuCategory> MenuCategories { get; }
     DbSet<MenuItem> MenuItems { get; }
+    DbSet<Order> Orders { get; }
+
+    /// <summary>Used to discard a failed save before retrying it.</summary>
+    ChangeTracker ChangeTracker { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

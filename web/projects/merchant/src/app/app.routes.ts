@@ -8,6 +8,7 @@ type LoadComponent = NonNullable<Route['loadComponent']>;
 
 /** Areas built so far; the rest show a placeholder until their sprint. */
 const PAGES: Partial<Record<string, LoadComponent>> = {
+  orders: () => import('./pages/orders/orders').then(m => m.Orders),
   tables: () => import('./pages/tables/tables').then(m => m.Tables),
   menu: () => import('./pages/menu/menu-admin').then(m => m.MenuAdmin),
   settings: () => import('./pages/settings/settings').then(m => m.Settings)

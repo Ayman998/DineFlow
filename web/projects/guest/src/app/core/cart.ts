@@ -17,6 +17,7 @@ export interface CartLine {
   itemId: string;
   name: string;
   nameAr: string | null;
+  imageUrl?: string | null;
   /** Item price plus selected options, per unit. Shown to the guest; the server re-prices at checkout. */
   unitPriceMinor: number;
   quantity: number;
@@ -67,6 +68,11 @@ export class Cart {
         ? lines.filter(l => l.key !== key)
         : lines.map(l => (l.key === key ? { ...l, quantity: Math.min(MAX_QUANTITY, quantity) } : l))
     );
+  }
+
+  /** Empties the order once it has been placed. */
+  clear(): void {
+    this.lines.set([]);
   }
 
   /** Total quantity of an item across all its option combinations. */

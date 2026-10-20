@@ -1,0 +1,122 @@
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold">Orders</h1>
+    <p class="mt-1 text-sm text-ink-muted">New orders appear here instantly, with a chime. Click anywhere once to allow the sound.</p>
+  </div>
+  <div class="flex gap-1 rounded-lg border border-line bg-white p-1" role="tablist">
+    @for (f of ['Active', 'New', 'Completed', 'Rejected']; track f) {
+      <button type="button" role="tab" [attr.aria-selected]="filter() === f"
+              class="rounded-md px-3 py-1.5 text-sm font-semibold"
+              [class]="filter() === f ? 'bg-ink text-white' : 'text-ink-muted hover:bg-surface'"
+              (click)="setFilter($any(f))">
+        {{ f }}
+        @if (f === 'New' && live.counts().new) { <span class="ms-1 rounded-full bg-accent px-1.5 text-xs text-ink">{{ live.counts().new }}</span> }
+      </button>
+    }
+  </div>
+</div>
+
+@if (error()) {
+  <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
+}
+
+<ng-template #orderCard let-order>
+  <article class="rounded-xl border bg-white p-4 shadow-sm transition-shadow"
+           [class]="fresh().has(order.id) ? 'border-accent ring-2 ring-accent/60' : isLate(order) ? 'border-red-300' : 'border-line'">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <div class="text-lg font-bold">#{{ order.number }}</div>
+        <div class="text-sm font-semibold">
+          {{ order.locationType }} {{ order.locationLabel }}@if (order.areaName) { <span class="font-normal text-ink-muted"> · {{ order.areaName }}</span> }
+        </div>
+      </div>
+      <span class="text-xs" [class]="isLate(order) ? 'font-bold text-red-700' : 'text-ink-muted'">{{ age(order) }}</span>
+    </div>
+
+    <ul class="mt-3 space-y-1.5 text-sm">
+      @for (line of order.lines; track $index) {
+        <li>
+          <span class="font-bold">{{ line.quantity }}×</span> {{ line.name }}
+          @if (line.modifiers.length) {
+            <div class="ms-5 text-xs text-ink-muted">
+              @for (m of line.modifiers; track m.optionId; let last = $last) { {{ m.name }}@if (!last) { · } }
+            </div>
+          }
+          @if (line.note) { <div class="ms-5 text-xs font-semibold text-amber-900">“{{ line.note }}”</div> }
+        </li>
+      }
+    </ul>
+    @if (order.note) {
+      <p class="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">Note: {{ order.note }}</p>
+    }
+    @if (order.rejectReason) {
+      <p class="mt-2 rounded-md bg-red-50 px-2 py-1 text-xs text-red-800">Rejected: {{ order.rejectReason }}</p>
+    }
+
+    <div class="mt-3 flex items-center justify-between border-t border-line pt-2 text-sm">
+      <span class="text-ink-muted">Total</span>
+      <span class="font-bold">{{ money(order, order.totalMinor) }}</span>
+    </div>
+
+    @if (actions(order).length || order.status === 'Submitted') {
+      <div class="mt-3 flex flex-wrap gap-2">
+        @for (action of actions(order); track action.status) {
+          <button type="button" [class]="action.primary ? 'btn-primary' : 'btn-secondary'" [disabled]="isBusy(order)"
+                  (click)="move(order, action.status)">{{ action.label }}</button>
+        }
+        @if (order.status === 'Submitted') {
+          <button type="button" class="btn-ghost text-red-700" [disabled]="isBusy(order)" (click)="openReject(order)">Reject</button>
+        }
+      </div>
+    }
+  </article>
+</ng-template>
+
+@if (orders() === null) {
+  <div class="h-64 animate-pulse rounded-xl bg-white" aria-busy="true"></div>
+} @else if (filter() === 'Active') {
+  <div class="grid gap-4 lg:grid-cols-4">
+    @for (column of columns; track column.status) {
+      @let list = byStatus().get(column.status) ?? [];
+      <section class="flex flex-col gap-3 rounded-xl bg-white/60 p-3" [attr.aria-label]="column.title">
+        <h2 class="flex items-center justify-between px-1 text-sm font-semibold tracking-wide text-ink-muted uppercase">
+          {{ column.title }} <span class="rounded-full bg-white px-2 text-xs">{{ list.length }}</span>
+        </h2>
+        @for (order of list; track order.id) {
+          <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: order }" />
+        } @empty {
+          <p class="px-1 py-6 text-center text-sm text-ink-muted">Nothing here</p>
+        }
+      </section>
+    }
+  </div>
+} @else {
+  @if (!orders()!.length) {
+    <div class="card text-center text-ink-muted">No {{ filter().toLowerCase() }} orders.</div>
+  }
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+    @for (order of orders(); track order.id) {
+      <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: order }" />
+    }
+  </div>
+}
+
+@if (rejecting(); as order) {
+  <div class="modal-backdrop" (click)="rejecting.set(null)"></div>
+  <form class="modal max-w-md" role="dialog" aria-modal="true" aria-labelledby="reject-title" (ngSubmit)="confirmReject()">
+    <h2 id="reject-title" class="text-lg font-bold">Reject order #{{ order.number }}?</h2>
+    <p class="mt-1 text-sm text-ink-muted">The guest sees this reason on their phone.</p>
+    <div class="mt-4 flex flex-col gap-2">
+      @for (reason of reasons; track reason) {
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="reason" class="accent-brand" [value]="reason" [(ngModel)]="rejectReason" /> {{ reason }}
+        </label>
+      }
+      <input class="field mt-1" name="custom" maxlength="200" placeholder="Or type another reason" [(ngModel)]="rejectReason" />
+    </div>
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" class="btn-ghost" (click)="rejecting.set(null)">Cancel</button>
+      <button type="submit" class="btn-primary bg-red-700 hover:bg-red-800" [disabled]="!rejectReason.trim() || isBusy(order)">Reject order</button>
+    </div>
+  </form>
+}

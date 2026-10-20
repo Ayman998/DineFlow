@@ -17,6 +17,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/cart/cart-page').then(m => m.CartPage)
   },
   {
+    path: 'orders',
+    canActivate: [sessionGuard],
+    loadComponent: () => import('./pages/orders/orders-page').then(m => m.OrdersPage)
+  },
+  {
     path: 'bill',
     data: { feature: 'bill' },
     loadComponent: () => import('./pages/coming-soon/coming-soon').then(m => m.ComingSoon)

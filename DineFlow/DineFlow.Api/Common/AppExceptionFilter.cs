@@ -26,6 +26,7 @@ public class AppExceptionFilter(ProblemDetailsFactory problemDetails) : IExcepti
 
         var details = problemDetails.CreateProblemDetails(context.HttpContext, status, title: context.Exception.Message);
         details.Extensions["code"] = code;
+        if (context.Exception is AppException { Details: { } extra }) details.Extensions["details"] = extra;
 
         context.Result = new ObjectResult(details) { StatusCode = status };
         context.ExceptionHandled = true;
