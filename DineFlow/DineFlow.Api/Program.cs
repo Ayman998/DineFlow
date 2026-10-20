@@ -132,7 +132,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// In development the Angular dev servers proxy to the API over plain http on the same machine.
+// Redirecting those calls to https would send the browser to another origin, which drops the
+// Authorization header (every signed-in call then fails with 401), so only redirect elsewhere.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Uploaded menu images. File names are random and never reused, so they can be cached for a year.
 var media = app.Services.GetRequiredService<LocalFileStorage>();
