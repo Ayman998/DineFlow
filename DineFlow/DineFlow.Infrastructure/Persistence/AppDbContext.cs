@@ -33,6 +33,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Check> Checks => Set<Check>();
+    public DbSet<ItemClaim> ItemClaims => Set<ItemClaim>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();

@@ -69,6 +69,7 @@
             <div class="font-bold">Payment received · {{ money(p.amountMinor, p.currency) }}</div>
             <div class="text-sm text-ink-muted">
               {{ p.locationType }} {{ p.locationLabel }}@if (p.areaName) { · {{ p.areaName }} }
+              @if (splitText(p); as split) { · {{ split }} }
               @if (p.tipMinor) { · tip {{ money(p.tipMinor, p.currency) }} }
             </div>
             <div class="mt-1 text-sm font-semibold" [class]="p.fullyPaid ? 'text-emerald-700' : 'text-amber-800'">

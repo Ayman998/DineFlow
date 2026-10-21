@@ -48,6 +48,16 @@ export class Shell implements OnInit {
     this.toasts.update(list => list.filter(t => t.id !== id));
   }
 
+  /** What a split payment covered, e.g. "1 of 4 shares"; null for the whole bill. */
+  protected splitText(p: PaymentNotice): string | null {
+    switch (p.mode) {
+      case 'Equal': return `${p.shares} of ${p.splitPeople} shares`;
+      case 'Items': return p.itemCount === 1 ? '1 item' : `${p.itemCount} items`;
+      case 'Custom': return 'Custom amount';
+      default: return null;
+    }
+  }
+
   protected money(minor: number, currency: string): string {
     return formatMoney(minor, currency);
   }

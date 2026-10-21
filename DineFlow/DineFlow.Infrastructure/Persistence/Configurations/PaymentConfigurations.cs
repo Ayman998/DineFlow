@@ -1,4 +1,5 @@
 using DineFlow.Domain.Bills;
+using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
 using DineFlow.Domain.Promotions;
 using DineFlow.Domain.Sessions;
@@ -17,6 +18,8 @@ public class CheckConfiguration : IEntityTypeConfiguration<Check>
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(c => c.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
+        // Saved only if nobody else changed the check since it was read (see Check.Revision).
+        builder.Property(c => c.Revision).IsConcurrencyToken();
 
         builder.HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Venue>().WithMany().HasForeignKey(c => c.VenueId).OnDelete(DeleteBehavior.Restrict);
@@ -38,6 +41,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.ProviderPaymentId).HasMaxLength(100);
         builder.Property(p => p.CheckoutUrl).HasMaxLength(2000);
         builder.Property(p => p.Method).HasConversion<string>().HasMaxLength(20);
+        builder.Property(p => p.Mode).HasConversion<string>().HasMaxLength(10);
         builder.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(p => p.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
         builder.Property(p => p.PromoCode).HasMaxLength(20);
@@ -57,6 +61,27 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.HasIndex(p => new { p.GuestSessionId, p.ClientRequestId }).IsUnique();
         builder.HasIndex(p => new { p.Provider, p.ProviderPaymentId }).IsUnique().HasFilter("[ProviderPaymentId] IS NOT NULL");
         builder.HasIndex(p => new { p.CheckId, p.Status });
+    }
+}
+
+public class ItemClaimConfiguration : IEntityTypeConfiguration<ItemClaim>
+{
+    public void Configure(EntityTypeBuilder<ItemClaim> builder)
+    {
+        builder.ToTable("ItemClaims");
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(10);
+
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Check>().WithMany().HasForeignKey(c => c.CheckId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<OrderLine>().WithMany().HasForeignKey(c => c.OrderLineId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Payment>().WithMany().HasForeignKey(c => c.PaymentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<GuestSession>().WithMany().HasForeignKey(c => c.GuestSessionId).OnDelete(DeleteBehavior.Restrict);
+
+        // One claim per item unit: two guests can never hold or pay for the same one.
+        builder.HasIndex(c => new { c.OrderLineId, c.UnitIndex }).IsUnique();
+        builder.HasIndex(c => c.CheckId);
+        builder.HasIndex(c => c.PaymentId);
     }
 }
 

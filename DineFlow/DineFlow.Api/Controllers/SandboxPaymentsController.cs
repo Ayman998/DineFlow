@@ -24,10 +24,11 @@ namespace DineFlow.Api.Controllers;
 public class SandboxPaymentsController(SandboxPaymentProvider sandbox, PaymentService payments) : ControllerBase
 {
     [HttpGet]
-    public IActionResult Show(string providerPaymentId, [FromQuery] string? t)
+    public async Task<IActionResult> Show(string providerPaymentId, [FromQuery] string? t, CancellationToken ct)
     {
         var checkout = sandbox.ReadCheckout(providerPaymentId, t ?? "");
-        return checkout is null ? Expired() : Page(checkout, t!, error: null);
+        if (checkout is null) return Expired();
+        return await payments.IsAwaitingProviderAsync(sandbox.Name, providerPaymentId, ct) ? Page(checkout, t!, error: null) : Closed(checkout);
     }
 
     [HttpPost]
@@ -38,6 +39,8 @@ public class SandboxPaymentsController(SandboxPaymentProvider sandbox, PaymentSe
         if (checkout is null) return Expired();
 
         if (form.Action == "cancel") return Redirect(checkout.CancelUrl);
+        // Like a real provider, refuse a payment DineFlow has cancelled or that has lapsed.
+        if (!await payments.IsAwaitingProviderAsync(sandbox.Name, providerPaymentId, ct)) return Closed(checkout);
 
         SandboxCards.Outcome outcome;
         if (checkout.Method == PaymentMethod.Card)
@@ -67,6 +70,12 @@ public class SandboxPaymentsController(SandboxPaymentProvider sandbox, PaymentSe
     private ContentResult Expired() => Html(StatusCodes.Status410Gone, null, """
         <h1>This payment link has expired</h1>
         <p class="muted">Go back to the bill and tap Pay again.</p>
+        """);
+
+    private ContentResult Closed(SandboxCheckout c) => Html(StatusCodes.Status409Conflict, c.ReturnUrl, $"""
+        <h1>This payment is no longer open</h1>
+        <p class="muted">It was cancelled, finished or has lapsed. You haven't been charged.</p>
+        <a class="primary" href="{WebUtility.HtmlEncode(c.ReturnUrl)}">Back to DineFlow</a>
         """);
 
     private ContentResult Page(SandboxCheckout c, string token, string? error)
@@ -150,7 +159,8 @@ public class SandboxPaymentsController(SandboxPaymentProvider sandbox, PaymentSe
                   input { font: inherit; width: 100%; min-width: 0; padding: 12px; border: 1px solid #D0D5DD; border-radius: 10px; }
                   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
                   button { font: inherit; font-weight: 600; padding: 14px; border-radius: 12px; border: 1px solid #D0D5DD; background: #fff; cursor: pointer; }
-                  button.primary { background: #0E9384; border-color: #0E9384; color: #fff; }
+                  button.primary, a.primary { background: #0E9384; border-color: #0E9384; color: #fff; }
+                  a.primary { display: block; margin-top: 20px; padding: 14px; border-radius: 12px; text-align: center; font-weight: 600; text-decoration: none; }
                   button.link { border: 0; background: none; color: #475467; padding: 8px; }
                   details { font-size: 14px; color: #475467; }
                   ul { padding-inline-start: 18px; } code { color: #101828; }

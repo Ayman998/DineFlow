@@ -33,6 +33,7 @@
           }
         </div>
         <div class="mt-2 flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.youPaid }}</span><span class="text-lg font-extrabold">{{ money(p.amountMinor) }}</span></div>
+        @if (shareLabel(p); as label) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ label }}</span><span>{{ money(p.billAmountMinor) }}</span></div> }
         @if (p.tipMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.ofWhichTip }}</span><span>{{ money(p.tipMinor) }}</span></div> }
         @if (p.discountMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.promotion }} {{ p.promoCode }}</span><span>−{{ money(p.discountMinor) }}</span></div> }
         <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.remainingBalance }}</span><span class="font-bold">{{ money(p.remainingMinor ?? 0) }}</span></div>

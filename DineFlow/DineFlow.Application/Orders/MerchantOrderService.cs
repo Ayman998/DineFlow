@@ -1,4 +1,5 @@
 using DineFlow.Application.Abstractions;
+using DineFlow.Application.Bills;
 using DineFlow.Application.Common;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Orders;
@@ -12,7 +13,7 @@ public record OrderCountsDto(int New, int Accepted, int Preparing, int Ready);
 /// The standalone order queue (blueprint 4.4 "Orders", P1-ORD-03/04): staff see orders as they
 /// arrive and move them through accepted → preparing → ready → served, or reject them.
 /// </summary>
-public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, TimeProvider clock)
+public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, BillService bills, TimeProvider clock)
 {
     private const int PageSize = 100;
 
@@ -59,6 +60,9 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Tim
 
         if (!order.CanTransitionTo(request.Status))
             throw AppException.Conflict("invalid_transition", $"Order #{order.Number} is {order.Status} and can't become {request.Status}.");
+
+        // Rejecting takes the order off the table's bill: make sure nobody has paid for it.
+        if (request.Status == OrderStatus.Rejected) await bills.PrepareRejectionAsync(order, ct);
 
         try { order.TransitionTo(request.Status, request.Reason, clock.GetUtcNow()); }
         catch (DomainException ex) { throw AppException.BadRequest("invalid_request", ex.Message); }

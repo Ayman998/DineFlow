@@ -69,6 +69,17 @@ body {
   .pm-on .pm-dot {
     @apply border-[6px] border-brand bg-white;
   }
+
+  /* Split the bill, from the "Split the bill" mockups. */
+  .split-tab {
+    @apply min-h-11 flex-1 rounded-[11px] text-[13px] font-bold text-ink-muted disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .split-tab-on {
+    @apply bg-white text-ink shadow-[0_1px_3px_rgba(16,24,40,0.15)];
+  }
+  .qty-btn-on {
+    @apply border-brand bg-brand text-white;
+  }
 }
 
 .no-scrollbar {

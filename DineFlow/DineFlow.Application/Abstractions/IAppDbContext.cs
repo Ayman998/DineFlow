@@ -30,6 +30,7 @@ public interface IAppDbContext
     DbSet<MenuItem> MenuItems { get; }
     DbSet<Order> Orders { get; }
     DbSet<Check> Checks { get; }
+    DbSet<ItemClaim> ItemClaims { get; }
     DbSet<Payment> Payments { get; }
     DbSet<LedgerEntry> LedgerEntries { get; }
     DbSet<PromoCode> PromoCodes { get; }

@@ -39,8 +39,15 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("nchar(3)")
                         .IsFixedLength();
 
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.Property<Guid>("ServiceLocationId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SplitPeople")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -64,6 +71,59 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("VenueId");
 
                     b.ToTable("Checks", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Bills.ItemClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("CheckId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("GuestSessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("UnitIndex")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckId");
+
+                    b.HasIndex("GuestSessionId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("OrderLineId", "UnitIndex")
+                        .IsUnique();
+
+                    b.ToTable("ItemClaims", (string)null);
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Menus.Menu", b =>
@@ -442,6 +502,9 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
@@ -561,6 +624,11 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<string>("PromoCode")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -581,6 +649,12 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
+
+                    b.Property<int?>("Shares")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SplitPeople")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1062,6 +1136,38 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("DineFlow.Domain.Venues.Venue", null)
                         .WithMany()
                         .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Bills.ItemClaim", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Bills.Check", null)
+                        .WithMany()
+                        .HasForeignKey("CheckId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Sessions.GuestSession", null)
+                        .WithMany()
+                        .HasForeignKey("GuestSessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Orders.OrderLine", null)
+                        .WithMany()
+                        .HasForeignKey("OrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Payments.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -88,6 +88,17 @@ export class PaymentPage implements OnInit {
     return `${day} · ${time}`;
   }
 
+  /** What this payment covered when the bill was split, e.g. "Your share (1 of 4 people)". */
+  protected shareLabel(payment: Payment): string | null {
+    const t = this.i18n.t();
+    switch (payment.mode) {
+      case 'Equal': return t.yourShareOf(payment.shares ?? 1, payment.splitPeople ?? 1);
+      case 'Items': return t.yourItems(payment.itemCount);
+      case 'Custom': return t.customAmount;
+      default: return null;
+    }
+  }
+
   protected methodText(payment: Payment): string {
     const name = this.i18n.t().methodNames[payment.method] ?? payment.method;
     return payment.cardLast4 ? `${payment.cardBrand ?? name} •••• ${payment.cardLast4}` : name;

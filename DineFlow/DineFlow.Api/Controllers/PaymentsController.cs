@@ -22,17 +22,38 @@ public class PaymentsController(BillService bills, PromotionService promotions, 
         return bills.GetForSessionAsync(sessionId, ct);
     }
 
+    /// <summary>Sets how many people the table splits the bill between equally, or removes the split (people: null).</summary>
+    [HttpPut("v1/public/sessions/{sessionId:guid}/split")]
+    public Task<BillDto> SetSplit(Guid sessionId, SplitRequest request, CancellationToken ct)
+    {
+        EnsureOwnSession(sessionId);
+        return bills.SetSplitAsync(sessionId, request.People, ct);
+    }
+
+    /// <summary>
+    /// Holds the items this guest is paying for while they choose (blueprint allocations/reserve).
+    /// Send the full selection each time; an empty list lets everything go.
+    /// </summary>
+    [HttpPost("v1/public/sessions/{sessionId:guid}/allocations/reserve")]
+    [EnableRateLimiting(Policies.PublicRateLimit)]
+    public Task<ReserveResultDto> Reserve(Guid sessionId, ReserveRequest request, CancellationToken ct)
+    {
+        EnsureOwnSession(sessionId);
+        return bills.ReserveAsync(sessionId, request.Units, ct);
+    }
+
     [HttpPost("v1/public/sessions/{sessionId:guid}/promotions/validate")]
     [EnableRateLimiting(Policies.PublicRateLimit)]
     public Task<PromoQuoteDto> ValidatePromotion(Guid sessionId, PromoValidateRequest request, CancellationToken ct)
     {
         EnsureOwnSession(sessionId);
-        return promotions.ValidateAsync(sessionId, request.Code, ct);
+        return promotions.ValidateAsync(sessionId, request.Code, request.AmountMinor, ct);
     }
 
     /// <summary>
-    /// Starts paying what's left on the bill. Safe to retry with the same clientRequestId. Returns the
-    /// provider page to send the guest to (checkoutUrl), or 409 with the current bill in "details".
+    /// Starts paying the rest of the bill, equal shares, the guest's items or an amount. Safe to retry
+    /// with the same clientRequestId. Returns the provider page to send the guest to (checkoutUrl),
+    /// or 409 with the current bill in "details" when it changed.
     /// </summary>
     [HttpPost("v1/public/payments")]
     [EnableRateLimiting(Policies.PublicRateLimit)]

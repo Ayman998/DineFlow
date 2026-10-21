@@ -68,7 +68,7 @@ public class PaymentServiceTests : IDisposable
     private Task<PaymentDto> StartPaymentAsync(Guid sessionId, long expectedRemaining, long tip = 0, string? promo = null,
         Guid? clientRequestId = null, bool acceptTerms = true) =>
         _host.Payments.CreateAsync(new CreatePaymentRequest(sessionId, clientRequestId ?? Guid.NewGuid(), PaymentMethod.Card,
-            tip, promo, expectedRemaining, acceptTerms), default);
+            PaymentMode.Full, null, null, tip, promo, expectedRemaining, acceptTerms), default);
 
     private static string ProviderId(PaymentDto payment) => $"sbx_{payment.Id:N}";
 
@@ -370,14 +370,14 @@ public class PaymentServiceTests : IDisposable
             _host.Clock.GetUtcNow().AddDays(-10), _host.Clock.GetUtcNow().AddDays(-1), null, true, false), default);
         await _host.Promotions.CreateAsync(new PromoCodeRequest("CAPPED", "50% off, up to 10", DiscountType.Percent, 5000, 1000, null, null, null, null, true, false), default);
 
-        var welcome = await _host.Promotions.ValidateAsync(f.SessionId, "welcome10", default);
-        var capped = await _host.Promotions.ValidateAsync(f.SessionId, "CAPPED", default);
+        var welcome = await _host.Promotions.ValidateAsync(f.SessionId, "welcome10", null, default);
+        var capped = await _host.Promotions.ValidateAsync(f.SessionId, "CAPPED", null, default);
 
         Assert.Equal(("WELCOME10", 1_000L), (welcome.Code, welcome.DiscountMinor));
         Assert.Equal(1_000, capped.DiscountMinor);
-        Assert.Equal("promo_min_spend", (await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "BIGSPEND", default))).Code);
-        Assert.Equal("promo_expired", (await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "OLD", default))).Code);
-        Assert.Equal("promo_invalid", (await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "NOPE", default))).Code);
+        Assert.Equal("promo_min_spend", (await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "BIGSPEND", null, default))).Code);
+        Assert.Equal("promo_expired", (await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "OLD", null, default))).Code);
+        Assert.Equal("promo_invalid", (await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "NOPE", null, default))).Code);
     }
 
     [Fact]
@@ -403,7 +403,7 @@ public class PaymentServiceTests : IDisposable
         await _host.Promotions.CreateAsync(new PromoCodeRequest("RIVAL50", "Half off", DiscountType.Percent, 5000, null, null, null, null, null, true, false), default);
         _host.CurrentTenant = f.TenantId;
 
-        var ex = await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "RIVAL50", default));
+        var ex = await Assert.ThrowsAsync<AppException>(() => _host.Promotions.ValidateAsync(f.SessionId, "RIVAL50", null, default));
 
         Assert.Equal("promo_invalid", ex.Code);
     }

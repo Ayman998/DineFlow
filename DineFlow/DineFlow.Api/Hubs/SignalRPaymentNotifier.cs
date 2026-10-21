@@ -26,4 +26,17 @@ public class SignalRPaymentNotifier(
             logger.LogWarning(ex, "Couldn't push payment {Reference}; screens will catch up on reload.", notice.Reference);
         }
     }
+
+    public async Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct)
+    {
+        try
+        {
+            await guests.Clients.Group(GuestHub.LocationGroup(serviceLocationId))
+                .SendAsync("billChanged", new BillChangedEvent(serviceLocationId, reason), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't tell table {Location} its bill changed ({Reason}).", serviceLocationId, reason);
+        }
+    }
 }

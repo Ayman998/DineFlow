@@ -16,9 +16,10 @@ using Microsoft.Extensions.Options;
 namespace DineFlow.Application.Payments;
 
 /// <summary>
-/// Paying the table's bill (blueprint 3.2 "Pay full", 7.x): the server checks what's owed, applies
-/// tip and promotion, hands the guest to the provider's hosted page, and only marks the payment
-/// paid when the provider's signed webhook says so.
+/// Paying all or part of the table's bill (blueprint 3.2, 7.x): the server works out the
+/// guest's share (the rest, equal shares, their items or an amount), applies tip and promotion,
+/// reserves that share so nobody else can pay it too, hands the guest to the provider's hosted
+/// page, and only marks the payment paid when the provider's signed webhook says so.
 /// </summary>
 public class PaymentService(
     IAppDbContext db,
@@ -34,9 +35,8 @@ public class PaymentService(
     public async Task<PaymentDto> CreateAsync(CreatePaymentRequest request, CancellationToken ct)
     {
         // A retry of a request that already got through returns the same payment and page.
-        var existing = await db.Payments.SingleOrDefaultAsync(
-            p => p.GuestSessionId == request.SessionId && p.ClientRequestId == request.ClientRequestId, ct);
-        if (existing is not null) return await ToDtoAsync(existing, ct);
+        var existing = await FindRequestAsync(request, ct);
+        if (existing is not null && existing.Status != PaymentStatus.Created) return await ToDtoAsync(existing, ct);
 
         if (!request.AcceptTerms)
             throw AppException.BadRequest("terms_required", "Please accept the Terms and Conditions to pay.");
@@ -44,54 +44,67 @@ public class PaymentService(
             throw AppException.BadRequest("method_unavailable", "That payment method isn't available here.");
 
         var table = await bills.LoadTableAsync(request.SessionId, ct);
-        var bill = await bills.GetForSessionAsync(request.SessionId, ct);
-        if (bill.Status != BillStatus.Open || bill.CheckId is not { } checkId || bill.RemainingMinor <= 0)
-            throw AppException.Conflict("nothing_to_pay", "There's nothing left to pay on this bill.", bill);
-        if (bill.RemainingMinor != request.ExpectedRemainingMinor)
-            throw AppException.Conflict("bill_changed", "The bill has changed. Please check the new total.", bill);
-        if (bill.PaymentInProgress)
-            throw AppException.Conflict("payment_in_progress", "Someone at your table is already paying. Please wait a moment.", bill);
-
         var venue = table.Venue;
         if (request.TipMinor > 0 && !venue.TipsEnabled)
             throw AppException.BadRequest("tips_disabled", "This venue doesn't take tips through the app.");
 
-        Guid? promoId = null;
-        string? promoCode = null;
-        long discount = 0;
-        if (!string.IsNullOrWhiteSpace(request.PromoCode))
+        // Reserve this guest's share. If another guest changes the bill at the same moment, the
+        // check's revision makes one save fail, and that guest's numbers are worked out again.
+        var payment = await Concurrency.RetryAsync(db, async () =>
         {
-            var (promo, evaluation) = await promotions.EvaluateAsync(request.PromoCode, bill.RemainingMinor, ct);
-            (promoId, promoCode, discount) = (promo.Id, promo.Code, evaluation.DiscountMinor);
-        }
+            if (await FindRequestAsync(request, ct) is { } again) return again;
 
-        var now = clock.GetUtcNow();
-        Payment payment;
-        try
-        {
-            payment = new Payment(venue.TenantId, venue.Id, checkId, request.SessionId, request.ClientRequestId,
-                provider.Name, request.Method, bill.Currency, bill.RemainingMinor, discount, request.TipMinor,
-                promoId, promoCode, paymentOptions.Value.TermsVersion, now);
-        }
-        catch (DomainException ex)
-        {
-            throw AppException.BadRequest("invalid_payment", ex.Message);
-        }
+            var check = await bills.OpenCheckAsync(table.Location.Id, tracked: true, ct)
+                ?? throw AppException.Conflict("nothing_to_pay", "There's nothing left to pay on this bill.",
+                    await bills.GetForSessionAsync(request.SessionId, ct));
+            var state = await bills.LoadStateAsync(check, ct, trackClaims: true);
+            BillDto Bill() => bills.ToDto(state, request.SessionId, venue, table.Location);
 
-        db.Payments.Add(payment);
-        await db.SaveChangesAsync(ct);
+            if (state.Orders.Count == 0 || state.OpenMinor <= 0)
+                throw AppException.Conflict("nothing_to_pay", "There's nothing left to pay on this bill.", Bill());
 
-        // Two guests can get past the check above at the same moment; the earlier one wins.
-        var inFlightSince = now - Payment.InFlightLifetime;
-        var earlier = await db.Payments.AnyAsync(p => p.CheckId == checkId && p.Id != payment.Id
-            && (p.Status == PaymentStatus.Created || p.Status == PaymentStatus.RequiresAction || p.Status == PaymentStatus.Processing)
-            && p.CreatedAt > inFlightSince && p.CreatedAt <= payment.CreatedAt, ct);
-        if (earlier)
-        {
-            payment.Cancel(now);
+            var available = state.AvailableFor(request.SessionId);
+            var held = state.HeldBy(request.SessionId);
+            var principal = ShareOf(request, state, available, held, Bill);
+
+            if (principal <= 0)
+                throw AppException.Conflict("payment_in_progress", "Someone at your table is paying the rest of the bill right now. Please wait a moment.", Bill());
+            if (principal != request.ExpectedAmountMinor)
+                throw AppException.Conflict("bill_changed", "The bill has changed. Please check the new amount.", Bill());
+
+            Guid? promoId = null;
+            string? promoCode = null;
+            long discount = 0;
+            if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            {
+                var (promo, evaluation) = await promotions.EvaluateAsync(request.PromoCode, principal, ct);
+                (promoId, promoCode, discount) = (promo.Id, promo.Code, evaluation.DiscountMinor);
+            }
+
+            Payment created;
+            try
+            {
+                created = new Payment(venue.TenantId, venue.Id, check.Id, request.SessionId, request.ClientRequestId,
+                    provider.Name, request.Method, request.Mode, request.Shares, check.SplitPeople, check.Currency,
+                    principal, discount, request.TipMinor, promoId, promoCode, paymentOptions.Value.TermsVersion, state.Now);
+            }
+            catch (DomainException ex)
+            {
+                throw AppException.BadRequest("invalid_payment", ex.Message);
+            }
+
+            if (request.Mode == PaymentMode.Items)
+                foreach (var claim in held) claim.AttachPayment(created.Id, created.PayableUntil);
+            else
+                db.ItemClaims.RemoveRange(held); // paying an amount instead of the items this guest had picked
+
+            check.Touch();
+            db.Payments.Add(created);
             await db.SaveChangesAsync(ct);
-            throw AppException.Conflict("payment_in_progress", "Someone at your table is already paying. Please wait a moment.");
-        }
+            return created;
+        });
+
+        if (payment.Status != PaymentStatus.Created) return await ToDtoAsync(payment, ct);
 
         var guestApp = guestOptions.Value.AppBaseUrl.TrimEnd('/');
         var checkout = await provider.CreateCheckoutAsync(new ProviderCheckoutRequest(
@@ -102,7 +115,48 @@ public class PaymentService(
 
         payment.AttachProvider(checkout.ProviderPaymentId, checkout.RedirectUrl, clock.GetUtcNow());
         await db.SaveChangesAsync(ct);
+        await notifier.TableBillChangedAsync(payment.TenantId, table.Location.Id, "payment", ct);
         return await ToDtoAsync(payment, ct);
+    }
+
+    /// <summary>How much of the bill this request pays, before discount and tip.</summary>
+    private static long ShareOf(CreatePaymentRequest request, CheckState state, long available, IReadOnlyList<ItemClaim> held, Func<BillDto> bill)
+    {
+        switch (request.Mode)
+        {
+            case PaymentMode.Full:
+                return available;
+
+            case PaymentMode.Custom:
+                if (request.AmountMinor is not { } amount)
+                    throw AppException.BadRequest("amount_required", "Enter the amount you want to pay.");
+                if (amount > available)
+                    throw AppException.Conflict("amount_too_high", "That's more than is left to pay.", bill());
+                return amount;
+
+            case PaymentMode.Equal:
+                if (!state.CanSplitEquallyFor(request.SessionId))
+                    throw AppException.Conflict("equal_unavailable", "Your table is paying by item, so the bill can't be split equally.", bill());
+                if (state.SharesLeft is not { } left)
+                    throw AppException.Conflict("split_not_set", "Choose how many people are splitting the bill first.", bill());
+                if (request.Shares is not { } shares || shares > left)
+                    throw AppException.Conflict("bill_changed", left switch
+                    {
+                        0 => "Every share has been paid or is being paid.",
+                        1 => "Only one share is left to pay.",
+                        _ => $"Only {left} shares are left to pay."
+                    }, bill());
+                return BillAllocation.EqualShare(available, left, shares);
+
+            case PaymentMode.Items:
+                // Items already held stay payable even if someone has since paid an amount: they were reserved.
+                if (held.Count == 0)
+                    throw AppException.Conflict("no_items_selected", "Your selection has expired. Select the items you're paying for again.", bill());
+                return held.Sum(c => c.AmountMinor);
+
+            default:
+                throw AppException.BadRequest("invalid_payment", "Choose how you want to pay.");
+        }
     }
 
     public async Task<PaymentDto> GetAsync(Guid sessionId, Guid paymentId, CancellationToken ct) =>
@@ -112,15 +166,32 @@ public class PaymentService(
     public async Task<PaymentDto> CancelAsync(Guid sessionId, Guid paymentId, CancellationToken ct)
     {
         var payment = await FindForSessionAsync(sessionId, paymentId, ct);
+        var wasFinal = payment.IsFinal;
         payment.Cancel(clock.GetUtcNow());
+        if (!wasFinal) await ReturnItemsAsync(payment, ct);
         await db.SaveChangesAsync(ct);
+
+        if (!wasFinal)
+            await notifier.TableBillChangedAsync(payment.TenantId, (await LocationAsync(payment, ct)).Id, "payment", ct);
         return await ToDtoAsync(payment, ct);
     }
 
     /// <summary>
+    /// Whether the provider may still complete this payment. The sandbox page asks before taking
+    /// a card, so a payment that was cancelled or has lapsed can't go through.
+    /// </summary>
+    public async Task<bool> IsAwaitingProviderAsync(string providerName, string providerPaymentId, CancellationToken ct)
+    {
+        var payment = await db.Payments.IgnoreQueryFilters().AsNoTracking()
+            .SingleOrDefaultAsync(p => p.Provider == providerName && p.ProviderPaymentId == providerPaymentId, ct);
+        return payment is not null && payment.IsInFlight(clock.GetUtcNow());
+    }
+
+    /// <summary>
     /// Applies a provider webhook (authoritative, blueprint 7.1). Unsigned or tampered events are
-    /// rejected; repeated events are skipped; a success writes the ledger, counts the promotion,
-    /// closes the bill when nothing is left, and tells staff and the table.
+    /// rejected; repeated events are skipped; a success writes the ledger, marks the items paid,
+    /// counts the promotion, closes the bill when nothing is left, and tells staff and the table.
+    /// A failure gives the guest their items back to try again.
     /// </summary>
     public async Task HandleWebhookAsync(string providerName, string body, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
     {
@@ -139,16 +210,25 @@ public class PaymentService(
             .SingleOrDefaultAsync(p => p.Provider == provider.Name && p.ProviderPaymentId == webhook.ProviderPaymentId, ct);
 
         db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, webhook.Status.ToString(), now));
+        var wasFinal = payment?.IsFinal ?? true;
         var succeeded = payment?.Apply(webhook.Status, webhook.CardBrand, webhook.CardLast4, webhook.FailureReason, now) ?? false;
+        var failed = !wasFinal && payment!.Status is PaymentStatus.Failed or PaymentStatus.Cancelled;
 
         if (succeeded)
         {
             db.LedgerEntries.AddRange(LedgerEntry.ForSucceededPayment(payment!, now));
+            // If the payment arrived so late that its items had already gone to someone else, the
+            // ledger still records the money; the bill can't go below zero and the extra is refunded.
+            foreach (var claim in await ClaimsOfAsync(payment!, ct)) claim.MarkPaid();
             if (payment!.PromoCodeId is { } promoId)
             {
                 var promo = await db.PromoCodes.IgnoreQueryFilters().SingleAsync(p => p.Id == promoId, ct);
                 promo.Redeem();
             }
+        }
+        else if (failed)
+        {
+            await ReturnItemsAsync(payment!, ct);
         }
 
         try
@@ -161,6 +241,11 @@ public class PaymentService(
             throw;
         }
 
+        if (failed)
+        {
+            await notifier.TableBillChangedAsync(payment!.TenantId, (await LocationAsync(payment, ct)).Id, "payment", ct);
+            return;
+        }
         if (!succeeded) return;
 
         var totals = await bills.TotalsAsync(payment!.CheckId, ct);
@@ -172,10 +257,12 @@ public class PaymentService(
         }
 
         var location = await LocationAsync(payment, ct);
+        var itemCount = await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == payment.Id, ct);
         await notifier.PaymentSucceededAsync(new PaymentNotice(
             payment.TenantId, payment.VenueId, location.Id, location.Type.ToString(), location.Label, location.DiningArea?.Name,
             payment.Id, payment.Reference, payment.Currency, payment.AmountMinor, payment.TipMinor,
-            totals.RemainingMinor, totals.RemainingMinor == 0), ct);
+            totals.RemainingMinor, totals.RemainingMinor == 0,
+            payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
     }
 
     /// <summary>E-mails the receipt for a successful payment (P1-REC-01/02).</summary>
@@ -190,8 +277,23 @@ public class PaymentService(
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.CheckId == payment.CheckId && o.Status != OrderStatus.Rejected)
             .Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
+        var claims = await db.ItemClaims.AsNoTracking().Where(c => c.PaymentId == payment.Id).ToListAsync(ct);
 
-        await email.SendAsync(Receipt.Build(to, venue, location, payment, orders), ct);
+        await email.SendAsync(Receipt.Build(to, venue, location, payment, orders, claims), ct);
+    }
+
+    private Task<Payment?> FindRequestAsync(CreatePaymentRequest request, CancellationToken ct) =>
+        db.Payments.SingleOrDefaultAsync(p => p.GuestSessionId == request.SessionId && p.ClientRequestId == request.ClientRequestId, ct);
+
+    private async Task<List<ItemClaim>> ClaimsOfAsync(Payment payment, CancellationToken ct) =>
+        payment.Mode == PaymentMode.Items
+            ? await db.ItemClaims.IgnoreQueryFilters().Where(c => c.PaymentId == payment.Id).ToListAsync(ct)
+            : [];
+
+    /// <summary>The payment didn't go through: the guest keeps their items selected to try again.</summary>
+    private async Task ReturnItemsAsync(Payment payment, CancellationToken ct)
+    {
+        foreach (var claim in await ClaimsOfAsync(payment, ct)) claim.ReturnToHold(clock.GetUtcNow());
     }
 
     private async Task<bool> IsDuplicateAsync(string eventId, CancellationToken ct)
@@ -226,18 +328,26 @@ public class PaymentService(
             offer = await promotions.NextVisitOfferAsync(ct);
         }
 
-        return new PaymentDto(p.Id, p.Reference, p.Status, p.Method, p.Currency, p.BillAmountMinor, p.DiscountMinor,
-            p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4, p.FailureReason,
-            p.Status == PaymentStatus.RequiresAction ? p.CheckoutUrl : null,
+        var itemCount = p.Mode == PaymentMode.Items
+            ? await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == p.Id, ct)
+            : 0;
+
+        return new PaymentDto(p.Id, p.Reference, p.Status, p.Method, p.Mode, p.Shares, p.SplitPeople, itemCount,
+            p.Currency, p.BillAmountMinor, p.DiscountMinor, p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4,
+            p.FailureReason, p.Status == PaymentStatus.RequiresAction ? p.CheckoutUrl : null,
             location.Type.ToString(), location.Label, location.DiningArea?.Name,
             p.CreatedAt, p.SucceededAt, remaining, fullyPaid, offer);
     }
 }
 
-/// <summary>The receipt e-mail: venue, table, reference, what was ordered and what was paid.</summary>
+/// <summary>
+/// The receipt e-mail: venue, table, reference, what this payment covered and what was paid.
+/// Paying by item lists those items; otherwise it lists the bill and the guest's part of it.
+/// </summary>
 internal static class Receipt
 {
-    public static EmailMessage Build(string to, Venue venue, ServiceLocation location, Payment payment, IReadOnlyList<Order> orders)
+    public static EmailMessage Build(string to, Venue venue, ServiceLocation location, Payment payment,
+        IReadOnlyList<Order> orders, IReadOnlyList<ItemClaim> paidItems)
     {
         string Money(long minor) => FormatMoney(minor, payment.Currency);
         var when = TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
@@ -245,18 +355,43 @@ internal static class Receipt
             : payment.SucceededAt ?? payment.CreatedAt;
         var place = $"{location.DisplayName}{(location.DiningArea is { } a ? $" · {a.Name}" : "")}";
         var method = payment.CardLast4 is { } last4 ? $"{payment.CardBrand ?? payment.Method.ToString()} •••• {last4}" : payment.Method.ToString();
+        var lines = orders.OrderBy(o => o.Number).SelectMany(o => o.Lines.OrderBy(l => l.Position)).ToList();
 
         var rows = new List<(string Label, string Value)>();
-        foreach (var line in orders.SelectMany(o => o.Lines))
-            rows.Add(($"{line.Quantity} × {line.Name}", Money(line.LineTotalMinor)));
+        var totals = new List<(string Label, string Value)>();
+        if (payment.Mode == PaymentMode.Items)
+        {
+            foreach (var group in paidItems.GroupBy(c => c.OrderLineId))
+            {
+                var name = lines.FirstOrDefault(l => l.Id == group.Key)?.Name ?? "Item";
+                rows.Add(($"{group.Count()} × {name}", Money(group.Sum(c => c.AmountMinor))));
+            }
+            totals.Add(("Your items (incl. service and VAT)", Money(payment.BillAmountMinor)));
+        }
+        else
+        {
+            foreach (var line in lines)
+                rows.Add(($"{line.Quantity} × {line.Name}", Money(line.LineTotalMinor)));
 
-        // What the bill is made of, so the receipt shows the service charge and VAT.
-        var totals = new List<(string Label, string Value)> { ("Subtotal", Money(orders.Sum(o => o.SubtotalMinor))) };
-        var service = orders.Sum(o => o.ServiceChargeMinor);
-        var tax = orders.Sum(o => o.TaxMinor);
-        if (service > 0) totals.Add(("Service charge", Money(service)));
-        if (tax > 0) totals.Add((orders.All(o => o.TaxIncluded) ? "VAT (included)" : "VAT", Money(tax)));
-        totals.Add(("Bill", Money(payment.BillAmountMinor)));
+            // What the bill is made of, so the receipt shows the service charge and VAT.
+            totals.Add(("Subtotal", Money(orders.Sum(o => o.SubtotalMinor))));
+            var service = orders.Sum(o => o.ServiceChargeMinor);
+            var tax = orders.Sum(o => o.TaxMinor);
+            if (service > 0) totals.Add(("Service charge", Money(service)));
+            if (tax > 0) totals.Add((orders.All(o => o.TaxIncluded) ? "VAT (included)" : "VAT", Money(tax)));
+            var billTotal = orders.Sum(o => o.TotalMinor);
+            totals.Add(("Bill total", Money(billTotal)));
+            if (payment.BillAmountMinor != billTotal)
+            {
+                var share = payment.Mode switch
+                {
+                    PaymentMode.Equal => $"Your share ({payment.Shares} of {payment.SplitPeople} people)",
+                    PaymentMode.Custom => "Your amount",
+                    _ => "Your part of the bill"
+                };
+                totals.Add((share, Money(payment.BillAmountMinor)));
+            }
+        }
         if (payment.DiscountMinor > 0) totals.Add(($"Promotion {payment.PromoCode}", $"−{Money(payment.DiscountMinor)}"));
         if (payment.TipMinor > 0) totals.Add(("Tip", Money(payment.TipMinor)));
         totals.Add(("Paid", Money(payment.AmountMinor)));

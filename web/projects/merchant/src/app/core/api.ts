@@ -353,6 +353,11 @@ export interface PaymentNotice {
   tipMinor: number;
   remainingMinor: number;
   fullyPaid: boolean;
+  /** How the guest split the bill: the rest of it, equal shares, their items or an amount. */
+  mode: 'Full' | 'Equal' | 'Items' | 'Custom';
+  shares: number | null;
+  splitPeople: number | null;
+  itemCount: number;
 }
 
 export type DiscountType = 'Percent' | 'Amount';

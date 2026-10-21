@@ -43,13 +43,24 @@
     </main>
   } @else {
     <main class="flex-1 px-5 pt-1 pb-52">
-      <!-- Pay in full / Split (splitting arrives with the split ledger) -->
+      <!-- Pay in full / Split the bill -->
+      @let split = selection().mode !== 'Full';
       <div class="flex gap-2 rounded-[14px] bg-surface p-1" role="group" [attr.aria-label]="t.howToPay">
-        <button type="button" class="min-h-11 flex-1 rounded-[11px] bg-white text-sm font-bold shadow-[0_1px_3px_rgba(16,24,40,0.15)]" aria-pressed="true">{{ t.payInFull }}</button>
-        <button type="button" class="min-h-11 flex-1 rounded-[11px] text-sm font-bold text-ink-muted" disabled>
-          {{ t.splitBill }} <span class="block text-[11px] font-semibold">{{ t.splitSoon }}</span>
-        </button>
+        <button type="button" class="split-tab text-sm" [class.split-tab-on]="!split" [attr.aria-pressed]="!split" (click)="payInFull()">{{ t.payInFull }}</button>
+        <button type="button" class="split-tab text-sm" [class.split-tab-on]="split" [attr.aria-pressed]="split" (click)="openSplit()">{{ t.splitBill }}</button>
       </div>
+      @if (split) {
+        <div class="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#E6F4F1] px-3.5 py-3">
+          <span class="min-w-0">
+            <span class="block text-sm font-bold text-[#0B3B38]">{{ splitSummary() }}</span>
+            <span class="block text-[13px] text-[#0B3B38]">{{ t.yourShare }}: {{ money(share()) }}</span>
+          </span>
+          <button type="button" class="min-h-11 shrink-0 rounded-xl px-3 text-sm font-bold text-brand" (click)="openSplit()">{{ t.edit }}</button>
+        </div>
+      }
+      @if (notice()) {
+        <p class="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">{{ notice() }}</p>
+      }
 
       @if (ownPending()) {
         <div class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
@@ -59,8 +70,10 @@
             <button type="button" class="min-h-11 flex-1 rounded-xl border-[1.5px] border-amber-300 bg-white font-bold" (click)="cancelPending()">{{ t.cancelPayment }}</button>
           </div>
         </div>
-      } @else if (b.paymentInProgress) {
-        <p class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">{{ t.someonePaying }}</p>
+      } @else if (b.reservedMinor > 0) {
+        <p class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          {{ b.availableMinor > 0 ? t.reservedBanner(money(b.reservedMinor)) : t.someonePaying }}
+        </p>
       }
 
       @if (tipsEnabled()) {
@@ -174,9 +187,12 @@
           <div class="sum"><span>{{ t.subtotal }}</span><span>{{ money(b.subtotalMinor) }}</span></div>
           @if (b.serviceChargeMinor) { <div class="sum"><span>{{ t.serviceChargeShort }}</span><span>{{ money(b.serviceChargeMinor) }}</span></div> }
           @if (b.taxMinor) { <div class="sum"><span>{{ b.taxIncluded ? t.vatIncludedShort : t.vatShort }}</span><span>{{ money(b.taxMinor) }}</span></div> }
+          <div class="sum"><span>{{ t.billTotal }}</span><span>{{ money(b.totalMinor) }}</span></div>
           @if (b.paidMinor) { <div class="sum"><span>{{ t.alreadyPaid }}</span><span>−{{ money(b.paidMinor) }}</span></div> }
         }
-        <div class="sum"><span>{{ t.orderTotal }}</span><span>{{ money(due()) }}</span></div>
+        <div class="sum"><span>{{ t.leftToPay }}</span><span>{{ money(b.remainingMinor) }}</span></div>
+        @if (b.reservedMinor) { <div class="sum"><span>{{ t.beingPaidByOthers }}</span><span>−{{ money(b.reservedMinor) }}</span></div> }
+        @if (split || b.reservedMinor) { <div class="sum font-semibold text-ink"><span>{{ t.yourShare }}</span><span>{{ money(share()) }}</span></div> }
         @if (discount()) { <div class="sum"><span>{{ t.promotion }}</span><span>−{{ money(discount()) }}</span></div> }
         @if (tipMinor()) { <div class="sum"><span>{{ t.tip }}</span><span>{{ money(tipMinor()) }}</span></div> }
       </div>
@@ -201,3 +217,8 @@
     </div>
   }
 </div>
+
+@if (splitOpen() && bill(); as b) {
+  <df-split-sheet [bill]="b" [current]="selection()" (billChange)="setBill($event)"
+                  (confirmed)="onSplitConfirmed($event)" (removed)="onSplitRemoved()" (closed)="onSplitClosed()" />
+}

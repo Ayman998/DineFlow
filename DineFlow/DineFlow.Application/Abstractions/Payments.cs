@@ -40,6 +40,9 @@ public class InvalidWebhookException(string message) : Exception(message);
 public interface IPaymentNotifier
 {
     Task PaymentSucceededAsync(PaymentNotice notice, CancellationToken ct);
+
+    /// <summary>Tells the guests at a table that their bill changed, e.g. someone selected items or set a split.</summary>
+    Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct);
 }
 
 /// <param name="TenantId">Carried explicitly: webhooks arrive without a signed-in tenant.</param>
@@ -47,7 +50,8 @@ public record PaymentNotice(
     Guid TenantId,
     Guid VenueId, Guid ServiceLocationId, string LocationType, string LocationLabel, string? AreaName,
     Guid PaymentId, string Reference, string Currency, long AmountMinor, long TipMinor,
-    long RemainingMinor, bool FullyPaid);
+    long RemainingMinor, bool FullyPaid,
+    PaymentMode Mode, int? Shares, int? SplitPeople, int ItemCount);
 
 /// <summary>Sends e-mail such as receipts. Development writes .eml files instead of sending.</summary>
 public interface IEmailSender

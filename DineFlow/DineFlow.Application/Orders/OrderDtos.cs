@@ -111,7 +111,7 @@ internal static class OrderMapping
     public static OrderDto ToDto(this Order o) => new(
         o.Id, o.Number, o.Status, o.VenueId, o.ServiceLocationId, o.LocationType, o.LocationLabel, o.AreaName,
         o.GuestSessionId, o.Currency,
-        o.Lines.Select(l => new OrderLineDto(
+        o.Lines.OrderBy(l => l.Position).Select(l => new OrderLineDto(
             l.MenuItemId, l.Name, l.NameAr, l.Quantity, l.UnitPriceMinor, l.LineTotalMinor,
             l.Modifiers.Select(ToDto).ToList(), l.Note)).ToList(),
         o.Note, o.SubtotalMinor, o.ServiceChargeMinor, o.TaxMinor, o.TaxIncluded, o.TotalMinor,

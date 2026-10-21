@@ -72,7 +72,7 @@ public class Order : Entity, ITenantOwned
         CreatedAt = now;
         UpdatedAt = now;
 
-        foreach (var line in lines) line.AttachTo(this);
+        for (var i = 0; i < lines.Count; i++) lines[i].AttachTo(this, i);
         _lines.AddRange(lines);
 
         var price = OrderPricing.Calculate(lines.Sum(l => l.LineTotalMinor), serviceChargeBasisPoints, taxBasisPoints, taxIncluded);
@@ -133,6 +133,8 @@ public class OrderLine : Entity, ITenantOwned
 
     public Guid TenantId { get; private set; }
     public Guid OrderId { get; private set; }
+    /// <summary>Where the line sits on the order, 0 first. Lines are always shown and split in this order.</summary>
+    public int Position { get; private set; }
     public Guid MenuItemId { get; private set; }
     public string Name { get; private set; } = string.Empty;
     public string? NameAr { get; private set; }
@@ -161,7 +163,11 @@ public class OrderLine : Entity, ITenantOwned
         LineTotalMinor = checked(UnitPriceMinor * quantity);
     }
 
-    internal void AttachTo(Order order) => OrderId = order.Id;
+    internal void AttachTo(Order order, int position)
+    {
+        OrderId = order.Id;
+        Position = position;
+    }
 }
 
 /// <summary>A chosen option on an order line, e.g. Doneness: Medium well (+0).</summary>

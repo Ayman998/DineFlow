@@ -16,6 +16,7 @@ using DineFlow.Infrastructure.Persistence;
 using DineFlow.Infrastructure.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
@@ -34,7 +35,7 @@ public sealed class TestHost : IDisposable
     public TestHost()
     {
         _connection.Open();
-        Db = new SqliteAppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, _tenant);
+        Db = new SqliteAppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).AddInterceptors(SaveHook).Options, _tenant);
         Db.Database.EnsureCreated();
 
         QrTokens = new QrTokenService(Options.Create(new QrOptions { TokenKey = RandomKey() }));
@@ -54,14 +55,16 @@ public sealed class TestHost : IDisposable
         Images = new MenuImageService(Files, _tenant);
         CartQuotes = new CartQuoteService(Db, Clock);
         GuestOrders = new GuestOrderService(Db, CartQuotes, Notifier, Clock);
-        MerchantOrders = new MerchantOrderService(Db, Notifier, Clock);
-
         var paymentOptions = Options.Create(new PaymentOptions());
         Sandbox = new SandboxPaymentProvider(Options.Create(new SandboxOptions { SecretKey = RandomKey() }), guestOptions, Clock);
-        Bills = new BillService(Db, Sandbox, paymentOptions, Clock);
+        Bills = new BillService(Db, Sandbox, PaymentNotifier, paymentOptions, Clock);
+        MerchantOrders = new MerchantOrderService(Db, Notifier, Bills, Clock);
         Promotions = new PromotionService(Db, _tenant, Bills, Clock);
         Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, paymentOptions, guestOptions, Clock);
     }
+
+    /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
+    public SaveInterceptor SaveHook { get; } = new();
 
     /// <summary>Controllable "now" for every service; starts at the real current time.</summary>
     public FakeTimeProvider Clock { get; } = new(DateTimeOffset.UtcNow);
@@ -87,6 +90,42 @@ public sealed class TestHost : IDisposable
     public BillService Bills { get; }
     public PromotionService Promotions { get; }
     public PaymentService Payments { get; }
+
+    /// <summary>
+    /// Another request running at the same time as the main one: its own DbContext (and so its own
+    /// view of the data) on the same database, with the bill and payment services on top.
+    /// </summary>
+    public Scope NewScope()
+    {
+        var db = new SqliteAppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, _tenant);
+        var paymentOptions = Options.Create(new PaymentOptions());
+        var bills = new BillService(db, Sandbox, PaymentNotifier, paymentOptions, Clock);
+        var promotions = new PromotionService(db, _tenant, bills, Clock);
+        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, paymentOptions,
+            Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock);
+        return new Scope(db, bills, payments);
+    }
+
+    public sealed record Scope(AppDbContext Db, BillService Bills, PaymentService Payments) : IDisposable
+    {
+        public void Dispose() => Db.Dispose();
+    }
+
+    public sealed class SaveInterceptor : SaveChangesInterceptor
+    {
+        public Func<Task>? BeforeNextSave { get; set; }
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (BeforeNextSave is { } run)
+            {
+                BeforeNextSave = null;
+                await run();
+            }
+            return result;
+        }
+    }
 
     public Guid? CurrentTenant
     {
@@ -155,10 +194,17 @@ public sealed class TestHost : IDisposable
     public sealed class RecordingPaymentNotifier : IPaymentNotifier
     {
         public List<PaymentNotice> Notices { get; } = [];
+        public List<(Guid LocationId, string Reason)> TableChanges { get; } = [];
 
         public Task PaymentSucceededAsync(PaymentNotice notice, CancellationToken ct)
         {
             Notices.Add(notice);
+            return Task.CompletedTask;
+        }
+
+        public Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct)
+        {
+            TableChanges.Add((serviceLocationId, reason));
             return Task.CompletedTask;
         }
     }

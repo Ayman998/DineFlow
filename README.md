@@ -56,6 +56,19 @@ That serves both apps. Sign in to the merchant portal at http://localhost:4300, 
 
 On the guest side, **Pay Bill** opens checkout for everything the table has ordered. The guest picks a tip (the venue's "Most common" one starts selected), can enter a promo code and choose a payment method, then pays on the provider's page. The demo seeds two codes: **WELCOME10** (10% off, up to AED 50) and **NEXT15**, which is offered on the payment confirmation for the next visit. Manage codes under **Promotions** in the merchant portal. When the payment goes through, the guest sees the confirmation and can e-mail a receipt. Staff get a "Payment received" alert with the tip and what's still owed. Once nothing is left, the table's bill closes, and the next order opens a new one.
 
+### Splitting the bill
+
+**Split the bill** on the checkout screen lets each guest pay part of the bill. All amounts include service charge and VAT:
+
+- **Equally:** set how many people are at the table and how many you're paying for. The head count is saved on the bill, so everyone at the table sees the same split. Shares round down, and whoever pays the last share pays exactly what's left.
+- **By item:** pick the items you had. Each portion of an order line is its own item (two Cokes are two items), priced with its share of service charge and VAT. Tapping an item holds it for you for 10 minutes. Other guests see "Being selected by another guest" and can't pay for it.
+- **Custom:** any amount up to what's left.
+- **Full:** everything that's left, apart from anything other guests have selected or are paying for.
+
+**Remove split** goes back to paying the full remaining bill. Equal and item splits don't mix on one bill. While anyone holds or pays items, the bill can't be split equally. Once anyone pays an amount, nobody can pick new items, though items already held can still be paid. Staff can't reject an order whose items have been paid for or are being paid for. They get a "refund it instead" error, because refunds arrive with Transactions.
+
+Guests can act at the same time without paying the same money twice. Each bill has a revision number that the database checks on every save. Starting a payment, holding items and changing the split all bump it. When two guests act at once, one save fails and that request is worked out again with the other guest's change in view. A unique index also allows only one claim per item. This needs no Redis. The tests reproduce both races, and randomized split sequences check that paid + left always equals the total.
+
 Until a real PSP is connected, payments go through the built-in **sandbox provider**. It's a hosted test page at `/sandbox/pay/…` that takes these test cards (any future expiry, any CVC):
 
 | Card | Result |
@@ -119,16 +132,18 @@ npm --prefix web test
 | `POST /v1/public/sessions/{id}/orders`, `GET …/orders` | guest token | Place an order (idempotent per `clientRequestId`); the table's orders |
 | `GET /v1/merchant/venues/{id}/orders?filter=Active\|New\|Completed\|Rejected`, `GET …/orders/counts` | merchant | The order queue and badge counts |
 | `POST /v1/merchant/orders/{id}/status` | merchant | Accept, reject (with reason), preparing, ready, served |
-| `GET /v1/public/sessions/{id}/bill` | guest token | The table's bill: orders, totals, paid and remaining, tip options, payment methods |
+| `GET /v1/public/sessions/{id}/bill` | guest token | The table's bill: orders, items with who holds or paid them, paid, left, what others are paying, what this guest can pay, tip options, payment methods |
+| `PUT /v1/public/sessions/{id}/split` | guest token | Set how many people split equally (`people`), or remove the split (`null`) |
+| `POST /v1/public/sessions/{id}/allocations/reserve` | guest token | Hold exactly these items for this guest; reports any another guest already has |
 | `POST /v1/public/sessions/{id}/promotions/validate` | guest token | Check a promo code against the bill |
-| `POST /v1/public/payments`, `GET …/payments/{id}` | guest token | Start paying what's left (idempotent per `clientRequestId`); payment status |
+| `POST /v1/public/payments`, `GET …/payments/{id}` | guest token | Pay the rest (`Full`), equal shares, held items or a custom amount (idempotent per `clientRequestId`); payment status |
 | `POST /v1/public/payments/{id}/cancel`, `POST …/{id}/receipt` | guest token | The guest came back without paying; e-mail the receipt |
 | `POST /v1/webhooks/payments/{provider}` | provider (signed) | Payment results. Only a verified webhook marks a payment paid. Repeats are ignored |
 | `GET/POST /v1/merchant/promotions`, `PUT …/promotions/{id}` | merchant / manager | Promotion and voucher codes |
 
 ### Real-time
 
-SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged` and `paymentReceived` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
+SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged` and `paymentReceived` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
 Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress` or `promo_expired`.
 
@@ -151,7 +166,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 2 | Menu admin + guest e-menu, modifiers, schedules, photos ✅ | E4, E31 |
 | 3 | Cart, server-validated order, standalone queue, staff alerts (SignalR) ✅ | E6, E10 |
 | 4 | Bill, pay in full, sandbox PSP + signed webhook, ledger, tips, promo codes, e-mail receipt ✅ | E5, E8, E30 |
-| 5 | Split ledger: equal and by item, with concurrency locks (adds Redis) | E7 |
+| 5 | Split the bill: equal, by item and custom, with item holds and concurrency protection ✅ | E7 |
 | 6 | Reviews and feedback | E27 |
 | 7 | Merchant overview, tables, transactions, refunds | E11, E12 |
 | 8 | Payment links | E16 |

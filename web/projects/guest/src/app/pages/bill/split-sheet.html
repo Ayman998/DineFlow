@@ -1,0 +1,122 @@
+@let t = i18n.t();
+@let b = bill();
+
+<div class="fixed inset-0 z-30 mx-auto flex max-w-md flex-col bg-white" role="dialog" aria-modal="true" aria-labelledby="split-title">
+  <header class="flex items-center gap-2 px-3 pt-3 pb-2">
+    <button type="button" class="flex size-11 items-center justify-center rounded-full bg-surface" [attr.aria-label]="t.close" (click)="closed.emit()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+    <h1 id="split-title" class="text-lg font-extrabold">{{ tab() === 'Items' ? t.payForItems : t.splitTitle }}</h1>
+  </header>
+
+  <div class="flex-1 overflow-y-auto px-5 pt-1 pb-6">
+    <div class="flex gap-1 rounded-[14px] bg-surface p-1" role="tablist" [attr.aria-label]="t.howToPay">
+      @for (mode of tabs; track mode) {
+        <button type="button" role="tab" class="split-tab" [class.split-tab-on]="tab() === mode" [attr.aria-selected]="tab() === mode"
+                [disabled]="tabDisabled(mode)" (click)="tab.set(mode); error.set(null)">{{ tabLabel(mode) }}</button>
+      }
+    </div>
+    @if (equalLocked()) {
+      <p class="mt-2 text-[13px] text-ink-muted">{{ t.equalUnavailable }}</p>
+    } @else if (itemsLocked()) {
+      <p class="mt-2 text-[13px] text-ink-muted">{{ t.itemsUnavailable }}</p>
+    }
+
+    @switch (tab()) {
+      @case ('Full') {
+        <p class="mt-4 mb-1 text-sm leading-relaxed text-ink-muted">{{ t.fullIntro }}</p>
+      }
+      @case ('Equal') {
+        <p class="mt-4 mb-1 text-sm leading-relaxed text-ink-muted">{{ t.equalIntro }}</p>
+        <div class="flex items-center justify-between border-b border-line py-4">
+          <span class="flex items-center gap-2.5 text-[15px] font-bold">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+            {{ t.peopleAtTable }}
+          </span>
+          <span class="flex items-center gap-3">
+            <button type="button" class="qty-btn size-12 text-xl" [attr.aria-label]="t.fewerPeople" [disabled]="people() <= minPeople()" (click)="setPeople(people() - 1)">−</button>
+            <span class="min-w-5 text-center text-lg font-extrabold" aria-live="polite">{{ people() }}</span>
+            <button type="button" class="qty-btn size-12 text-xl" [attr.aria-label]="t.morePeople" [disabled]="people() >= maxPeople" (click)="setPeople(people() + 1)">+</button>
+          </span>
+        </div>
+        <div class="flex items-center justify-between border-b border-line py-4">
+          <span class="flex items-center gap-2.5 text-[15px] font-bold">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+            {{ t.peopleYouPayFor }}
+          </span>
+          <span class="flex items-center gap-3">
+            <button type="button" class="qty-btn size-12 text-xl" [attr.aria-label]="t.payForFewer" [disabled]="shares() <= 1" (click)="setShares(shares() - 1)">−</button>
+            <span class="min-w-5 text-center text-lg font-extrabold" aria-live="polite">{{ shares() }}</span>
+            <button type="button" class="qty-btn size-12 text-xl" [attr.aria-label]="t.payForMore" [disabled]="shares() >= sharesLeft()" (click)="setShares(shares() + 1)">+</button>
+          </span>
+        </div>
+        @if (b.split.sharesTaken) {
+          <p class="mt-2 text-[13px] text-ink-muted">{{ t.sharesTakenNote(b.split.sharesTaken) }}</p>
+        }
+      }
+      @case ('Items') {
+        <p class="mt-3.5 mb-1 text-sm leading-relaxed text-ink-muted">{{ t.itemsIntro }}</p>
+        <ul>
+          @for (unit of b.units; track unit.orderLineId + ':' + unit.unitIndex) {
+            @let lock = lockText(unit);
+            @let selected = unit.mine && unit.status === 'Selected';
+            <li class="flex min-h-[60px] items-center gap-2.5 border-b border-surface py-1.5">
+              <span class="min-w-0 flex-1">
+                <span class="block text-[15px] font-semibold">{{ unitName(unit) }}</span>
+                @if (unit.options.length) { <span class="block text-[12px] text-ink-muted">{{ unit.options.join(' · ') }}</span> }
+              </span>
+              <span class="min-w-[56px] text-end text-sm text-ink-muted">{{ money(unit.amountMinor) }}</span>
+              @if (lock) {
+                <span class="max-w-[132px] rounded-[10px] bg-surface px-2.5 py-1 text-center text-[12px] font-bold text-ink-muted">{{ lock }}</span>
+              } @else {
+                <button type="button" class="qty-btn" [class.qty-btn-on]="selected" [disabled]="busy() || (itemsLocked() && !selected)"
+                        [attr.aria-pressed]="selected" [attr.aria-label]="selected ? t.selectedItem(unitName(unit)) : t.addItem(unitName(unit))"
+                        (click)="toggle(unit)">{{ selected ? '✓' : '+' }}</button>
+              }
+            </li>
+          }
+        </ul>
+      }
+      @case ('Custom') {
+        <p class="mt-4 mb-3 text-sm leading-relaxed text-ink-muted">{{ t.customIntro }}</p>
+        @let parsed = amount();
+        <label for="custom-amount" class="mb-1.5 block text-sm font-bold">{{ t.customLabel }} ({{ b.currency }})</label>
+        <input id="custom-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+               inputmode="decimal" autocomplete="off" maxlength="12" [value]="amountText()" (input)="amountText.set($any($event.target).value)"
+               aria-describedby="custom-amount-help" />
+        <p id="custom-amount-help" class="mt-1 text-[13px]"
+           [class]="(parsed && 'error' in parsed) || (parsed && 'minor' in parsed && parsed.minor > b.availableMinor) ? 'font-semibold text-[#B42318]' : 'text-ink-muted'">
+          @if (parsed && 'error' in parsed) { {{ t.customInvalid }} }
+          @else if (parsed && 'minor' in parsed && parsed.minor > b.availableMinor) { {{ t.customTooHigh(money(b.availableMinor)) }} }
+          @else { {{ t.customHint(money(b.availableMinor)) }} }
+        </p>
+      }
+    }
+
+    <div class="mt-5 rounded-2xl bg-[#F6F7F9] p-4" aria-live="polite">
+      @if (tab() === 'Equal') {
+        <div class="sum"><span>{{ t.billTotal }}</span><span>{{ money(b.totalMinor) }}</span></div>
+        <div class="sum"><span>{{ t.alreadyPaid }}</span><span>{{ money(b.paidMinor) }}</span></div>
+      }
+      @if (b.reservedMinor) {
+        <div class="sum"><span>{{ t.beingPaidByOthers }}</span><span>{{ money(b.reservedMinor) }}</span></div>
+      }
+      <div class="sum"><span>{{ t.leftToPay }}</span><span class="font-bold text-ink">{{ money(b.remainingMinor) }}</span></div>
+      <div class="mt-2 flex justify-between border-t border-line pt-3 text-xl font-extrabold">
+        <span>{{ t.yourShare }}</span><span class="text-brand">{{ money(yourShare()) }}</span>
+      </div>
+      <p class="mt-1 text-xs text-ink-muted">{{ t.inclusiveNote }}</p>
+    </div>
+
+    @if (error()) {
+      <p class="mt-3 rounded-xl bg-[#FEE4E2] px-4 py-3 text-sm text-[#B42318]" role="alert">{{ error() }}</p>
+    }
+  </div>
+
+  <div class="flex gap-3 px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
+    <button type="button" class="min-h-14 flex-1 rounded-[14px] border-[1.5px] border-[#FDA29B] bg-[#FEF3F2] font-bold text-[#B42318] disabled:opacity-50"
+            [disabled]="busy()" (click)="remove()">{{ t.removeSplit }}</button>
+    <button type="button" class="min-h-14 flex-1 rounded-[14px] bg-brand font-bold text-white disabled:bg-[#D0D5DD] disabled:text-ink-muted"
+            [disabled]="!canConfirm()" (click)="confirm()">{{ t.confirm }}</button>
+  </div>
+</div>

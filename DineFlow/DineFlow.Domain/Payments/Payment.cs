@@ -14,7 +14,7 @@ namespace DineFlow.Domain.Payments;
 /// </remarks>
 public class Payment : Entity, ITenantOwned
 {
-    /// <summary>How long an unfinished payment blocks another one on the same bill.</summary>
+    /// <summary>How long an unfinished payment keeps its part of the bill reserved.</summary>
     public static readonly TimeSpan InFlightLifetime = TimeSpan.FromMinutes(15);
 
     public Guid TenantId { get; private set; }
@@ -31,6 +31,11 @@ public class Payment : Entity, ITenantOwned
     /// <summary>The provider's hosted payment page; returned again if the guest's request is retried.</summary>
     public string? CheckoutUrl { get; private set; }
     public PaymentMethod Method { get; private set; }
+    /// <summary>How the guest chose what to pay: the rest of the bill, equal shares, items or an amount.</summary>
+    public PaymentMode Mode { get; private set; }
+    /// <summary>Equal split: how many shares this pays, out of <see cref="SplitPeople"/>.</summary>
+    public int? Shares { get; private set; }
+    public int? SplitPeople { get; private set; }
 
     public string Currency { get; private set; } = string.Empty;
     public long BillAmountMinor { get; private set; }
@@ -55,11 +60,13 @@ public class Payment : Entity, ITenantOwned
 
     public Payment(
         Guid tenantId, Guid venueId, Guid checkId, Guid guestSessionId, Guid clientRequestId,
-        string provider, PaymentMethod method, string currency,
+        string provider, PaymentMethod method, PaymentMode mode, int? shares, int? splitPeople, string currency,
         long billAmountMinor, long discountMinor, long tipMinor,
         Guid? promoCodeId, string? promoCode, string termsVersion, DateTimeOffset now)
     {
         if (billAmountMinor <= 0) throw new DomainException("There's nothing to pay.");
+        if (mode == PaymentMode.Equal && (shares is not > 0 || splitPeople is not > 1 || shares > splitPeople))
+            throw new DomainException("An equal-split payment needs its shares and the number of people.");
         if (discountMinor < 0 || discountMinor > billAmountMinor) throw new DomainException("The discount can't be more than the bill.");
         if (tipMinor < 0) throw new DomainException("The tip can't be negative.");
         if (tipMinor > billAmountMinor) throw new DomainException("The tip can't be more than the bill.");
@@ -72,6 +79,9 @@ public class Payment : Entity, ITenantOwned
         Reference = $"DF-{Id.ToString("N")[..8].ToUpperInvariant()}";
         Provider = provider;
         Method = method;
+        Mode = mode;
+        Shares = mode == PaymentMode.Equal ? shares : null;
+        SplitPeople = mode == PaymentMode.Equal ? splitPeople : null;
         Currency = currency;
         BillAmountMinor = billAmountMinor;
         DiscountMinor = discountMinor;
@@ -88,6 +98,9 @@ public class Payment : Entity, ITenantOwned
 
     /// <summary>Started but not finished, and recent enough to still be completed.</summary>
     public bool IsInFlight(DateTimeOffset now) => !IsFinal && now - CreatedAt < InFlightLifetime;
+
+    /// <summary>The last moment this payment can still complete.</summary>
+    public DateTimeOffset PayableUntil => CreatedAt + InFlightLifetime;
 
     public void AttachProvider(string providerPaymentId, string checkoutUrl, DateTimeOffset now)
     {
@@ -136,6 +149,16 @@ public enum PaymentStatus
     Succeeded = 3,
     Failed = 4,
     Cancelled = 5
+}
+
+/// <summary>The split-payment selector (blueprint 4.3): full, equal, item or custom amount.</summary>
+public enum PaymentMode
+{
+    /// <summary>Everything left that nobody else is paying for.</summary>
+    Full = 0,
+    Equal = 1,
+    Items = 2,
+    Custom = 3
 }
 
 public enum PaymentMethod

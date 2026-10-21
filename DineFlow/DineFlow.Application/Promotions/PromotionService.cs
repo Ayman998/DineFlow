@@ -26,7 +26,8 @@ public record PromoCodeRequest(
     bool IsActive,
     bool ShowAfterPayment);
 
-public record PromoValidateRequest([Required, StringLength(20)] string Code);
+/// <param name="AmountMinor">The guest's share of the bill they're about to pay; everything they can pay when omitted.</param>
+public record PromoValidateRequest([Required, StringLength(20)] string Code, [Range(1, 100_000_000)] long? AmountMinor = null);
 
 /// <summary>A code that applies to this bill, and how much it takes off what's left to pay.</summary>
 public record PromoQuoteDto(string Code, string Headline, long DiscountMinor);
@@ -39,14 +40,18 @@ public class PromotionService(IAppDbContext db, ITenantContext tenant, BillServi
 {
     // ---- Guests ----
 
-    /// <summary>Checks a code against the table's bill, server side only (P1-PAY-08).</summary>
-    public async Task<PromoQuoteDto> ValidateAsync(Guid sessionId, string code, CancellationToken ct)
+    /// <summary>
+    /// Checks a code against what the guest is about to pay, server side only (P1-PAY-08):
+    /// <paramref name="amountMinor"/> is their share of the bill, or everything they can pay when null.
+    /// </summary>
+    public async Task<PromoQuoteDto> ValidateAsync(Guid sessionId, string code, long? amountMinor, CancellationToken ct)
     {
         var bill = await bills.GetForSessionAsync(sessionId, ct);
-        if (bill.Status != BillStatus.Open || bill.RemainingMinor <= 0)
+        if (bill.Status != BillStatus.Open || bill.AvailableMinor <= 0)
             throw AppException.Conflict("nothing_to_pay", "There's nothing left to pay on this bill.");
 
-        var (promo, evaluation) = await EvaluateAsync(code, bill.RemainingMinor, ct);
+        var share = Math.Min(amountMinor ?? bill.AvailableMinor, bill.AvailableMinor);
+        var (promo, evaluation) = await EvaluateAsync(code, share, ct);
         return new PromoQuoteDto(promo.Code, promo.Headline, evaluation.DiscountMinor);
     }
 
