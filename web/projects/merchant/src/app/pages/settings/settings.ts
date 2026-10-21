@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 
-import { MerchantApi, Venue, VenueSettings } from '../../core/api';
+import { MerchantApi, ReviewPlatform, Venue, VenueSettings } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 
@@ -45,8 +45,15 @@ export class Settings implements OnInit {
     /** Comma-separated percentages, e.g. "5, 10, 15". */
     tipPresets: ['5, 10, 15', [Validators.required, tipPresetsValidator]],
     /** One of the presets as a percentage, or '' for none. */
-    mostCommonTip: ['10']
+    mostCommonTip: ['10'],
+    reviewsEnabled: [true],
+    /** '' for no public review platform. */
+    reviewPlatform: ['' as ReviewPlatform | ''],
+    reviewUrl: ['', [Validators.maxLength(500), Validators.pattern(/^(https:\/\/\S+)?$/)]],
+    feedbackTitle: ['', Validators.maxLength(80)]
   });
+
+  protected readonly platforms: ReviewPlatform[] = ['Google', 'TripAdvisor', 'Foursquare'];
 
   /** The presets as typed, for the "Most common" picker. */
   protected tipPresetOptions(): number[] {
@@ -82,7 +89,11 @@ export class Settings implements OnInit {
       return;
     }
 
-    const { serviceChargePercent, taxPercent, tipPresets, mostCommonTip, ...rest } = value;
+    const { serviceChargePercent, taxPercent, tipPresets, mostCommonTip, reviewPlatform, reviewUrl, feedbackTitle, ...rest } = value;
+    if (reviewPlatform && !reviewUrl.trim()) {
+      this.error.set('Add the link to your review page, or choose no public review platform.');
+      return;
+    }
     const presets = (parsePercents(tipPresets) ?? []).map(p => Math.round(p * 100));
     const mostCommon = mostCommonTip === '' ? null : Math.round(Number(mostCommonTip) * 100);
     const settings: VenueSettings = {
@@ -92,7 +103,10 @@ export class Settings implements OnInit {
       serviceChargeBasisPoints: Math.round(serviceChargePercent * 100),
       taxBasisPoints: Math.round(taxPercent * 100),
       tipPresetsBasisPoints: presets,
-      mostCommonTipBasisPoints: mostCommon !== null && presets.includes(mostCommon) ? mostCommon : null
+      mostCommonTipBasisPoints: mostCommon !== null && presets.includes(mostCommon) ? mostCommon : null,
+      reviewPlatform: reviewPlatform || null,
+      reviewUrl: reviewPlatform ? reviewUrl.trim() : null,
+      feedbackTitle: feedbackTitle.trim() || null
     };
 
     this.saving.set(true);
@@ -128,7 +142,10 @@ function toForm(venue: Venue) {
     serviceChargePercent: venue.serviceChargeBasisPoints / 100,
     taxPercent: venue.taxBasisPoints / 100,
     tipPresets: venue.tipPresetsBasisPoints.map(bp => bp / 100).join(', '),
-    mostCommonTip: venue.mostCommonTipBasisPoints === null ? '' : String(venue.mostCommonTipBasisPoints / 100)
+    mostCommonTip: venue.mostCommonTipBasisPoints === null ? '' : String(venue.mostCommonTipBasisPoints / 100),
+    reviewPlatform: venue.reviewPlatform ?? ('' as const),
+    reviewUrl: venue.reviewUrl ?? '',
+    feedbackTitle: venue.feedbackTitle ?? ''
   };
 }
 

@@ -44,6 +44,9 @@ public class Order : Entity, ITenantOwned
     public string? Note { get; private set; }
     public string? RejectReason { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
+    /// <summary>The staff member who accepted the order, and the one who marked it served (for staff ratings).</summary>
+    public Guid? AcceptedByStaffId { get; private set; }
+    public Guid? ServedByStaffId { get; private set; }
 
     public IReadOnlyList<OrderLine> Lines => _lines;
 
@@ -92,7 +95,7 @@ public class Order : Entity, ITenantOwned
     /// Moves the order along the kitchen flow. Allowed: Submitted → Accepted or Rejected;
     /// Accepted → Preparing, Ready or Completed; Preparing → Ready or Completed; Ready → Completed.
     /// </summary>
-    public void TransitionTo(OrderStatus next, string? reason, DateTimeOffset now)
+    public void TransitionTo(OrderStatus next, string? reason, DateTimeOffset now, Guid? staffUserId = null)
     {
         if (!CanTransitionTo(next))
             throw new DomainException($"An order that is {Status} can't become {next}.");
@@ -102,6 +105,8 @@ public class Order : Entity, ITenantOwned
 
         Status = next;
         UpdatedAt = now;
+        if (next == OrderStatus.Accepted) AcceptedByStaffId = staffUserId;
+        if (next == OrderStatus.Completed) ServedByStaffId = staffUserId;
     }
 
     public bool CanTransitionTo(OrderStatus next) => (Status, next) switch

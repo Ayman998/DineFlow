@@ -5,6 +5,7 @@ using DineFlow.Api.Hubs;
 using DineFlow.Api.Tenancy;
 using DineFlow.Application;
 using DineFlow.Application.Abstractions;
+using DineFlow.Application.Reviews;
 using DineFlow.Infrastructure;
 using DineFlow.Infrastructure.Persistence;
 using DineFlow.Infrastructure.Security;
@@ -25,6 +26,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, ClaimsTenantContext>();
 builder.Services.AddScoped<IOrderNotifier, SignalROrderNotifier>();
 builder.Services.AddScoped<IPaymentNotifier, SignalRPaymentNotifier>();
+builder.Services.AddScoped<IReviewNotifier, SignalRReviewNotifier>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApplication();

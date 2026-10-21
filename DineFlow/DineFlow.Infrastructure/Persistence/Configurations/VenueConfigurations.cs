@@ -10,6 +10,9 @@ public class VenueConfiguration : IEntityTypeConfiguration<Venue>
     public void Configure(EntityTypeBuilder<Venue> builder)
     {
         builder.ToTable("Venues");
+        builder.Property(v => v.ReviewPlatform).HasConversion<string>().HasMaxLength(20);
+        builder.Property(v => v.ReviewUrl).HasMaxLength(500);
+        builder.Property(v => v.FeedbackTitle).HasMaxLength(80);
         builder.HasKey(v => v.Id);
         builder.Property(v => v.Name).HasMaxLength(120).IsRequired();
         builder.Property(v => v.Currency).HasMaxLength(3).IsFixedLength().IsRequired();

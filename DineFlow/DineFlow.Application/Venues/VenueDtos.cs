@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DineFlow.Domain.Reviews;
 
 namespace DineFlow.Application.Venues;
 
@@ -18,7 +19,11 @@ public record VenueDto(
     bool PricesIncludeTax,
     bool TipsEnabled,
     IReadOnlyList<int> TipPresetsBasisPoints,
-    int? MostCommonTipBasisPoints);
+    int? MostCommonTipBasisPoints,
+    bool ReviewsEnabled,
+    ReviewPlatform? ReviewPlatform,
+    string? ReviewUrl,
+    string? FeedbackTitle);
 
 public record VenueSettingsRequest(
     [Required, StringLength(120, MinimumLength = 1)] string Name,
@@ -38,4 +43,11 @@ public record VenueSettingsRequest(
     /// <summary>One to four tip suggestions in basis points, e.g. [500, 1000, 1500].</summary>
     IReadOnlyList<int>? TipPresetsBasisPoints = null,
     /// <summary>The suggestion highlighted as "Most common"; must be one of the presets.</summary>
-    int? MostCommonTipBasisPoints = 1000);
+    int? MostCommonTipBasisPoints = 1000,
+    /// <summary>Ask guests to rate their visit after paying.</summary>
+    bool ReviewsEnabled = true,
+    /// <summary>Where 4–5 star guests are invited to post publicly; null for nowhere.</summary>
+    ReviewPlatform? ReviewPlatform = null,
+    [Url, StringLength(500)] string? ReviewUrl = null,
+    /// <summary>Heading of the private feedback form for 1–3 stars.</summary>
+    [StringLength(80)] string? FeedbackTitle = null);

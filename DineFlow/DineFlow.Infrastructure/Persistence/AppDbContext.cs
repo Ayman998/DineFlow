@@ -1,3 +1,5 @@
+using DineFlow.Domain.Audit;
+using DineFlow.Domain.Reviews;
 using System.Linq.Expressions;
 using DineFlow.Application.Abstractions;
 using DineFlow.Domain.Bills;
@@ -34,6 +36,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Check> Checks => Set<Check>();
     public DbSet<ItemClaim> ItemClaims => Set<ItemClaim>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();

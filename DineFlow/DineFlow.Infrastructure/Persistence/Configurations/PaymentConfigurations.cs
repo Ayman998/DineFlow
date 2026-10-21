@@ -1,4 +1,6 @@
+using DineFlow.Domain.Audit;
 using DineFlow.Domain.Bills;
+using DineFlow.Domain.Reviews;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
 using DineFlow.Domain.Promotions;
@@ -82,6 +84,46 @@ public class ItemClaimConfiguration : IEntityTypeConfiguration<ItemClaim>
         builder.HasIndex(c => new { c.OrderLineId, c.UnitIndex }).IsUnique();
         builder.HasIndex(c => c.CheckId);
         builder.HasIndex(c => c.PaymentId);
+    }
+}
+
+public class ReviewConfiguration : IEntityTypeConfiguration<Review>
+{
+    public void Configure(EntityTypeBuilder<Review> builder)
+    {
+        builder.ToTable("Reviews");
+        builder.HasKey(r => r.Id);
+        builder.Property(r => r.Comment).HasMaxLength(Review.MaxCommentLength);
+        builder.Property(r => r.ContactName).HasMaxLength(100);
+        builder.Property(r => r.ContactEmail).HasMaxLength(254);
+        builder.Property(r => r.ContactPhone).HasMaxLength(30);
+        builder.Property(r => r.PublicPlatform).HasConversion<string>().HasMaxLength(20);
+        builder.Ignore(r => r.IsPositive);
+        builder.Ignore(r => r.HasContact);
+
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Venue>().WithMany().HasForeignKey(r => r.VenueId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Payment>().WithMany().HasForeignKey(r => r.PaymentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Check>().WithMany().HasForeignKey(r => r.CheckId).OnDelete(DeleteBehavior.Restrict);
+
+        // One rating per paid visit.
+        builder.HasIndex(r => r.PaymentId).IsUnique();
+        builder.HasIndex(r => new { r.VenueId, r.CreatedAt });
+        builder.HasIndex(r => new { r.VenueId, r.StaffUserId });
+    }
+}
+
+public class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEntry>
+{
+    public void Configure(EntityTypeBuilder<AuditEntry> builder)
+    {
+        builder.ToTable("AuditEntries");
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Action).HasMaxLength(60).IsRequired();
+        builder.Property(a => a.ObjectType).HasMaxLength(60).IsRequired();
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(a => new { a.TenantId, a.CreatedAt });
+        builder.HasIndex(a => new { a.ObjectType, a.ObjectId });
     }
 }
 

@@ -24,5 +24,5 @@ public class MerchantOrdersController(MerchantOrderService orders) : ControllerB
     /// <summary>Accept, reject (with a reason), start preparing, mark ready or mark served.</summary>
     [HttpPost("v1/merchant/orders/{orderId:guid}/status")]
     public Task<OrderDto> ChangeStatus(Guid orderId, ChangeOrderStatusRequest request, CancellationToken ct) =>
-        orders.ChangeStatusAsync(orderId, request, ct);
+        orders.ChangeStatusAsync(orderId, request, ct, User.UserId());
 }

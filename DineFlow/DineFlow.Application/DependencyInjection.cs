@@ -5,6 +5,7 @@ using DineFlow.Application.Menus;
 using DineFlow.Application.Orders;
 using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
+using DineFlow.Application.Reviews;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Venues;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,8 @@ public static class DependencyInjection
         services.AddScoped<BillService>();
         services.AddScoped<PromotionService>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<GuestReviewService>();
+        services.AddScoped<MerchantReviewService>();
         return services;
     }
 }

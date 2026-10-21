@@ -53,7 +53,8 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Bil
     public async Task<OrderDto> GetAsync(Guid orderId, CancellationToken ct) =>
         (await FindAsync(orderId, tracked: false, ct)).ToDto();
 
-    public async Task<OrderDto> ChangeStatusAsync(Guid orderId, ChangeOrderStatusRequest request, CancellationToken ct)
+    /// <param name="staffUserId">Who made the change; recorded when accepting and serving, for staff ratings.</param>
+    public async Task<OrderDto> ChangeStatusAsync(Guid orderId, ChangeOrderStatusRequest request, CancellationToken ct, Guid? staffUserId = null)
     {
         var order = await FindAsync(orderId, tracked: true, ct);
         if (order.Status == request.Status) return order.ToDto(); // e.g. two staff tapping "Accept" at once
@@ -64,7 +65,7 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Bil
         // Rejecting takes the order off the table's bill: make sure nobody has paid for it.
         if (request.Status == OrderStatus.Rejected) await bills.PrepareRejectionAsync(order, ct);
 
-        try { order.TransitionTo(request.Status, request.Reason, clock.GetUtcNow()); }
+        try { order.TransitionTo(request.Status, request.Reason, clock.GetUtcNow(), staffUserId); }
         catch (DomainException ex) { throw AppException.BadRequest("invalid_request", ex.Message); }
 
         await db.SaveChangesAsync(ct);

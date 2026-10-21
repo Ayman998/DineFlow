@@ -8,8 +8,10 @@ import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/menu';
 import { OrderUpdates, OrdersApi } from '../../core/orders';
 import { PENDING_PAYMENT_KEY, Payment, PaymentsApi, isFinal, safeUrl } from '../../core/payments';
-import { writeJson } from '../../core/storage';
+import { readJson, writeJson } from '../../core/storage';
+import { ReviewResult } from '../../core/reviews';
 import { OrderTracker } from '../../shared/order-tracker';
+import { ReviewFlow } from './review-flow';
 
 /** How long to keep checking before suggesting the guest goes back to the payment page. */
 const PATIENCE_MS = 60_000;
@@ -21,7 +23,7 @@ const PATIENCE_MS = 60_000;
  */
 @Component({
   selector: 'df-payment-page',
-  imports: [RouterLink, OrderTracker],
+  imports: [RouterLink, OrderTracker, ReviewFlow],
   templateUrl: './payment-page.html'
 })
 export class PaymentPage implements OnInit {
@@ -47,6 +49,10 @@ export class PaymentPage implements OnInit {
   protected readonly sending = signal(false);
   protected readonly sentTo = signal<string | null>(null);
   protected readonly receiptError = signal<string | null>(null);
+
+  /** The rating sheet (P1-REV-04) opens by itself once, after a successful payment. */
+  protected readonly reviewOpen = signal(false);
+  protected readonly reviewed = signal<ReviewResult | null>(null);
 
   protected readonly context = computed(() => this.session.current()?.context ?? null);
 
@@ -138,9 +144,21 @@ export class PaymentPage implements OnInit {
     });
   }
 
+  protected rateLater(): void {
+    this.reviewOpen.set(true);
+  }
+
+  protected onReviewDone(result: ReviewResult | null): void {
+    this.reviewOpen.set(false);
+    writeJson('session', reviewAskedKey(this.id()), true);
+    if (result) this.reviewed.set(result);
+  }
+
   private show(payment: Payment): void {
     const wasSucceeded = this.payment()?.status === 'Succeeded';
     this.payment.set(payment);
+    if (payment.status === 'Succeeded' && !wasSucceeded && payment.canReview && !readJson<boolean>('session', reviewAskedKey(payment.id)))
+      setTimeout(() => this.reviewOpen.set(true), 600);
     if (isFinal(payment.status)) writeJson('session', PENDING_PAYMENT_KEY, null);
 
     // After paying, the tracker shows Checkout done; Delivered once every order has been served.
@@ -152,4 +170,8 @@ export class PaymentPage implements OnInit {
       });
     }
   }
+}
+
+function reviewAskedKey(paymentId: string): string {
+  return `df.reviewAsked.${paymentId}`;
 }

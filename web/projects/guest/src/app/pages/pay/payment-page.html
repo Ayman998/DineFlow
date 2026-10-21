@@ -52,6 +52,19 @@
         </a>
       </section>
 
+      @if (reviewed() ?? (p.reviewRating ? { rating: p.reviewRating } : null); as rated) {
+        <p class="mx-5 mt-3.5 flex items-center justify-between rounded-[18px] border border-line bg-white px-[18px] py-3.5 text-sm font-semibold" role="status">
+          <span>{{ reviewed()?.feedbackSent ? t.feedbackThanks : t.reviewThanks }}</span>
+          <span class="text-[#F5A524]" [attr.aria-label]="t.yourRating(rated.rating)">{{ '★'.repeat(rated.rating) }}<span class="text-line">{{ '★'.repeat(5 - rated.rating) }}</span></span>
+        </p>
+      } @else if (p.canReview && !reviewOpen()) {
+        <button type="button" class="mx-5 mt-3.5 flex min-h-[52px] w-[calc(100%-2.5rem)] items-center justify-between rounded-[18px] border border-line bg-white px-[18px] text-sm font-bold text-brand"
+                (click)="rateLater()">
+          {{ t.rateVisit }}
+          <span class="text-[#D0D5DD]" aria-hidden="true">★★★★★</span>
+        </button>
+      }
+
       @if (p.nextVisitOffer; as offer) {
         <section class="mx-5 mt-3.5 flex items-center gap-3.5 rounded-[18px] bg-[#0B3B38] px-[18px] py-4 text-white">
           <div class="min-w-0 flex-1">
@@ -108,3 +121,7 @@
     </main>
   }
 </div>
+
+@if (reviewOpen() && payment()?.status === 'Succeeded') {
+  <df-review-flow [paymentId]="id()" (done)="onReviewDone($event)" />
+}

@@ -23,7 +23,16 @@ export interface Venue {
   tipPresetsBasisPoints: number[];
   /** The suggestion shown as "Most common" and pre-selected; null for none. */
   mostCommonTipBasisPoints: number | null;
+  /** Ask guests to rate their visit after paying. */
+  reviewsEnabled: boolean;
+  /** Where 4–5 star guests are invited to post publicly; null for nowhere. */
+  reviewPlatform: ReviewPlatform | null;
+  reviewUrl: string | null;
+  /** Heading of the private feedback form for 1–3 stars; null for the default. */
+  feedbackTitle: string | null;
 }
+
+export type ReviewPlatform = 'Google' | 'TripAdvisor' | 'Foursquare';
 
 export type VenueSettings = Omit<Venue, 'id' | 'isActive'>;
 
@@ -398,4 +407,150 @@ export class PromotionsApi {
   update(id: string, request: PromoCodeRequest) {
     return this.http.put<PromoCode>(`/v1/merchant/promotions/${id}`, request);
   }
+}
+
+// ---- Reviews (Sprint 6) ----
+
+export type ReviewKind = 'All' | 'Positive' | 'Constructive';
+export type ReviewSort = 'Recent' | 'Oldest' | 'Highest' | 'Lowest';
+
+export interface ReviewQuery {
+  venueId: string;
+  from?: string;
+  to?: string;
+  rating?: number | null;
+  kind?: ReviewKind;
+  withComment?: boolean;
+  sort?: ReviewSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ReviewStats {
+  count: number;
+  average: number | null;
+  /** Share of successful payments that left a rating (0–1). */
+  ratedShare: number | null;
+  /** Share of ratings whose guest opened the public review page (0–1). */
+  publicShare: number | null;
+}
+
+export interface ReviewRow {
+  id: string;
+  createdAt: string;
+  rating: number;
+  comment: string | null;
+  hasContact: boolean;
+  locationType: string;
+  locationLabel: string;
+  staffName: string | null;
+  publicLinkOpened: boolean;
+  followedUp: boolean;
+}
+
+export interface ReviewPage {
+  summary: { from: string; to: string; current: ReviewStats; perStar: number[]; previous: ReviewStats };
+  items: ReviewRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReviewDetail {
+  id: string;
+  createdAt: string;
+  rating: number;
+  comment: string | null;
+  positive: boolean;
+  hasContact: boolean;
+  publicPlatform: ReviewPlatform | null;
+  publicLinkOpened: boolean;
+  staffName: string | null;
+  followedUpAt: string | null;
+  followedUpBy: string | null;
+  locationType: string;
+  locationLabel: string;
+  areaName: string | null;
+  payment: {
+    reference: string;
+    paidAt: string | null;
+    method: string;
+    cardBrand: string | null;
+    cardLast4: string | null;
+    status: string;
+    mode: string;
+    shares: number | null;
+    splitPeople: number | null;
+    currency: string;
+    billAmountMinor: number;
+    discountMinor: number;
+    tipMinor: number;
+    amountMinor: number;
+  };
+  orders: { number: number; status: string; lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number }[];
+}
+
+export interface ReviewContact {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  consentAt: string;
+}
+
+export interface StaffRating {
+  staffUserId: string;
+  name: string;
+  count: number;
+  average: number;
+}
+
+/** Pushed to staff screens when a guest rates their visit. */
+export interface ReviewNotice {
+  tenantId: string;
+  venueId: string;
+  reviewId: string;
+  rating: number;
+  locationType: string;
+  locationLabel: string;
+  hasComment: boolean;
+}
+
+/** The Reviews area (blueprint 9.2 /v1/merchant/reviews/*). */
+@Injectable({ providedIn: 'root' })
+export class ReviewsAdminApi {
+  private readonly http = inject(HttpClient);
+
+  list(query: ReviewQuery) {
+    return this.http.get<ReviewPage>('/v1/merchant/reviews', { params: params(query) });
+  }
+
+  get(id: string) {
+    return this.http.get<ReviewDetail>(`/v1/merchant/reviews/${id}`);
+  }
+
+  /** Owners and managers only; every view is audit-logged. */
+  contact(id: string) {
+    return this.http.get<ReviewContact>(`/v1/merchant/reviews/${id}/contact`);
+  }
+
+  followUp(id: string) {
+    return this.http.post<ReviewDetail>(`/v1/merchant/reviews/${id}/follow-up`, {});
+  }
+
+  staffSummary(venueId: string, from?: string, to?: string) {
+    return this.http.get<StaffRating[]>('/v1/merchant/reviews/staff-summary', { params: params({ venueId, from, to }) });
+  }
+
+  /** The filtered list as a CSV file. */
+  export(query: ReviewQuery) {
+    return this.http.get('/v1/merchant/reviews/export', { params: params(query), responseType: 'blob' });
+  }
+}
+
+/** Query parameters without the empty ones. */
+function params(values: object): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(values))
+    if (value !== undefined && value !== null && value !== '') result[key] = String(value);
+  return result;
 }

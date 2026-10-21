@@ -1,0 +1,238 @@
+@let d = data();
+
+<div class="mx-auto flex max-w-6xl flex-col gap-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold">Reviews</h1>
+      <p class="text-sm text-ink-muted">{{ venueName() }} · ratings guests left after paying</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="review-range">Period</label>
+      <select id="review-range" class="field w-auto" [value]="'' + days()" (change)="setRange(+$any($event.target).value)">
+        @for (r of ranges; track r) { <option [value]="'' + r">Last {{ r }} days</option> }
+      </select>
+      <button type="button" class="btn-secondary" [disabled]="exporting() || !d?.total" (click)="export()">{{ exporting() ? 'Exporting…' : 'Export CSV' }}</button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
+  }
+
+  @if (d) {
+    @let cur = d.summary.current;
+    @let prev = d.summary.previous;
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="card">
+        <p class="text-sm text-ink-muted">Feedbacks</p>
+        <p class="mt-1 text-2xl font-bold">{{ cur.count }}</p>
+        @if (change(cur.count, prev.count, 'count'); as c) { <p class="mt-1 text-xs text-ink-muted">{{ c }}</p> }
+      </div>
+      <div class="card">
+        <p class="text-sm text-ink-muted">Average rating</p>
+        <p class="mt-1 text-2xl font-bold">{{ average(cur) }} <span class="text-[#F5A524]">★</span></p>
+        @if (change(cur.average, prev.average, 'average'); as c) { <p class="mt-1 text-xs text-ink-muted">{{ c }}</p> }
+      </div>
+      <div class="card">
+        <p class="text-sm text-ink-muted">Payments that left a rating</p>
+        <p class="mt-1 text-2xl font-bold">{{ percent(cur.ratedShare) }}</p>
+        @if (change(cur.ratedShare, prev.ratedShare, 'share'); as c) { <p class="mt-1 text-xs text-ink-muted">{{ c }}</p> }
+      </div>
+      <div class="card">
+        <p class="text-sm text-ink-muted">Guided to public review</p>
+        <p class="mt-1 text-2xl font-bold">{{ percent(cur.publicShare) }}</p>
+        @if (change(cur.publicShare, prev.publicShare, 'share'); as c) { <p class="mt-1 text-xs text-ink-muted">{{ c }}</p> }
+      </div>
+      <div class="card flex flex-col justify-center gap-1.5" aria-label="Ratings per star">
+        @for (star of [5, 4, 3, 2, 1]; track star) {
+          @let n = d.summary.perStar[star - 1];
+          <div class="flex items-center gap-2 text-xs">
+            <span class="w-7 shrink-0 font-semibold">{{ star }} ★</span>
+            <span class="h-2 flex-1 overflow-hidden rounded-full bg-surface"><span class="block h-full rounded-full bg-[#F5A524]" [style.width.%]="(n / maxStar()) * 100"></span></span>
+            <span class="w-8 shrink-0 text-end text-ink-muted tabular-nums">{{ n }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[1fr_300px]">
+      <section class="card p-0">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+          <div class="flex gap-1 rounded-lg bg-surface p-1" role="tablist" aria-label="Which reviews">
+            @for (k of ['All', 'Positive', 'Constructive']; track k) {
+              <button type="button" role="tab" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-selected]="kind() === k"
+                      [class]="kind() === k ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setKind($any(k))">
+                {{ k === 'All' ? 'All' : k === 'Positive' ? 'Positive 4–5★' : 'Constructive 1–3★' }}
+              </button>
+            }
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-sm">
+            <label class="sr-only" for="review-stars">Stars</label>
+            <select id="review-stars" class="field w-auto py-1.5" [value]="rating() ?? ''" (change)="setRating($any($event.target).value)">
+              <option value="">Stars: all</option>
+              @for (s of [5, 4, 3, 2, 1]; track s) { <option [value]="'' + s">{{ s }} ★</option> }
+            </select>
+            <label class="sr-only" for="review-sort">Sort</label>
+            <select id="review-sort" class="field w-auto py-1.5" [value]="sort()" (change)="setSort($any($event.target).value)">
+              <option value="Recent">Most recent</option>
+              <option value="Oldest">Oldest</option>
+              <option value="Highest">Highest rating</option>
+              <option value="Lowest">Lowest rating</option>
+            </select>
+            <label class="flex items-center gap-2 font-medium">
+              <input type="checkbox" class="toggle" [checked]="withComment()" (change)="toggleComments()" /> Only with comment
+            </label>
+          </div>
+        </div>
+
+        @if (!d.items.length) {
+          <p class="px-5 py-10 text-center text-sm text-ink-muted">No reviews match in this period.</p>
+        } @else {
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="border-b border-line text-xs text-ink-muted uppercase">
+                <tr>
+                  <th scope="col" class="px-5 py-2.5 text-start font-semibold">Date &amp; time</th>
+                  <th scope="col" class="px-3 py-2.5 text-start font-semibold">Rating</th>
+                  <th scope="col" class="px-3 py-2.5 text-start font-semibold">Review</th>
+                  <th scope="col" class="px-3 py-2.5 text-start font-semibold">Table</th>
+                  <th scope="col" class="px-5 py-2.5"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of d.items; track r.id) {
+                  <tr class="border-b border-line last:border-0">
+                    <td class="px-5 py-3 whitespace-nowrap text-ink-muted">{{ when(r.createdAt) }}</td>
+                    <td class="px-3 py-3 whitespace-nowrap" [attr.aria-label]="r.rating + ' stars'">
+                      <span class="text-[#F5A524]">{{ stars(r.rating) }}</span><span class="text-line">{{ stars(5 - r.rating) }}</span>
+                    </td>
+                    <td class="px-3 py-3">
+                      @if (r.comment) { <span>{{ r.comment }}</span> } @else { <span class="text-ink-muted">No comment</span> }
+                      <span class="mt-1 flex flex-wrap gap-1.5">
+                        @if (r.hasContact) { <span class="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted">Left contact details</span> }
+                        @if (r.publicLinkOpened) { <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Opened public review</span> }
+                        @if (r.followedUp) { <span class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">Followed up</span> }
+                      </span>
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap">{{ r.locationType }} {{ r.locationLabel }}</td>
+                    <td class="px-5 py-3 text-end whitespace-nowrap"><button type="button" class="link" (click)="open(r.id)">Order details</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <div class="flex flex-wrap items-center justify-end gap-4 border-t border-line px-5 py-3 text-sm text-ink-muted">
+          <label class="flex items-center gap-2">Rows per page
+            <select class="field w-auto py-1" [value]="'' + pageSize()" (change)="setPageSize($any($event.target).value)">
+              @for (s of pageSizes; track s) { <option [value]="'' + s">{{ s }}</option> }
+            </select>
+          </label>
+          <span>{{ d.total ? (d.page - 1) * d.pageSize + 1 : 0 }}–{{ lastRow() }} of {{ d.total }}</span>
+          <span class="flex gap-1">
+            <button type="button" class="btn-ghost px-2 py-1" aria-label="Previous page" [disabled]="d.page <= 1" (click)="goTo(d.page - 1)">‹</button>
+            <button type="button" class="btn-ghost px-2 py-1" aria-label="Next page" [disabled]="lastRow() >= d.total" (click)="goTo(d.page + 1)">›</button>
+          </span>
+        </div>
+      </section>
+
+      <section class="card h-fit">
+        <h2 class="font-semibold">Staff ratings</h2>
+        <p class="text-sm text-ink-muted">Ratings for the staff member who served the table, last {{ days() }} days</p>
+        @if (!staff().length) {
+          <p class="mt-4 text-sm text-ink-muted">No ratings can be credited to staff yet. They're credited when staff accept or serve orders in the queue.</p>
+        } @else {
+          <table class="mt-3 w-full text-sm">
+            <thead class="text-xs text-ink-muted uppercase">
+              <tr><th scope="col" class="py-1.5 text-start font-semibold">Name</th><th scope="col" class="py-1.5 text-end font-semibold">Ratings</th><th scope="col" class="py-1.5 text-end font-semibold">Average</th></tr>
+            </thead>
+            <tbody>
+              @for (s of staff(); track s.staffUserId) {
+                <tr class="border-t border-line"><td class="py-2">{{ s.name }}</td><td class="py-2 text-end tabular-nums">{{ s.count }}</td><td class="py-2 text-end tabular-nums">{{ s.average.toFixed(2) }} <span class="text-[#F5A524]">★</span></td></tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    </div>
+  } @else if (!error()) {
+    <p class="text-sm text-ink-muted">Loading…</p>
+  }
+</div>
+
+@if (detail(); as r) {
+  <div class="modal-backdrop" (click)="close()"></div>
+  <div class="modal max-w-lg" role="dialog" aria-modal="true" aria-labelledby="review-title">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 id="review-title" class="text-lg font-bold">Review · {{ r.locationType }} {{ r.locationLabel }}@if (r.areaName) { · {{ r.areaName }} }</h2>
+        <p class="text-sm text-ink-muted">Ref {{ r.payment.reference }} · {{ whenFull(r.createdAt) }}</p>
+      </div>
+      <button type="button" class="btn-ghost px-2" aria-label="Close" (click)="close()">✕</button>
+    </div>
+
+    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Review</p>
+    <div class="mt-1 flex flex-wrap items-center gap-3">
+      <span class="text-lg" [attr.aria-label]="r.rating + ' stars'"><span class="text-[#F5A524]">{{ stars(r.rating) }}</span><span class="text-line">{{ stars(5 - r.rating) }}</span></span>
+      <span class="font-semibold">{{ r.rating }} / 5</span>
+      <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="r.positive ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'">
+        {{ r.positive ? (r.publicLinkOpened ? 'Positive · opened ' + r.publicPlatform : 'Positive') : 'Constructive · private' }}
+      </span>
+    </div>
+    @if (r.comment) { <p class="mt-2 italic">“{{ r.comment }}”</p> }
+    @if (r.staffName) { <p class="mt-1 text-sm text-ink-muted">Served by {{ r.staffName }}</p> }
+
+    @if (r.hasContact) {
+      <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Guest contact</p>
+      @if (contact(); as c) {
+        <dl class="mt-1 grid grid-cols-[100px_1fr] gap-y-1 text-sm">
+          <dt class="text-ink-muted">Name</dt><dd>{{ c.name ?? '–' }}</dd>
+          <dt class="text-ink-muted">Email</dt><dd>@if (c.email) { <a class="link" [href]="'mailto:' + c.email">{{ c.email }}</a> } @else { – }</dd>
+          <dt class="text-ink-muted">Phone</dt><dd>@if (c.phone) { <a class="link" [href]="'tel:' + c.phone">{{ c.phone }}</a> } @else { – }</dd>
+        </dl>
+        <p class="mt-1 text-xs text-ink-muted">The guest agreed to be contacted about this feedback. This view has been recorded.</p>
+      } @else if (auth.canManage()) {
+        <button type="button" class="btn-secondary mt-1" (click)="showContact()">Show contact details</button>
+        <p class="mt-1 text-xs text-ink-muted">Each view is recorded in the audit log.</p>
+      } @else {
+        <p class="mt-1 text-sm text-ink-muted">The guest left contact details. Ask an owner or manager to follow up.</p>
+      }
+    }
+
+    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Payment</p>
+    <dl class="mt-1 grid grid-cols-[160px_1fr] gap-y-1 text-sm">
+      <dt class="text-ink-muted">Time</dt><dd>{{ whenFull(r.payment.paidAt) }}</dd>
+      <dt class="text-ink-muted">Method · last 4 digits</dt><dd>{{ r.payment.cardBrand ?? r.payment.method }}@if (r.payment.cardLast4) { · {{ r.payment.cardLast4 }} }</dd>
+      @if (r.payment.mode !== 'Full') {
+        <dt class="text-ink-muted">Split</dt>
+        <dd>{{ r.payment.mode === 'Equal' ? r.payment.shares + ' of ' + r.payment.splitPeople + ' shares' : r.payment.mode === 'Items' ? 'By item' : 'Custom amount' }}</dd>
+      }
+      <dt class="text-ink-muted">Tip</dt><dd>{{ money(r.payment.tipMinor, r.payment.currency) }}</dd>
+      <dt class="text-ink-muted">Status</dt><dd>{{ r.payment.status === 'Succeeded' ? '✓ Completed' : r.payment.status }}</dd>
+      <dt class="text-ink-muted">Total</dt><dd class="font-semibold">{{ money(r.payment.amountMinor, r.payment.currency) }}</dd>
+    </dl>
+
+    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Items</p>
+    <table class="mt-1 w-full text-sm">
+      <thead class="text-xs text-ink-muted"><tr><th scope="col" class="py-1 text-start font-semibold">Item</th><th scope="col" class="py-1 text-end font-semibold">Qty</th><th scope="col" class="py-1 text-end font-semibold">Price</th></tr></thead>
+      <tbody>
+        @for (o of r.orders; track o.number) {
+          @for (l of o.lines; track $index) {
+            <tr class="border-t border-line"><td class="py-1.5">{{ l.name }} <span class="text-xs text-ink-muted">#{{ o.number }}</span></td><td class="py-1.5 text-end">{{ l.quantity }}</td><td class="py-1.5 text-end">{{ money(l.lineTotalMinor, r.payment.currency) }}</td></tr>
+          }
+        }
+      </tbody>
+    </table>
+
+    @if (detailError()) { <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ detailError() }}</p> }
+    <div class="mt-6 flex items-center justify-end gap-2">
+      @if (r.followedUpAt) {
+        <span class="text-sm text-ink-muted">Followed up {{ whenFull(r.followedUpAt) }}@if (r.followedUpBy) { by {{ r.followedUpBy }} }</span>
+      } @else {
+        <button type="button" class="btn-primary" (click)="followUp()">Mark as followed up</button>
+      }
+      <button type="button" class="btn-ghost" (click)="close()">Close</button>
+    </div>
+  </div>
+}

@@ -332,11 +332,19 @@ public class PaymentService(
             ? await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == p.Id, ct)
             : 0;
 
+        var canReview = false;
+        int? rating = null;
+        if (p.Status == PaymentStatus.Succeeded)
+        {
+            rating = await db.Reviews.IgnoreQueryFilters().Where(r => r.PaymentId == p.Id).Select(r => (int?)r.Rating).SingleOrDefaultAsync(ct);
+            canReview = rating is null && await db.Venues.IgnoreQueryFilters().AnyAsync(v => v.Id == p.VenueId && v.ReviewsEnabled, ct);
+        }
+
         return new PaymentDto(p.Id, p.Reference, p.Status, p.Method, p.Mode, p.Shares, p.SplitPeople, itemCount,
             p.Currency, p.BillAmountMinor, p.DiscountMinor, p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4,
             p.FailureReason, p.Status == PaymentStatus.RequiresAction ? p.CheckoutUrl : null,
             location.Type.ToString(), location.Label, location.DiningArea?.Name,
-            p.CreatedAt, p.SucceededAt, remaining, fullyPaid, offer);
+            p.CreatedAt, p.SucceededAt, remaining, fullyPaid, offer, canReview, rating);
     }
 }
 

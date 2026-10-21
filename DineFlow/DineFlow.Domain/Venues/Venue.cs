@@ -1,4 +1,5 @@
 using DineFlow.Domain.Common;
+using DineFlow.Domain.Reviews;
 using DineFlow.Domain.Tenants;
 
 namespace DineFlow.Domain.Venues;
@@ -38,6 +39,28 @@ public class Venue : Entity, ITenantOwned
     public List<int> TipPresetsBasisPoints { get; private set; } = [500, 1000, 1500];
     /// <summary>The preset highlighted as "Most common" and pre-selected (P1-PAY-11); null for none.</summary>
     public int? MostCommonTipBasisPoints { get; private set; } = 1000;
+
+    /// <summary>Whether guests are asked to rate their visit after paying (P1-REV-04).</summary>
+    public bool ReviewsEnabled { get; private set; } = true;
+    /// <summary>Where 4–5 star guests are invited to post a public review; null for nowhere (P1-REV-05).</summary>
+    public ReviewPlatform? ReviewPlatform { get; private set; }
+    public string? ReviewUrl { get; private set; }
+    /// <summary>Heading of the private feedback form for 1–3 stars; null for the app's default.</summary>
+    public string? FeedbackTitle { get; private set; }
+
+    public void SetReviews(bool enabled, ReviewPlatform? platform, string? url, string? feedbackTitle)
+    {
+        url = string.IsNullOrWhiteSpace(url) ? null : url.Trim();
+        if (platform is not null && url is null)
+            throw new DomainException("Add the link to your review page, or choose no public review platform.");
+        if (url is not null && !(Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps))
+            throw new DomainException("The review link must be a full https:// address.");
+
+        ReviewsEnabled = enabled;
+        ReviewPlatform = platform;
+        ReviewUrl = platform is null ? null : url;
+        FeedbackTitle = Text.Optional(feedbackTitle, 80, "Feedback title");
+    }
 
     public void SetTips(bool enabled, IReadOnlyList<int> presetsBasisPoints, int? mostCommonBasisPoints)
     {

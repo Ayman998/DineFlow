@@ -8,6 +8,7 @@ using DineFlow.Application.Menus;
 using DineFlow.Application.Orders;
 using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
+using DineFlow.Application.Reviews;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Venues;
 using DineFlow.Domain.Tenants;
@@ -61,6 +62,8 @@ public sealed class TestHost : IDisposable
         MerchantOrders = new MerchantOrderService(Db, Notifier, Bills, Clock);
         Promotions = new PromotionService(Db, _tenant, Bills, Clock);
         Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, paymentOptions, guestOptions, Clock);
+        GuestReviews = new GuestReviewService(Db, ReviewNotifier, Clock);
+        MerchantReviews = new MerchantReviewService(Db, _tenant, Clock);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -72,6 +75,7 @@ public sealed class TestHost : IDisposable
     public RecordingNotifier Notifier { get; } = new();
     public RecordingPaymentNotifier PaymentNotifier { get; } = new();
     public RecordingEmailSender Emails { get; } = new();
+    public RecordingReviewNotifier ReviewNotifier { get; } = new();
 
     public AppDbContext Db { get; }
     public IQrTokenService QrTokens { get; }
@@ -90,6 +94,8 @@ public sealed class TestHost : IDisposable
     public BillService Bills { get; }
     public PromotionService Promotions { get; }
     public PaymentService Payments { get; }
+    public GuestReviewService GuestReviews { get; }
+    public MerchantReviewService MerchantReviews { get; }
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own
@@ -205,6 +211,17 @@ public sealed class TestHost : IDisposable
         public Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct)
         {
             TableChanges.Add((serviceLocationId, reason));
+            return Task.CompletedTask;
+        }
+    }
+
+    public sealed class RecordingReviewNotifier : IReviewNotifier
+    {
+        public List<ReviewNotice> Notices { get; } = [];
+
+        public Task ReviewSubmittedAsync(ReviewNotice notice, CancellationToken ct)
+        {
+            Notices.Add(notice);
             return Task.CompletedTask;
         }
     }

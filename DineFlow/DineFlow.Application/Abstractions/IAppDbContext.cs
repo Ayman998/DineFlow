@@ -1,3 +1,5 @@
+using DineFlow.Domain.Audit;
+using DineFlow.Domain.Reviews;
 using DineFlow.Domain.Bills;
 using DineFlow.Domain.Menus;
 using DineFlow.Domain.Orders;
@@ -31,6 +33,8 @@ public interface IAppDbContext
     DbSet<Order> Orders { get; }
     DbSet<Check> Checks { get; }
     DbSet<ItemClaim> ItemClaims { get; }
+    DbSet<Review> Reviews { get; }
+    DbSet<AuditEntry> AuditEntries { get; }
     DbSet<Payment> Payments { get; }
     DbSet<LedgerEntry> LedgerEntries { get; }
     DbSet<PromoCode> PromoCodes { get; }

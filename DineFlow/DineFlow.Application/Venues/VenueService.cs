@@ -26,6 +26,7 @@ public class VenueService(IAppDbContext db, ITenantContext tenant)
                 request.LogoUrl, request.BrandColor, request.MenuEnabled, request.PayAtTableEnabled);
             v.SetCharges(request.ServiceChargeBasisPoints, request.TaxBasisPoints, request.PricesIncludeTax);
             v.SetTips(request.TipsEnabled, request.TipPresetsBasisPoints ?? [500, 1000, 1500], request.MostCommonTipBasisPoints);
+            v.SetReviews(request.ReviewsEnabled, request.ReviewPlatform, request.ReviewUrl, request.FeedbackTitle);
             return v;
         });
 
@@ -45,6 +46,7 @@ public class VenueService(IAppDbContext db, ITenantContext tenant)
                 request.LogoUrl, request.BrandColor, request.MenuEnabled, request.PayAtTableEnabled);
             venue.SetCharges(request.ServiceChargeBasisPoints, request.TaxBasisPoints, request.PricesIncludeTax);
             venue.SetTips(request.TipsEnabled, request.TipPresetsBasisPoints ?? [500, 1000, 1500], request.MostCommonTipBasisPoints);
+            venue.SetReviews(request.ReviewsEnabled, request.ReviewPlatform, request.ReviewUrl, request.FeedbackTitle);
             return venue;
         });
 
@@ -72,5 +74,6 @@ public class VenueService(IAppDbContext db, ITenantContext tenant)
         v.Id, v.Name, v.Currency, v.TimeZone, v.DefaultLocale, v.LogoUrl, v.BrandColor,
         v.MenuEnabled, v.PayAtTableEnabled, v.IsActive,
         v.ServiceChargeBasisPoints, v.TaxBasisPoints, v.PricesIncludeTax,
-        v.TipsEnabled, v.TipPresetsBasisPoints, v.MostCommonTipBasisPoints);
+        v.TipsEnabled, v.TipPresetsBasisPoints, v.MostCommonTipBasisPoints,
+        v.ReviewsEnabled, v.ReviewPlatform, v.ReviewUrl, v.FeedbackTitle);
 }

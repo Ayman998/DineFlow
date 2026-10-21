@@ -80,6 +80,11 @@ body {
   .qty-btn-on {
     @apply border-brand bg-brand text-white;
   }
+
+  /* Text fields on the feedback form, from the "Private feedback form" mockup. */
+  .field-guest {
+    @apply h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand;
+  }
 }
 
 .no-scrollbar {

@@ -12,6 +12,7 @@ const PAGES: Partial<Record<string, LoadComponent>> = {
   tables: () => import('./pages/tables/tables').then(m => m.Tables),
   menu: () => import('./pages/menu/menu-admin').then(m => m.MenuAdmin),
   promotions: () => import('./pages/promotions/promotions').then(m => m.Promotions),
+  reviews: () => import('./pages/reviews/reviews').then(m => m.Reviews),
   settings: () => import('./pages/settings/settings').then(m => m.Settings)
 };
 

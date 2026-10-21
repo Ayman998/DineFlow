@@ -56,6 +56,19 @@ That serves both apps. Sign in to the merchant portal at http://localhost:4300, 
 
 On the guest side, **Pay Bill** opens checkout for everything the table has ordered. The guest picks a tip (the venue's "Most common" one starts selected), can enter a promo code and choose a payment method, then pays on the provider's page. The demo seeds two codes: **WELCOME10** (10% off, up to AED 50) and **NEXT15**, which is offered on the payment confirmation for the next visit. Manage codes under **Promotions** in the merchant portal. When the payment goes through, the guest sees the confirmation and can e-mail a receipt. Staff get a "Payment received" alert with the tip and what's still owed. Once nothing is left, the table's bill closes, and the next order opens a new one.
 
+Until a real PSP is connected, payments go through the built-in **sandbox provider**. It's a hosted test page at `/sandbox/pay/…` that takes these test cards (any future expiry, any CVC):
+
+| Card | Result |
+|---|---|
+| `4242 4242 4242 4242` | Visa, succeeds |
+| `5555 5555 5555 4444` | Mastercard, succeeds |
+| `4000 0000 0000 0002` | Declined |
+| `4000 0000 0000 9995` | Insufficient funds |
+
+Apple Pay, Google Pay and STC Pay show Approve and Decline buttons. The sandbox reports each result through a signed webhook, verified the same way a real provider's would be. No real money moves. Outside Development the API refuses to start with the sandbox, unless `Payments:Sandbox:AllowOutsideDevelopment` is set, e.g. for a demo server.
+
+Receipts aren't sent in Development. Each one is written as an `.eml` file to `DineFlow/DineFlow.Api/App_Data/outbox` (git-ignored), and any mail app can open it.
+
 ### Splitting the bill
 
 **Split the bill** on the checkout screen lets each guest pay part of the bill. All amounts include service charge and VAT:
@@ -69,18 +82,22 @@ On the guest side, **Pay Bill** opens checkout for everything the table has orde
 
 Guests can act at the same time without paying the same money twice. Each bill has a revision number that the database checks on every save. Starting a payment, holding items and changing the split all bump it. When two guests act at once, one save fails and that request is worked out again with the other guest's change in view. A unique index also allows only one claim per item. This needs no Redis. The tests reproduce both races, and randomized split sequences check that paid + left always equals the total.
 
-Until a real PSP is connected, payments go through the built-in **sandbox provider**. It's a hosted test page at `/sandbox/pay/…` that takes these test cards (any future expiry, any CVC):
+### Reviews
 
-| Card | Result |
-|---|---|
-| `4242 4242 4242 4242` | Visa, succeeds |
-| `5555 5555 5555 4444` | Mastercard, succeeds |
-| `4000 0000 0000 0002` | Declined |
-| `4000 0000 0000 9995` | Insufficient funds |
+After a successful payment, the confirmation asks the guest to rate the visit from 1 to 5 stars, with an optional comment. They can skip it, and the payment and receipt are unaffected.
 
-Apple Pay, Google Pay and STC Pay show Approve and Decline buttons. The sandbox reports each result through a signed webhook, verified the same way a real provider's would be. No real money moves. Outside Development the API refuses to start with the sandbox, unless `Payments:Sandbox:AllowOutsideDevelopment` is set, e.g. for a demo server.
+- **4–5 stars:** the guest is invited to post a public review on the venue's page (Google, Tripadvisor or Foursquare). DineFlow records whether they opened it.
+- **1–3 stars:** the feedback stays private. The guest sees a form, with a heading the venue can change, where they can say what went wrong and leave a name, e-mail and phone number. Contact details are kept only if the guest ticks the consent box.
 
-Receipts aren't sent in Development. Each one is written as an `.eml` file to `DineFlow/DineFlow.Api/App_Data/outbox` (git-ignored), and any mail app can open it.
+Set this up under **Settings → Reviews**: turn ratings on or off, choose the platform, add your review page link (https only) and set the feedback heading. The demo venue starts with ratings on and no public link.
+
+**Reviews** in the merchant portal shows feedback for a chosen period:
+
+- Totals, the average, ratings per star, the share of payments that left a rating and the share guided to public review, each compared with the previous period.
+- A list you can split into positive and constructive, filter by stars or "only with comment", sort and page through, then export as CSV.
+- Staff ratings, credited to whoever marked the table's order served, or accepted it if nobody marked it served.
+
+Each review opens its visit: the payment and the items ordered. Owners and managers can reveal the guest's contact details, and every view is written to the audit log. The CSV export never includes contact details. **Mark as followed up** records who got back to the guest and when. Staff see a "New review" alert as ratings come in.
 
 To apply migrations without starting the API:
 
@@ -140,10 +157,16 @@ npm --prefix web test
 | `POST /v1/public/payments/{id}/cancel`, `POST …/{id}/receipt` | guest token | The guest came back without paying; e-mail the receipt |
 | `POST /v1/webhooks/payments/{provider}` | provider (signed) | Payment results. Only a verified webhook marks a payment paid. Repeats are ignored |
 | `GET/POST /v1/merchant/promotions`, `PUT …/promotions/{id}` | merchant / manager | Promotion and voucher codes |
+| `POST /v1/public/sessions/{id}/reviews` | guest token | Rate a paid visit (1–5 stars, one per payment); returns the public review link for 4–5 stars |
+| `PUT …/reviews/{reviewId}/feedback`, `POST …/reviews/{reviewId}/public-opened` | guest token | Private feedback with consented contact details; record that the public page was opened |
+| `GET /v1/merchant/reviews?venueId=&from=&to=&rating=&kind=&withComment=&sort=&page=&pageSize=` | merchant | Summary (with previous period) and the filtered page |
+| `GET /v1/merchant/reviews/{id}`, `POST …/{id}/follow-up` | merchant | A review with its payment and items; mark it followed up |
+| `GET /v1/merchant/reviews/{id}/contact` | manager | The guest's contact details (audit-logged) |
+| `GET /v1/merchant/reviews/staff-summary`, `GET /v1/merchant/reviews/export` | merchant | Ratings per staff member; CSV export |
 
 ### Real-time
 
-SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged` and `paymentReceived` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
+SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived` and `reviewSubmitted` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
 Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress` or `promo_expired`.
 
@@ -167,7 +190,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 3 | Cart, server-validated order, standalone queue, staff alerts (SignalR) ✅ | E6, E10 |
 | 4 | Bill, pay in full, sandbox PSP + signed webhook, ledger, tips, promo codes, e-mail receipt ✅ | E5, E8, E30 |
 | 5 | Split the bill: equal, by item and custom, with item holds and concurrency protection ✅ | E7 |
-| 6 | Reviews and feedback | E27 |
+| 6 | Reviews: post-payment rating, public-review routing, private feedback with consent, reviews dashboard, staff ratings ✅ | E27 |
 | 7 | Merchant overview, tables, transactions, refunds | E11, E12 |
 | 8 | Payment links | E16 |
 | 9 | Hardening, Foodics connector, WhatsApp, email reports | E9, E15, E28 |

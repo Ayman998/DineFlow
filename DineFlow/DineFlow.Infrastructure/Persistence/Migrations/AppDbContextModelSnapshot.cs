@@ -22,6 +22,42 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("DineFlow.Domain.Audit.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ObjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ObjectType")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<Guid>("StaffUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObjectType", "ObjectId");
+
+                    b.HasIndex("TenantId", "CreatedAt");
+
+                    b.ToTable("AuditEntries", (string)null);
+                });
+
             modelBuilder.Entity("DineFlow.Domain.Bills.Check", b =>
                 {
                     b.Property<Guid>("Id")
@@ -372,6 +408,9 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AcceptedByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("AreaName")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
@@ -414,6 +453,9 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<string>("RejectReason")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("ServedByStaffId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("ServiceChargeBasisPoints")
                         .HasColumnType("int");
@@ -800,6 +842,86 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("PromoCodes", (string)null);
                 });
 
+            modelBuilder.Entity("DineFlow.Domain.Reviews.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CheckId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("ContactConsentAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ContactEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("FollowedUpAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("FollowedUpByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GuestSessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("PublicLinkOpenedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PublicPlatform")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ServiceLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("StaffUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckId");
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VenueId", "CreatedAt");
+
+                    b.HasIndex("VenueId", "StaffUserId");
+
+                    b.ToTable("Reviews", (string)null);
+                });
+
             modelBuilder.Entity("DineFlow.Domain.Sessions.GuestSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1066,6 +1188,10 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("nvarchar(5)");
 
+                    b.Property<string>("FeedbackTitle")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -1088,6 +1214,17 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("PricesIncludeTax")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ReviewPlatform")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ReviewUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("ReviewsEnabled")
                         .HasColumnType("bit");
 
                     b.Property<int>("ServiceChargeBasisPoints")
@@ -1117,6 +1254,15 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Venues", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Audit.AuditEntry", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Bills.Check", b =>
@@ -1400,6 +1546,33 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Reviews.Review", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Bills.Check", null)
+                        .WithMany()
+                        .HasForeignKey("CheckId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Payments.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

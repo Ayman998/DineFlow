@@ -54,4 +54,8 @@ public record PaymentDto(
     /// <summary>What's still owed on the bill after this payment (known once it succeeded).</summary>
     long? RemainingMinor,
     bool? FullyPaid,
-    NextVisitOfferDto? NextVisitOffer);
+    NextVisitOfferDto? NextVisitOffer,
+    /// <summary>The venue asks for a rating and this paid visit hasn't been rated yet.</summary>
+    bool CanReview,
+    /// <summary>The rating this guest gave, once they have.</summary>
+    int? ReviewRating);

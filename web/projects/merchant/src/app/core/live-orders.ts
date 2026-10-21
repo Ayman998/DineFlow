@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { Subject } from 'rxjs';
 
-import { OrderDto, OrdersAdminApi, PaymentNotice } from './api';
+import { OrderDto, OrdersAdminApi, PaymentNotice, ReviewNotice } from './api';
 import { Auth } from './auth';
 import { CurrentVenue } from './current-venue';
 import { OrderCountsStore } from './order-counts';
@@ -27,6 +27,7 @@ export class LiveOrders {
   readonly placed = new Subject<OrderDto>();
   readonly changed = new Subject<OrderDto>();
   readonly paid = new Subject<PaymentNotice>();
+  readonly reviewed = new Subject<ReviewNotice>();
   /** Fires after a reconnect, so pages can reload anything they missed. */
   readonly reconnected = new Subject<void>();
 
@@ -49,6 +50,9 @@ export class LiveOrders {
       if (!this.isMine(order)) return;
       this.refreshCounts();
       this.changed.next(order);
+    });
+    connection.on('reviewSubmitted', (review: ReviewNotice) => {
+      if (review.venueId === this.venue.venue()?.id) this.reviewed.next(review);
     });
     connection.on('paymentReceived', (payment: PaymentNotice) => {
       if (payment.venueId !== this.venue.venue()?.id) return;

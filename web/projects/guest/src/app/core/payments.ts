@@ -128,6 +128,9 @@ export interface Payment {
   remainingMinor: number | null;
   fullyPaid: boolean | null;
   nextVisitOffer: { code: string; headline: string } | null;
+  /** The venue asks for a rating and this visit hasn't been rated yet. */
+  canReview: boolean;
+  reviewRating: number | null;
 }
 
 export interface CreatePayment {
