@@ -32,7 +32,7 @@ export class Login {
     const { email, password } = this.form.getRawValue();
 
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigate(['/tables']),
+      next: () => this.router.navigate(['/overview']),
       error: error => {
         this.error.set(errorMessage(error));
         this.busy.set(false);

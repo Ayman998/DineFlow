@@ -6,6 +6,7 @@ import { FloorPlan, Location, LocationType, MerchantApi } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { QrCode, qrDataUrl } from '../../shared/qr-code';
+import { LiveTables } from './live-tables';
 
 type Panel = 'none' | 'area' | 'tables';
 
@@ -28,10 +29,13 @@ export const LOCATION_TYPES: { value: LocationType; label: string }[] = [
  */
 @Component({
   selector: 'df-tables',
-  imports: [ReactiveFormsModule, QrCode],
+  imports: [ReactiveFormsModule, QrCode, LiveTables],
   templateUrl: './tables.html'
 })
 export class Tables implements OnInit {
+  /** The live view of what each table owes, or managing tables and their QR codes. */
+  protected readonly view = signal<'live' | 'qr'>('live');
+
   private readonly api = inject(MerchantApi);
   private readonly currentVenue = inject(CurrentVenue);
   private readonly fb = inject(FormBuilder).nonNullable;

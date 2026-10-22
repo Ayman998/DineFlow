@@ -59,6 +59,8 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(SandboxOptions.Section))
             .Validate(o => KeyBytes.IsStrong(o.SecretKey), "Payments:Sandbox:SecretKey must be base64 of at least 32 bytes.")
             .ValidateOnStart();
+        services.AddSingleton<SandboxWebhookOutbox>();
+        services.AddHostedService<SandboxWebhookDispatcher>();
         services.AddSingleton<SandboxPaymentProvider>();
         services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<SandboxPaymentProvider>());
 

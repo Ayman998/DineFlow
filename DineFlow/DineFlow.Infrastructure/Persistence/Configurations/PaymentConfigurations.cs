@@ -127,6 +127,31 @@ public class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEntry>
     }
 }
 
+public class RefundConfiguration : IEntityTypeConfiguration<Refund>
+{
+    public void Configure(EntityTypeBuilder<Refund> builder)
+    {
+        builder.ToTable("Refunds");
+        builder.HasKey(r => r.Id);
+        builder.Property(r => r.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
+        builder.Property(r => r.Reason).HasMaxLength(Refund.MaxReasonLength).IsRequired();
+        builder.Property(r => r.Provider).HasMaxLength(30).IsRequired();
+        builder.Property(r => r.ProviderRefundId).HasMaxLength(100);
+        builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(r => r.FailureReason).HasMaxLength(200);
+        builder.Ignore(r => r.IsFinal);
+
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Venue>().WithMany().HasForeignKey(r => r.VenueId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Payment>().WithMany().HasForeignKey(r => r.PaymentId).OnDelete(DeleteBehavior.Restrict);
+
+        // A retried request returns the same refund; the provider's id is unique too.
+        builder.HasIndex(r => new { r.PaymentId, r.ClientRequestId }).IsUnique();
+        builder.HasIndex(r => new { r.Provider, r.ProviderRefundId }).IsUnique().HasFilter("[ProviderRefundId] IS NOT NULL");
+        builder.HasIndex(r => new { r.VenueId, r.CreatedAt });
+    }
+}
+
 public class LedgerEntryConfiguration : IEntityTypeConfiguration<LedgerEntry>
 {
     public void Configure(EntityTypeBuilder<LedgerEntry> builder)

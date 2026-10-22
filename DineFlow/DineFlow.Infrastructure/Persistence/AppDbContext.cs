@@ -40,6 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+    public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<ProcessedWebhook> ProcessedWebhooks => Set<ProcessedWebhook>();
 

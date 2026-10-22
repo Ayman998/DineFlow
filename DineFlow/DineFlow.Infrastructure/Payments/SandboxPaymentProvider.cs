@@ -38,7 +38,9 @@ public record SandboxCheckout(
 /// <c>DineFlow-Sandbox-Signature: t=unix-time,v1=hex(HMAC-SHA256(key, "t.body"))</c>) that is
 /// checked for tampering and replay. Use it until a real provider's sandbox keys are configured.
 /// </summary>
-public class SandboxPaymentProvider(IOptions<SandboxOptions> options, IOptions<GuestOptions> guest, TimeProvider clock) : IPaymentProvider
+/// <remarks>Refunds are accepted straight away and confirmed by a webhook shortly after, through <see cref="SandboxWebhookOutbox"/> when one is registered.</remarks>
+public class SandboxPaymentProvider(
+    IOptions<SandboxOptions> options, IOptions<GuestOptions> guest, TimeProvider clock, SandboxWebhookOutbox? outbox = null) : IPaymentProvider
 {
     public const string ProviderName = "sandbox";
     public const string SignatureHeader = "DineFlow-Sandbox-Signature";
@@ -64,6 +66,19 @@ public class SandboxPaymentProvider(IOptions<SandboxOptions> options, IOptions<G
         var baseUrl = (options.Value.PublicBaseUrl ?? guest.Value.AppBaseUrl).TrimEnd('/');
         var url = $"{baseUrl}/sandbox/pay/{providerPaymentId}?t={Uri.EscapeDataString(Protect(checkout))}";
         return Task.FromResult(new ProviderCheckout(providerPaymentId, url));
+    }
+
+    public Task<ProviderRefund> RefundAsync(ProviderRefundRequest request, CancellationToken ct)
+    {
+        // The internal refund id doubles as the idempotency key: the same refund always gets the same id here.
+        var providerRefundId = $"sbxr_{request.RefundId:N}";
+        if (outbox is not null)
+        {
+            var (body, signature) = CreateWebhook(new ProviderWebhookEvent(
+                $"evt_{Guid.NewGuid():N}", request.ProviderPaymentId, PaymentStatus.Succeeded, null, null, null, providerRefundId));
+            outbox.Send(body, signature, SandboxWebhookOutbox.RefundDelay);
+        }
+        return Task.FromResult(new ProviderRefund(providerRefundId));
     }
 
     /// <summary>Reads a checkout link; null when it was tampered with, is for another payment or has expired.</summary>

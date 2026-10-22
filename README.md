@@ -78,7 +78,7 @@ Receipts aren't sent in Development. Each one is written as an `.eml` file to `D
 - **Custom:** any amount up to what's left.
 - **Full:** everything that's left, apart from anything other guests have selected or are paying for.
 
-**Remove split** goes back to paying the full remaining bill. Equal and item splits don't mix on one bill. While anyone holds or pays items, the bill can't be split equally. Once anyone pays an amount, nobody can pick new items, though items already held can still be paid. Staff can't reject an order whose items have been paid for or are being paid for. They get a "refund it instead" error, because refunds arrive with Transactions.
+**Remove split** goes back to paying the full remaining bill. Equal and item splits don't mix on one bill. While anyone holds or pays items, the bill can't be split equally. Once anyone pays an amount, nobody can pick new items, though items already held can still be paid. Staff can't reject an order whose items have been paid for or are being paid for. They get a "refund it instead" error and can refund the payment under **Transactions**.
 
 Guests can act at the same time without paying the same money twice. Each bill has a revision number that the database checks on every save. Starting a payment, holding items and changing the split all bump it. When two guests act at once, one save fails and that request is worked out again with the other guest's change in view. A unique index also allows only one claim per item. This needs no Redis. The tests reproduce both races, and randomized split sequences check that paid + left always equals the total.
 
@@ -98,6 +98,33 @@ Set this up under **Settings → Reviews**: turn ratings on or off, choose the p
 - Staff ratings, credited to whoever marked the table's order served, or accepted it if nobody marked it served.
 
 Each review opens its visit: the payment and the items ordered. Owners and managers can reveal the guest's contact details, and every view is written to the audit log. The CSV export never includes contact details. **Mark as followed up** records who got back to the guest and when. Staff see a "New review" alert as ratings come in.
+
+### Overview, tables and transactions
+
+Signing in opens **Overview**, which updates live as orders, payments, refunds and reviews come in:
+
+- Revenue, tips, orders and refunds for today, the last 7 days, this month or this quarter, in the venue's time zone. Revenue is what guests paid towards their bills, before refunds and without tips. Refunds are shown on their own.
+- The last 7 days against the 7 days before, for revenue and orders.
+- A revenue or tips chart by hour, day, week or month. Hover or use the arrow keys for each value, or switch to the table view.
+- **Needs attention:** failed payments today, orders waiting more than 5 minutes, tables with an open balance, unhappy reviews from the last 7 days that nobody has followed up, and refunds still waiting for the provider.
+
+**Tables → Live status** shows every table's state, what's been paid against its bill, and its orders when you open it:
+
+| State | When |
+|---|---|
+| Available | No open bill |
+| Ordering | A guest scanned the QR in the last hour, with nothing ordered yet |
+| Unpaid / Partially paid | An open bill with nothing paid / part paid |
+| Fully paid | The bill closed in the last 2 hours |
+| Needs attention | A payment failed in the last 30 minutes and money is still owed |
+
+**Tables → Tables & QR codes** is the floor plan and QR management from Sprint 1.
+
+**Transactions** lists every payment for a period, with totals for paid, tips, refunded and net. Filter by status, or search by reference (`DF-…`), table number or amount. Each payment opens its breakdown, items, refunds and a complete timeline: scan, orders, payment, the provider's confirmation, ledger entries, refunds and the review.
+
+Owners and managers can refund all or part of a payment, with a reason that goes in the audit log. Refunds can never add up to more than was charged, tip included. Retrying a request returns the same refund, and two managers refunding at once can't both succeed. A refund stays pending until the provider's signed webhook confirms it, and then it's written to the ledger as its own `Refund` entry. The bill itself doesn't change. The sandbox confirms refunds about 2 seconds later, and staff see a "Refund confirmed" alert.
+
+Not built yet: QR groups, posting refunds to a POS, and the diner fee.
 
 To apply migrations without starting the API:
 
@@ -163,12 +190,17 @@ npm --prefix web test
 | `GET /v1/merchant/reviews/{id}`, `POST …/{id}/follow-up` | merchant | A review with its payment and items; mark it followed up |
 | `GET /v1/merchant/reviews/{id}/contact` | manager | The guest's contact details (audit-logged) |
 | `GET /v1/merchant/reviews/staff-summary`, `GET /v1/merchant/reviews/export` | merchant | Ratings per staff member; CSV export |
+| `GET /v1/merchant/venues/{id}/overview?period=Today\|Week\|Month\|Quarter&granularity=` | merchant | Overview KPIs, week comparison, trend and what needs attention |
+| `GET /v1/merchant/venues/{id}/table-status` | merchant | Every table's live state, bill and orders |
+| `GET /v1/merchant/transactions?venueId=&from=&to=&status=&search=&page=&pageSize=` | merchant | Payments for a period, with totals |
+| `GET /v1/merchant/transactions/{paymentId}` | merchant | A payment with its items, refunds and timeline |
+| `POST /v1/merchant/transactions/{paymentId}/refunds` | manager | Refund all or part of a payment (idempotent per `clientRequestId`, reason required) |
 
 ### Real-time
 
-SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived` and `reviewSubmitted` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
+SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived`, `reviewSubmitted` and `refundUpdated` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
-Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress` or `promo_expired`.
+Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired` or `refund_not_allowed`.
 
 ## Ground rules (from the blueprint)
 
@@ -191,6 +223,6 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 4 | Bill, pay in full, sandbox PSP + signed webhook, ledger, tips, promo codes, e-mail receipt ✅ | E5, E8, E30 |
 | 5 | Split the bill: equal, by item and custom, with item holds and concurrency protection ✅ | E7 |
 | 6 | Reviews: post-payment rating, public-review routing, private feedback with consent, reviews dashboard, staff ratings ✅ | E27 |
-| 7 | Merchant overview, tables, transactions, refunds | E11, E12 |
+| 7 | Merchant overview, live table status, transactions with timeline, refunds ✅ | E11, E12 |
 | 8 | Payment links | E16 |
 | 9 | Hardening, Foodics connector, WhatsApp, email reports | E9, E15, E28 |

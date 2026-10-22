@@ -206,6 +206,12 @@ public class PaymentService(
         if (await db.ProcessedWebhooks.AnyAsync(w => w.Provider == provider.Name && w.EventId == webhook.EventId, ct)) return;
 
         var now = clock.GetUtcNow();
+        if (webhook.ProviderRefundId is { } providerRefundId)
+        {
+            await ApplyRefundAsync(webhook, providerRefundId, now, ct);
+            return;
+        }
+
         var payment = await db.Payments.IgnoreQueryFilters()
             .SingleOrDefaultAsync(p => p.Provider == provider.Name && p.ProviderPaymentId == webhook.ProviderPaymentId, ct);
 
@@ -263,6 +269,36 @@ public class PaymentService(
             payment.Id, payment.Reference, payment.Currency, payment.AmountMinor, payment.TipMinor,
             totals.RemainingMinor, totals.RemainingMinor == 0,
             payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
+    }
+
+    /// <summary>The provider's verdict on a refund: a success writes the refund's own ledger entry (blueprint 7.2).</summary>
+    private async Task ApplyRefundAsync(ProviderWebhookEvent webhook, string providerRefundId, DateTimeOffset now, CancellationToken ct)
+    {
+        var refund = await db.Refunds.IgnoreQueryFilters()
+            .SingleOrDefaultAsync(r => r.Provider == provider.Name && r.ProviderRefundId == providerRefundId, ct);
+
+        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, $"Refund{webhook.Status}", now));
+        var wasFinal = refund?.IsFinal ?? true;
+        var status = webhook.Status == PaymentStatus.Succeeded ? RefundStatus.Succeeded : RefundStatus.Failed;
+        var succeeded = refund?.Apply(status, webhook.FailureReason, now) ?? false;
+        if (succeeded) db.LedgerEntries.Add(LedgerEntry.ForRefund(refund!, now));
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            if (await IsDuplicateAsync(webhook.EventId, ct)) return;
+            throw;
+        }
+
+        if (refund is not null && !wasFinal)
+        {
+            var reference = await db.Payments.IgnoreQueryFilters().Where(p => p.Id == refund.PaymentId).Select(p => p.Reference).SingleAsync(ct);
+            await notifier.RefundUpdatedAsync(new RefundNotice(refund.TenantId, refund.VenueId, refund.PaymentId, refund.Id, reference,
+                refund.Currency, refund.AmountMinor, refund.Status), ct);
+        }
     }
 
     /// <summary>E-mails the receipt for a successful payment (P1-REC-01/02).</summary>

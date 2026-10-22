@@ -31,6 +31,23 @@ public class LedgerEntry : Entity, ITenantOwned
         CreatedAt = now;
     }
 
+    /// <summary>The entry for a refund the provider has just confirmed: money back to the guest, recorded on its own.</summary>
+    public static LedgerEntry ForRefund(Refund refund, DateTimeOffset now)
+    {
+        if (refund.Status != RefundStatus.Succeeded) throw new DomainException("Only confirmed refunds go in the ledger.");
+        return new LedgerEntry
+        {
+            TenantId = refund.TenantId,
+            VenueId = refund.VenueId,
+            CheckId = refund.CheckId,
+            PaymentId = refund.PaymentId,
+            Type = LedgerEntryType.Refund,
+            AmountMinor = refund.AmountMinor,
+            Currency = refund.Currency,
+            CreatedAt = now
+        };
+    }
+
     /// <summary>The entries for a payment that has just succeeded.</summary>
     public static IReadOnlyList<LedgerEntry> ForSucceededPayment(Payment payment, DateTimeOffset now)
     {
@@ -53,5 +70,6 @@ public enum LedgerEntryType
     /// <summary>Part of the bill covered by a promotion.</summary>
     Discount = 1,
     Tip = 2,
+    /// <summary>Money given back to the guest; never changes the payment's own entries.</summary>
     Refund = 3
 }

@@ -27,6 +27,18 @@ public class SignalRPaymentNotifier(
         }
     }
 
+    public async Task RefundUpdatedAsync(RefundNotice notice, CancellationToken ct)
+    {
+        try
+        {
+            await merchants.Clients.Group(MerchantHub.Group(notice.TenantId)).SendAsync("refundUpdated", notice, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't push refund {RefundId}; screens will catch up on reload.", notice.RefundId);
+        }
+    }
+
     public async Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct)
     {
         try

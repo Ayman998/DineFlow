@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-import { OrderDto, PaymentNotice, ReviewNotice } from '../core/api';
+import { OrderDto, PaymentNotice, RefundNotice, ReviewNotice } from '../core/api';
 import { Auth } from '../core/auth';
 import { CurrentVenue } from '../core/current-venue';
 import { LiveOrders } from '../core/live-orders';
@@ -12,7 +12,8 @@ import { NAV_ITEMS } from './nav';
 type Toast =
   | { id: string; kind: 'order'; order: OrderDto }
   | { id: string; kind: 'payment'; payment: PaymentNotice }
-  | { id: string; kind: 'review'; review: ReviewNotice };
+  | { id: string; kind: 'review'; review: ReviewNotice }
+  | { id: string; kind: 'refund'; refund: RefundNotice };
 
 /**
  * Signed-in layout: sidebar navigation (blueprint 4.4), venue and user in the top bar, and live
@@ -40,6 +41,8 @@ export class Shell implements OnInit {
       this.show({ id: payment.paymentId, kind: 'payment', payment }));
     this.live.reviewed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(review =>
       this.show({ id: review.reviewId, kind: 'review', review }));
+    this.live.refunded.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(refund =>
+      this.show({ id: refund.refundId, kind: 'refund', refund }));
   }
 
   private show(toast: Toast): void {

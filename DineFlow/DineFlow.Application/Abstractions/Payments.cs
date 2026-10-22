@@ -21,7 +21,17 @@ public interface IPaymentProvider
 
     /// <summary>Verifies the webhook's signature and reads it; throws <see cref="InvalidWebhookException"/> when it can't be trusted.</summary>
     ProviderWebhookEvent ParseWebhook(string body, IReadOnlyDictionary<string, string> headers);
+
+    /// <summary>
+    /// Asks the provider to give money back. <see cref="ProviderRefundRequest.RefundId"/> is the
+    /// idempotency key. The result arrives later as a webhook with <see cref="ProviderWebhookEvent.ProviderRefundId"/> set.
+    /// </summary>
+    Task<ProviderRefund> RefundAsync(ProviderRefundRequest request, CancellationToken ct);
 }
+
+public record ProviderRefundRequest(Guid RefundId, string ProviderPaymentId, long AmountMinor, string Currency);
+
+public record ProviderRefund(string ProviderRefundId);
 
 public record ProviderCheckoutRequest(
     Guid PaymentId, string Reference, long AmountMinor, string Currency, PaymentMethod Method,
@@ -30,9 +40,10 @@ public record ProviderCheckoutRequest(
 /// <param name="RedirectUrl">The provider's page the guest is sent to.</param>
 public record ProviderCheckout(string ProviderPaymentId, string RedirectUrl);
 
+/// <param name="ProviderRefundId">Set when the event is about a refund; <paramref name="Status"/> is then the refund's outcome (Succeeded or Failed).</param>
 public record ProviderWebhookEvent(
     string EventId, string ProviderPaymentId, PaymentStatus Status,
-    string? CardBrand, string? CardLast4, string? FailureReason);
+    string? CardBrand, string? CardLast4, string? FailureReason, string? ProviderRefundId = null);
 
 public class InvalidWebhookException(string message) : Exception(message);
 
@@ -43,7 +54,12 @@ public interface IPaymentNotifier
 
     /// <summary>Tells the guests at a table that their bill changed, e.g. someone selected items or set a split.</summary>
     Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct);
+
+    /// <summary>Tells staff screens a refund was confirmed or declined by the provider.</summary>
+    Task RefundUpdatedAsync(RefundNotice notice, CancellationToken ct);
 }
+
+public record RefundNotice(Guid TenantId, Guid VenueId, Guid PaymentId, Guid RefundId, string Reference, string Currency, long AmountMinor, RefundStatus Status);
 
 /// <param name="TenantId">Carried explicitly: webhooks arrive without a signed-in tenant.</param>
 public record PaymentNotice(

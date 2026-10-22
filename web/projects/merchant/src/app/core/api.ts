@@ -554,3 +554,164 @@ function params(values: object): Record<string, string> {
     if (value !== undefined && value !== null && value !== '') result[key] = String(value);
   return result;
 }
+
+// ---- Transactions, refunds, overview and live tables (Sprint 7) ----
+
+export type TransactionState = 'Pending' | 'Succeeded' | 'PartiallyRefunded' | 'Refunded' | 'Failed' | 'Cancelled';
+export type TransactionFilter = 'All' | 'Succeeded' | 'Refunded' | 'Pending' | 'Failed';
+export type RefundStatus = 'Pending' | 'Succeeded' | 'Failed';
+
+export interface TransactionQuery {
+  venueId: string;
+  from?: string;
+  to?: string;
+  status?: TransactionFilter;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TransactionRow {
+  id: string;
+  reference: string;
+  createdAt: string;
+  succeededAt: string | null;
+  state: TransactionState;
+  method: string;
+  cardBrand: string | null;
+  cardLast4: string | null;
+  mode: 'Full' | 'Equal' | 'Items' | 'Custom';
+  locationType: string;
+  locationLabel: string;
+  orderNumbers: number[];
+  currency: string;
+  amountMinor: number;
+  tipMinor: number;
+  refundedMinor: number;
+  refundPending: boolean;
+}
+
+export interface TransactionPage {
+  items: TransactionRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totals: { count: number; grossMinor: number; tipsMinor: number; refundsMinor: number; netMinor: number };
+}
+
+export interface RefundRow {
+  id: string;
+  amountMinor: number;
+  reason: string;
+  status: RefundStatus;
+  failureReason: string | null;
+  requestedBy: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface TransactionDetail {
+  summary: TransactionRow;
+  areaName: string | null;
+  billAmountMinor: number;
+  discountMinor: number;
+  promoCode: string | null;
+  tipMinor: number;
+  amountMinor: number;
+  refundableMinor: number;
+  shares: number | null;
+  splitPeople: number | null;
+  itemCount: number;
+  failureReason: string | null;
+  reviewRating: number | null;
+  reviewId: string | null;
+  orders: { id: string; number: number; status: string; createdAt: string; lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number }[];
+  refunds: RefundRow[];
+  timeline: { at: string; kind: string; text: string }[];
+}
+
+export type OverviewPeriod = 'Today' | 'Week' | 'Month' | 'Quarter';
+export type TrendGranularity = 'Hourly' | 'Daily' | 'Weekly' | 'Monthly';
+
+export interface OverviewKpis {
+  revenueMinor: number;
+  tipsMinor: number;
+  orders: number;
+  refundsMinor: number;
+  payments: number;
+  paymentFailures: number;
+}
+
+export interface Overview {
+  period: OverviewPeriod;
+  from: string;
+  to: string;
+  currency: string;
+  timeZone: string;
+  selected: OverviewKpis;
+  today: OverviewKpis;
+  week: { revenueMinor: number; previousRevenueMinor: number; revenueChange: number | null; orders: number; previousOrders: number };
+  granularity: TrendGranularity;
+  trend: { start: string; revenueMinor: number; tipsMinor: number }[];
+  attention: { kind: string; title: string; detail: string; count: number }[];
+}
+
+export type TableState = 'Available' | 'Ordering' | 'Unpaid' | 'PartiallyPaid' | 'Paid' | 'Attention';
+
+export interface TableStatus {
+  locationId: string;
+  locationType: string;
+  label: string;
+  displayName: string;
+  areaName: string | null;
+  state: TableState;
+  attentionReason: string | null;
+  currency: string;
+  totalMinor: number;
+  paidMinor: number;
+  tipsMinor: number;
+  remainingMinor: number;
+  lastActivityAt: string | null;
+  checkId: string | null;
+  orders: { id: string; number: number; status: string; createdAt: string; totalMinor: number }[];
+}
+
+/** Pushed to staff screens when the provider confirms or declines a refund. */
+export interface RefundNotice {
+  tenantId: string;
+  venueId: string;
+  paymentId: string;
+  refundId: string;
+  reference: string;
+  currency: string;
+  amountMinor: number;
+  status: RefundStatus;
+}
+
+/** Transactions, refunds, the overview and the live table view (blueprint 9.2). */
+@Injectable({ providedIn: 'root' })
+export class FinanceApi {
+  private readonly http = inject(HttpClient);
+
+  transactions(query: TransactionQuery) {
+    return this.http.get<TransactionPage>('/v1/merchant/transactions', { params: params(query) });
+  }
+
+  transaction(id: string) {
+    return this.http.get<TransactionDetail>(`/v1/merchant/transactions/${id}`);
+  }
+
+  /** Owners and managers only; the refund completes when the provider confirms it. */
+  refund(paymentId: string, clientRequestId: string, amountMinor: number, reason: string) {
+    return this.http.post<TransactionDetail>(`/v1/merchant/transactions/${paymentId}/refunds`, { clientRequestId, amountMinor, reason });
+  }
+
+  overview(venueId: string, period: OverviewPeriod, granularity?: TrendGranularity) {
+    return this.http.get<Overview>(`/v1/merchant/venues/${venueId}/overview`, { params: params({ period, granularity }) });
+  }
+
+  tableStatus(venueId: string) {
+    return this.http.get<TableStatus[]>(`/v1/merchant/venues/${venueId}/table-status`);
+  }
+}
+

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Auth;
 using DineFlow.Application.Bills;
+using DineFlow.Application.Dashboard;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
@@ -10,6 +11,7 @@ using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
 using DineFlow.Application.Reviews;
 using DineFlow.Application.Tables;
+using DineFlow.Application.Transactions;
 using DineFlow.Application.Venues;
 using DineFlow.Domain.Tenants;
 using DineFlow.Infrastructure.Payments;
@@ -64,6 +66,9 @@ public sealed class TestHost : IDisposable
         Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, paymentOptions, guestOptions, Clock);
         GuestReviews = new GuestReviewService(Db, ReviewNotifier, Clock);
         MerchantReviews = new MerchantReviewService(Db, _tenant, Clock);
+        Transactions = new TransactionService(Db, _tenant, Sandbox, Clock);
+        TableStatus = new TableStatusService(Db, _tenant, Clock);
+        Overview = new OverviewService(Db, _tenant, TableStatus, Clock);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -96,6 +101,9 @@ public sealed class TestHost : IDisposable
     public PaymentService Payments { get; }
     public GuestReviewService GuestReviews { get; }
     public MerchantReviewService MerchantReviews { get; }
+    public TransactionService Transactions { get; }
+    public TableStatusService TableStatus { get; }
+    public OverviewService Overview { get; }
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own
@@ -109,10 +117,10 @@ public sealed class TestHost : IDisposable
         var promotions = new PromotionService(db, _tenant, bills, Clock);
         var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, paymentOptions,
             Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock);
-        return new Scope(db, bills, payments);
+        return new Scope(db, bills, payments, new TransactionService(db, _tenant, Sandbox, Clock));
     }
 
-    public sealed record Scope(AppDbContext Db, BillService Bills, PaymentService Payments) : IDisposable
+    public sealed record Scope(AppDbContext Db, BillService Bills, PaymentService Payments, TransactionService Transactions) : IDisposable
     {
         public void Dispose() => Db.Dispose();
     }
@@ -211,6 +219,14 @@ public sealed class TestHost : IDisposable
         public Task TableBillChangedAsync(Guid tenantId, Guid serviceLocationId, string reason, CancellationToken ct)
         {
             TableChanges.Add((serviceLocationId, reason));
+            return Task.CompletedTask;
+        }
+
+        public List<RefundNotice> Refunds { get; } = [];
+
+        public Task RefundUpdatedAsync(RefundNotice notice, CancellationToken ct)
+        {
+            Refunds.Add(notice);
             return Task.CompletedTask;
         }
     }

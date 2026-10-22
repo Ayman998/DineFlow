@@ -13,6 +13,8 @@ const PAGES: Partial<Record<string, LoadComponent>> = {
   menu: () => import('./pages/menu/menu-admin').then(m => m.MenuAdmin),
   promotions: () => import('./pages/promotions/promotions').then(m => m.Promotions),
   reviews: () => import('./pages/reviews/reviews').then(m => m.Reviews),
+  overview: () => import('./pages/overview/overview').then(m => m.Overview),
+  transactions: () => import('./pages/transactions/transactions').then(m => m.Transactions),
   settings: () => import('./pages/settings/settings').then(m => m.Settings)
 };
 
@@ -29,7 +31,7 @@ export const routes: Routes = [
     component: Shell,
     canActivate: [authGuard],
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'tables' },
+      { path: '', pathMatch: 'full', redirectTo: 'overview' },
       ...NAV_ITEMS.map(item => ({
         path: item.path,
         title: `${item.title} · DineFlow`,
