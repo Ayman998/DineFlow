@@ -2,6 +2,7 @@ using DineFlow.Domain.Audit;
 using DineFlow.Domain.Reviews;
 using DineFlow.Domain.Bills;
 using DineFlow.Domain.Menus;
+using DineFlow.Domain.Notifications;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
 using DineFlow.Domain.Promotions;
@@ -39,6 +40,9 @@ public interface IAppDbContext
     DbSet<LedgerEntry> LedgerEntries { get; }
     DbSet<Refund> Refunds { get; }
     DbSet<PaymentLink> PaymentLinks { get; }
+    DbSet<AlertContact> AlertContacts { get; }
+    DbSet<NotificationDelivery> NotificationDeliveries { get; }
+    DbSet<ReportSchedule> ReportSchedules { get; }
     DbSet<PromoCode> PromoCodes { get; }
     DbSet<ProcessedWebhook> ProcessedWebhooks { get; }
 

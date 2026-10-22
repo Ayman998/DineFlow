@@ -1,4 +1,7 @@
+using DineFlow.Application.Audit;
 using DineFlow.Application.Auth;
+using DineFlow.Application.Notifications;
+using DineFlow.Application.Reports;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Dashboard;
 using DineFlow.Application.Guests;
@@ -39,6 +42,12 @@ public static class DependencyInjection
         services.AddScoped<OverviewService>();
         services.AddScoped<PaymentLinkService>();
         services.AddScoped<PaymentLinkCheckoutService>();
+        services.AddScoped<PaymentAlerts>();
+        services.AddScoped<AlertService>();
+        services.AddScoped<NotificationDispatcher>();
+        services.AddScoped<ReportBuilder>();
+        services.AddScoped<ReportService>();
+        services.AddScoped<AuditService>();
         return services;
     }
 }

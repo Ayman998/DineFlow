@@ -148,6 +148,49 @@ A split link can be paid in full, by a custom amount, or in equal shares of the 
 
 The list has counts per status (active, paid, expired, deactivated), search by identifier, reference, e-mail or amount, and CSV export. Each link opens its payments and a timeline. Deactivating a link stops new payments, and the provider page also refuses a payment that's already under way. Link payments appear in **Transactions** as "Link PL-…", searchable by the identifier. They can be refunded like any other payment, and they count in the Overview's revenue and tips. A refund doesn't reopen the link. Staff see a "Payment link paid" alert as money comes in. Promotion codes and reviews aren't offered on links.
 
+### WhatsApp alerts, e-mail reports and the audit log
+
+**Settings → Notifications** turns on WhatsApp payment alerts and lists the numbers that get them: up to 10, in international format (`+971 50 123 4567` is stored as `+971501234567`). Every successful payment, at a table or through a payment link, sends each number a short message. It's short enough to read on a smartwatch:
+
+```
+Demo Bistro · Table 7
+AED 55.00 (tip AED 5.00) paid
+Bill fully paid
+Orders #1012, #1013 · DF-1A2B3C4D · 12:04
+```
+
+A part payment shows what's left instead, e.g. "AED 60.00 left to pay". **Send a test message** checks the numbers and the channel.
+
+**Reports** schedules e-mailed reports:
+
+- **Daily** reports go out at the chosen hour (venue time) and cover the day before.
+- **Weekly** reports go out on Mondays and cover Monday to Sunday.
+- **Monthly** reports go out on the 1st and cover the month before.
+
+Each report has revenue, tips, refunds, net, orders, successful payments, the average payment, payment failures, money paid through payment links, ratings and the average rating. Every figure is compared with the period before, and the five best-selling items are listed. The page previews the latest report and has **Send now**.
+
+Messages aren't sent while the request or webhook is being handled. They're written to an outbox table, and a background worker sends them every few seconds:
+
+- Each message is sent once per payment or report period, however often the event is handled.
+- A failure is retried after 30 seconds, 2 minutes, 10 minutes and 30 minutes. After 5 attempts the message stays **Failed**, with the provider's reason.
+- Both pages show a delivery log. Managers can resend a failed message.
+- If two API instances run, a version column on each message and schedule stops them sending the same one twice.
+
+WhatsApp goes through the **WhatsApp Cloud API** (Meta). Development needs no account: `WhatsApp:Provider` is `outbox`, and each message is written as JSON to `DineFlow/DineFlow.Api/App_Data/whatsapp` (git-ignored). Report e-mails go to the e-mail outbox like receipts. To send for real:
+
+1. Create a template in WhatsApp Manager with four body parameters, e.g. `{{1}}: {{2}} paid. {{3}}. {{4}}`. Name it `payment_alert`, or set `WhatsApp:MetaApi:TemplateName`.
+2. Set `WhatsApp:Provider` to `meta`.
+3. Set `WhatsApp:MetaApi:PhoneNumberId` and `WhatsApp:MetaApi:AccessToken` with user-secrets or a key vault.
+
+**Settings → Activity** (owners and managers) is the audit log. It shows refunds, viewing a guest's contact details, payment links, alert numbers, reports and resent messages: who did each, when, and to what. Entries can't be changed or deleted.
+
+**Operations:**
+
+- Every request gets a correlation id. The API uses the caller's `X-Correlation-Id` if it's sensible, otherwise a new one. It's echoed in the response, included as `correlationId` in every error body, and attached to every log line for the request.
+- API responses carry `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a locked-down `Permissions-Policy` and a CSP of `default-src 'none'`. HSTS is on outside Development.
+- `/health/ready` checks the database and the outbox. It's Degraded if the worker stops or messages are more than ten minutes overdue.
+- `Features:PaymentLinks`, `Features:WhatsAppAlerts` and `Features:EmailReports` (default `true`) switch features off without a release. Their endpoints answer `404 feature_disabled`, the merchant app hides them, and their background work stops.
+
 To apply migrations without starting the API:
 
 ```bash
@@ -160,7 +203,7 @@ dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFl
 
 ### Keys and secrets
 
-`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code.
+`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code. With `WhatsApp:Provider` set to `meta`, `WhatsApp:MetaApi:AccessToken` is a secret too, and the API refuses to start without it and `PhoneNumberId`.
 
 ### Uploaded images
 
@@ -222,12 +265,18 @@ npm --prefix web test
 | `GET /v1/merchant/payment-links/{id}`, `POST …/{id}/cancel`, `POST …/{id}/notify` | merchant | A link with its payments and timeline; deactivate it; e-mail it |
 | `GET /v1/public/payment-links/{token}` | anyone with the link (rate limited) | The link as the customer sees it |
 | `POST /v1/public/payment-links/{token}/payments`, `GET …/payments/{id}`, `POST …/payments/{id}/cancel`, `POST …/payments/{id}/receipt` | anyone with the link | Pay what's left, equal shares or an amount (idempotent per `clientRequestId`); status; cancel; e-mail the receipt |
+| `GET`/`PUT /v1/merchant/venues/{id}/alerts`, `POST …/alerts/contacts`, `DELETE /v1/merchant/alerts/contacts/{id}`, `POST …/alerts/test` | merchant / manager | WhatsApp payment alerts: on or off, numbers, test message |
+| `GET /v1/merchant/notifications?venueId=&channel=&status=`, `POST …/{id}/resend` | merchant / manager | Delivery log for WhatsApp and e-mail; resend a failed message |
+| `GET/POST /v1/merchant/report-schedules`, `PUT`/`DELETE …/{id}`, `POST …/{id}/send`, `GET …/preview?venueId=&frequency=` | merchant / manager | Scheduled e-mail reports, send now, preview |
+| `GET /v1/merchant/audit?area=&from=&to=&page=` | manager | The audit log |
+| `GET /v1/merchant/features` | merchant | Which switchable features are on |
+| `GET /health/live`, `GET /health/ready` | anyone | Liveness; readiness with database and outbox checks |
 
 ### Real-time
 
 SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived`, `reviewSubmitted`, `refundUpdated` and `paymentLinkPaid` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
-Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired` or `link_paid`.
+Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired`, `link_paid`, `invalid_contact` or `feature_disabled`, plus the request's `correlationId`.
 
 ## Ground rules (from the blueprint)
 
@@ -252,4 +301,5 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 6 | Reviews: post-payment rating, public-review routing, private feedback with consent, reviews dashboard, staff ratings ✅ | E27 |
 | 7 | Merchant overview, live table status, transactions with timeline, refunds ✅ | E11, E12 |
 | 8 | Payment links: create, share (QR, WhatsApp, e-mail), split and tip options, expiry, status tracking, export ✅ | E16 |
-| 9 | Hardening, Foodics connector, WhatsApp, email reports | E9, E15, E28 |
+| 9a | WhatsApp payment alerts, scheduled e-mail reports, notification outbox with retries, audit log, correlation ids, security headers, health checks, feature flags ✅ | E15, E28 |
+| 9b | POS connector framework, payment posting with POSTING_PENDING retries, Foodics connector (simulated until sandbox access) | E3, E9 |

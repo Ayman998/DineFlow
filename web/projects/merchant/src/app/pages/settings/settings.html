@@ -1,5 +1,18 @@
-<h1 class="mb-1 text-2xl font-bold">Venue settings</h1>
-<p class="mb-6 text-sm text-ink-muted">What guests see when they scan a QR code at this venue.</p>
+<h1 class="mb-1 text-2xl font-bold">Settings</h1>
+<p class="mb-4 text-sm text-ink-muted">What guests see at this venue, who gets payment alerts, and what's been changed.</p>
+
+<div class="mb-6 flex gap-1 rounded-lg bg-surface p-1 w-fit" role="tablist" aria-label="Settings">
+  @for (t of tabs(); track t.value) {
+    <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === t.value"
+            [class]="view() === t.value ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(t.value)">{{ t.label }}</button>
+  }
+</div>
+
+@if (view() === 'notifications') {
+  <df-alert-settings />
+} @else if (view() === 'activity') {
+  <df-audit-log />
+} @else {
 
 @if (!auth.canManage()) {
   <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">Only owners and managers can change settings.</p>
@@ -184,3 +197,4 @@
     </div>
   </aside>
 </form>
+}

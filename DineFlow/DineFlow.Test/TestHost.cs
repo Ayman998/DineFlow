@@ -1,15 +1,18 @@
 using System.Security.Cryptography;
 using DineFlow.Application.Abstractions;
+using DineFlow.Application.Audit;
 using DineFlow.Application.Auth;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Dashboard;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
+using DineFlow.Application.Notifications;
 using DineFlow.Application.Orders;
 using DineFlow.Application.PaymentLinks;
 using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
+using DineFlow.Application.Reports;
 using DineFlow.Application.Reviews;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Transactions;
@@ -64,7 +67,9 @@ public sealed class TestHost : IDisposable
         Bills = new BillService(Db, Sandbox, PaymentNotifier, paymentOptions, Clock);
         MerchantOrders = new MerchantOrderService(Db, Notifier, Bills, Clock);
         Promotions = new PromotionService(Db, _tenant, Bills, Clock);
-        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, paymentOptions, guestOptions, Clock);
+        var features = Options.Create(Features);
+        Alerts = new PaymentAlerts(Db, features, Clock);
+        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, Alerts, paymentOptions, guestOptions, Clock);
         GuestReviews = new GuestReviewService(Db, ReviewNotifier, Clock);
         MerchantReviews = new MerchantReviewService(Db, _tenant, Clock);
         Transactions = new TransactionService(Db, _tenant, Sandbox, Clock);
@@ -72,6 +77,10 @@ public sealed class TestHost : IDisposable
         Overview = new OverviewService(Db, _tenant, TableStatus, Clock);
         PaymentLinks = new PaymentLinkService(Db, _tenant, QrTokens, Emails, guestOptions, Clock);
         LinkCheckout = new PaymentLinkCheckoutService(Db, QrTokens, Sandbox, Emails, paymentOptions, guestOptions, Clock);
+        AlertSettings = new AlertService(Db, _tenant, WhatsApp, Clock);
+        Dispatcher = new NotificationDispatcher(Db, WhatsApp, Emails, Clock);
+        Reports = new ReportService(Db, _tenant, new ReportBuilder(Db), features, Clock);
+        AuditLog = new AuditService(Db, _tenant);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -109,6 +118,14 @@ public sealed class TestHost : IDisposable
     public OverviewService Overview { get; }
     public PaymentLinkService PaymentLinks { get; }
     public PaymentLinkCheckoutService LinkCheckout { get; }
+    /// <summary>Feature switches; change them before the service under test runs.</summary>
+    public FeatureOptions Features { get; } = new();
+    public RecordingWhatsAppSender WhatsApp { get; } = new();
+    public PaymentAlerts Alerts { get; }
+    public AlertService AlertSettings { get; }
+    public NotificationDispatcher Dispatcher { get; }
+    public ReportService Reports { get; }
+    public AuditService AuditLog { get; }
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own
@@ -120,14 +137,15 @@ public sealed class TestHost : IDisposable
         var paymentOptions = Options.Create(new PaymentOptions());
         var bills = new BillService(db, Sandbox, PaymentNotifier, paymentOptions, Clock);
         var promotions = new PromotionService(db, _tenant, bills, Clock);
-        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, paymentOptions,
+        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, new PaymentAlerts(db, Options.Create(Features), Clock), paymentOptions,
             Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock);
         return new Scope(db, bills, payments, new TransactionService(db, _tenant, Sandbox, Clock),
-            new PaymentLinkCheckoutService(db, QrTokens, Sandbox, Emails, paymentOptions, Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock));
+            new PaymentLinkCheckoutService(db, QrTokens, Sandbox, Emails, paymentOptions, Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock),
+            new ReportService(db, _tenant, new ReportBuilder(db), Options.Create(Features), Clock));
     }
 
     public sealed record Scope(AppDbContext Db, BillService Bills, PaymentService Payments, TransactionService Transactions,
-        PaymentLinkCheckoutService LinkCheckout) : IDisposable
+        PaymentLinkCheckoutService LinkCheckout, ReportService Reports) : IDisposable
     {
         public void Dispose() => Db.Dispose();
     }
@@ -254,6 +272,21 @@ public sealed class TestHost : IDisposable
         {
             Notices.Add(notice);
             return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>Remembers WhatsApp messages; set <see cref="FailWith"/> to make the provider refuse them.</summary>
+    public sealed class RecordingWhatsAppSender : IWhatsAppSender
+    {
+        public string Name => "test";
+        public List<WhatsAppMessage> Sent { get; } = [];
+        public string? FailWith { get; set; }
+
+        public Task<string> SendAsync(WhatsAppMessage message, CancellationToken ct)
+        {
+            if (FailWith is { } error) throw new HttpRequestException(error);
+            Sent.Add(message);
+            return Task.FromResult($"wamid.{Sent.Count}");
         }
     }
 

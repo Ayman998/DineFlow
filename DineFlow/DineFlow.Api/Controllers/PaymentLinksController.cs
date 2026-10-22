@@ -1,5 +1,6 @@
 using System.Text;
 using DineFlow.Api.Common;
+using DineFlow.Application.Common;
 using DineFlow.Application.PaymentLinks;
 using DineFlow.Application.Payments;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,7 @@ namespace DineFlow.Api.Controllers;
 /// <summary>Payment links (blueprint 9.2 /v1/merchant/payment-links/*, E16). Any staff member can create and deactivate them.</summary>
 [ApiController]
 [Authorize(Policy = Policies.Merchant)]
+[RequiresFeature(nameof(FeatureOptions.PaymentLinks))]
 [Route("v1/merchant/payment-links")]
 public class MerchantPaymentLinksController(PaymentLinkService links) : ControllerBase
 {
@@ -54,6 +56,7 @@ public class MerchantPaymentLinksController(PaymentLinkService links) : Controll
 [ApiController]
 [AllowAnonymous]
 [EnableRateLimiting(Policies.PublicRateLimit)]
+[RequiresFeature(nameof(FeatureOptions.PaymentLinks))]
 [Route("v1/public/payment-links/{token}")]
 public class PublicPaymentLinksController(PaymentLinkCheckoutService checkout) : ControllerBase
 {

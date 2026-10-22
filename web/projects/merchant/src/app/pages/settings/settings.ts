@@ -1,9 +1,12 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 
 import { MerchantApi, ReviewPlatform, Venue, VenueSettings } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { Features } from '../../core/features';
+import { AlertSettingsPanel } from './alert-settings';
+import { AuditLog } from './audit-log';
 
 const CURRENCIES = ['AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'JOD', 'EGP', 'USD', 'EUR', 'GBP'];
 const TIME_ZONES = [
@@ -11,16 +14,24 @@ const TIME_ZONES = [
   'Asia/Amman', 'Africa/Cairo', 'Europe/London', 'UTC'
 ];
 
-/** Venue profile, branding and guest features (P1-MER-01). */
+/** Venue profile, branding and guest features (P1-MER-01); WhatsApp alerts; the audit log for managers. */
 @Component({
   selector: 'df-settings',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, AlertSettingsPanel, AuditLog],
   templateUrl: './settings.html'
 })
 export class Settings implements OnInit {
   private readonly api = inject(MerchantApi);
   private readonly currentVenue = inject(CurrentVenue);
   protected readonly auth = inject(Auth);
+  private readonly features = inject(Features);
+
+  protected readonly view = signal<'venue' | 'notifications' | 'activity'>('venue');
+  protected readonly tabs = computed(() => [
+    { value: 'venue' as const, label: 'Venue' },
+    ...(this.features.current().whatsAppAlerts ? [{ value: 'notifications' as const, label: 'Notifications' }] : []),
+    ...(this.auth.canManage() ? [{ value: 'activity' as const, label: 'Activity' }] : [])
+  ]);
 
   protected readonly currencies = CURRENCIES;
   protected readonly timeZones = TIME_ZONES;

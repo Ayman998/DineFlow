@@ -42,7 +42,9 @@ if (!builder.Environment.IsDevelopment()
         "The sandbox payment provider only runs in Development. Configure a real provider, or set Payments:Sandbox:AllowOutsideDevelopment for a demo.");
 }
 
-builder.Services.AddProblemDetails();
+// Every error response carries the request's correlation id, so a support ticket can be matched to the logs.
+builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
+    c.ProblemDetails.Extensions["correlationId"] = c.HttpContext.TraceIdentifier);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
@@ -135,8 +137,12 @@ if (app.Environment.IsDevelopment())
     }
 }
 
+// The correlation id comes first so every log line for the request carries it, request logging included.
+app.UseMiddleware<CorrelationIdMiddleware>();
 // Request logging wraps the exception handler so it records the status code the client actually got.
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(o => o.EnrichDiagnosticContext = (diagnostics, http) =>
+    diagnostics.Set("CorrelationId", http.TraceIdentifier));
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
@@ -150,6 +156,7 @@ if (app.Environment.IsDevelopment())
 // Authorization header (every signed-in call then fails with 401), so only redirect elsewhere.
 if (!app.Environment.IsDevelopment())
 {
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 
@@ -176,6 +183,14 @@ app.MapControllers();
 app.MapHub<MerchantHub>(MerchantHub.Path);
 app.MapHub<GuestHub>(GuestHub.Path);
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
-app.MapHealthChecks("/health/ready");
+// Readiness: the database, and whether queued WhatsApp and e-mail messages are going out (see NotificationHealthCheck).
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    ResponseWriter = (http, report) => http.Response.WriteAsJsonAsync(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.ToDictionary(e => e.Key, e => new { status = e.Value.Status.ToString(), e.Value.Description, e.Value.Data })
+    })
+});
 
 app.Run();

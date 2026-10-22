@@ -4,6 +4,7 @@ using System.Text;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Common;
+using DineFlow.Application.Notifications;
 using DineFlow.Application.PaymentLinks;
 using DineFlow.Application.Promotions;
 using DineFlow.Domain.Bills;
@@ -29,6 +30,7 @@ public class PaymentService(
     IPaymentProvider provider,
     IPaymentNotifier notifier,
     IEmailSender email,
+    PaymentAlerts alerts,
     IOptions<PaymentOptions> paymentOptions,
     IOptions<GuestOptions> guestOptions,
     TimeProvider clock)
@@ -278,6 +280,8 @@ public class PaymentService(
             payment.Id, payment.Reference, payment.Currency, payment.AmountMinor, payment.TipMinor,
             totals.RemainingMinor, totals.RemainingMinor == 0,
             payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
+        await alerts.QueueTableAsync(payment, $"{location.DisplayName}{(location.DiningArea is { } area ? $" ({area.Name})" : "")}",
+            totals.RemainingMinor, ct);
     }
 
     /// <summary>
@@ -301,6 +305,7 @@ public class PaymentService(
         await notifier.PaymentLinkPaidAsync(new PaymentLinkNotice(
             payment.TenantId, payment.VenueId, link.Id, link.Code, link.Reference, payment.Id, payment.Reference,
             payment.Currency, payment.AmountMinor, payment.TipMinor, totals.RemainingMinor, totals.RemainingMinor == 0), ct);
+        await alerts.QueueLinkAsync(payment, link, totals.RemainingMinor, ct);
     }
 
     /// <summary>The provider's verdict on a refund: a success writes the refund's own ledger entry (blueprint 7.2).</summary>

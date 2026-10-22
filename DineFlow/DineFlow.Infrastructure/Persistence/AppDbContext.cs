@@ -5,6 +5,7 @@ using DineFlow.Application.Abstractions;
 using DineFlow.Domain.Bills;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Menus;
+using DineFlow.Domain.Notifications;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
 using DineFlow.Domain.Promotions;
@@ -42,6 +43,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<PaymentLink> PaymentLinks => Set<PaymentLink>();
+    public DbSet<AlertContact> AlertContacts => Set<AlertContact>();
+    public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+    public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<ProcessedWebhook> ProcessedWebhooks => Set<ProcessedWebhook>();
 

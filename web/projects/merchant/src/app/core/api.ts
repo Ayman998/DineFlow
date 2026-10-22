@@ -849,3 +849,154 @@ export class PaymentLinksApi {
     return this.http.get('/v1/merchant/payment-links/export', { params: params(query), responseType: 'blob' });
   }
 }
+
+// ---- Notifications, reports, audit and feature flags (Sprint 9) ----
+
+export type NotificationChannel = 'WhatsApp' | 'Email';
+export type NotificationKind = 'PaymentAlert' | 'LinkPaymentAlert' | 'Report' | 'Test';
+export type DeliveryStatus = 'Pending' | 'Sent' | 'Failed';
+
+export interface AlertContact { id: string; name: string; phoneNumber: string; createdAt: string }
+
+export interface AlertSettings {
+  enabled: boolean;
+  contacts: AlertContact[];
+  /** "outbox" in development (messages are written to a folder), "meta" when the WhatsApp Cloud API is configured. */
+  provider: string;
+}
+
+export interface Delivery {
+  id: string;
+  channel: NotificationChannel;
+  kind: NotificationKind;
+  recipient: string;
+  subject: string | null;
+  textBody: string;
+  status: DeliveryStatus;
+  attempts: number;
+  createdAt: string;
+  sentAt: string | null;
+  nextAttemptAt: string | null;
+  lastError: string | null;
+  subjectId: string | null;
+}
+
+export interface DeliveryPage { items: Delivery[]; total: number; page: number; pageSize: number; failed: number }
+
+export type ReportFrequency = 'Daily' | 'Weekly' | 'Monthly';
+
+export interface ReportSchedule {
+  id: string;
+  frequency: ReportFrequency;
+  sendAtHour: number;
+  recipients: string[];
+  isActive: boolean;
+  nextRunAt: string;
+  lastRunAt: string | null;
+  createdBy: string | null;
+}
+
+export interface ReportScheduleRequest {
+  venueId: string;
+  frequency: ReportFrequency;
+  sendAtHour: number;
+  recipients: string[];
+  isActive: boolean;
+}
+
+export interface ReportMetric { key: string; label: string; unit: 'Money' | 'Count' | 'Rating'; value: number; previous: number; change: number | null }
+
+export interface Report {
+  brandName: string;
+  venueName: string;
+  currency: string;
+  frequency: ReportFrequency;
+  periodStart: string;
+  periodEnd: string;
+  periodLabel: string;
+  metrics: ReportMetric[];
+  topItems: { name: string; quantity: number; totalMinor: number }[];
+}
+
+export interface AuditEntry { id: string; at: string; action: string; description: string; objectType: string; objectId: string; staffName: string | null }
+export interface AuditPage { items: AuditEntry[]; total: number; page: number; pageSize: number }
+
+export interface Features { paymentLinks: boolean; whatsAppAlerts: boolean; emailReports: boolean }
+
+/** WhatsApp payment alerts and the message log (blueprint P1-STAFF-02). */
+@Injectable({ providedIn: 'root' })
+export class NotificationsApi {
+  private readonly http = inject(HttpClient);
+
+  alerts(venueId: string) {
+    return this.http.get<AlertSettings>(`/v1/merchant/venues/${venueId}/alerts`);
+  }
+
+  setAlerts(venueId: string, enabled: boolean) {
+    return this.http.put<AlertSettings>(`/v1/merchant/venues/${venueId}/alerts`, { enabled });
+  }
+
+  addContact(venueId: string, name: string, phoneNumber: string) {
+    return this.http.post<AlertSettings>(`/v1/merchant/venues/${venueId}/alerts/contacts`, { name, phoneNumber });
+  }
+
+  removeContact(contactId: string) {
+    return this.http.delete<AlertSettings>(`/v1/merchant/alerts/contacts/${contactId}`);
+  }
+
+  test(venueId: string) {
+    return this.http.post<void>(`/v1/merchant/venues/${venueId}/alerts/test`, {});
+  }
+
+  deliveries(query: { venueId: string; channel?: NotificationChannel; status?: DeliveryStatus; page?: number; pageSize?: number }) {
+    return this.http.get<DeliveryPage>('/v1/merchant/notifications', { params: params(query) });
+  }
+
+  resend(deliveryId: string) {
+    return this.http.post<Delivery>(`/v1/merchant/notifications/${deliveryId}/resend`, {});
+  }
+}
+
+/** Scheduled e-mail reports (blueprint 9.2 /v1/merchant/report-schedules/*). */
+@Injectable({ providedIn: 'root' })
+export class ReportsApi {
+  private readonly http = inject(HttpClient);
+
+  list(venueId: string) {
+    return this.http.get<ReportSchedule[]>('/v1/merchant/report-schedules', { params: { venueId } });
+  }
+
+  create(request: ReportScheduleRequest) {
+    return this.http.post<ReportSchedule>('/v1/merchant/report-schedules', request);
+  }
+
+  update(id: string, request: ReportScheduleRequest) {
+    return this.http.put<ReportSchedule>(`/v1/merchant/report-schedules/${id}`, request);
+  }
+
+  delete(id: string) {
+    return this.http.delete<void>(`/v1/merchant/report-schedules/${id}`);
+  }
+
+  sendNow(id: string) {
+    return this.http.post<{ queued: number }>(`/v1/merchant/report-schedules/${id}/send`, {});
+  }
+
+  preview(venueId: string, frequency: ReportFrequency) {
+    return this.http.get<Report>('/v1/merchant/report-schedules/preview', { params: { venueId, frequency } });
+  }
+}
+
+/** The audit log and feature switches. */
+@Injectable({ providedIn: 'root' })
+export class AdminApi {
+  private readonly http = inject(HttpClient);
+
+  audit(query: { area?: string; page?: number; pageSize?: number }) {
+    return this.http.get<AuditPage>('/v1/merchant/audit', { params: params(query) });
+  }
+
+  features() {
+    return this.http.get<Features>('/v1/merchant/features');
+  }
+}

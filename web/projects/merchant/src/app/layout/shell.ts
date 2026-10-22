@@ -1,10 +1,11 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { OrderDto, PaymentLinkNotice, PaymentNotice, RefundNotice, ReviewNotice } from '../core/api';
 import { Auth } from '../core/auth';
 import { CurrentVenue } from '../core/current-venue';
+import { Features } from '../core/features';
 import { LiveOrders } from '../core/live-orders';
 import { formatMoney } from '../core/money';
 import { NAV_ITEMS } from './nav';
@@ -27,7 +28,9 @@ type Toast =
 })
 export class Shell implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  protected readonly nav = NAV_ITEMS;
+  private readonly features = inject(Features);
+  /** Areas whose feature is switched off in the API's configuration are left out. */
+  protected readonly nav = computed(() => NAV_ITEMS.filter(item => item.path !== 'payment-links' || this.features.current().paymentLinks));
   protected readonly auth = inject(Auth);
   protected readonly currentVenue = inject(CurrentVenue);
   protected readonly live = inject(LiveOrders);
@@ -35,6 +38,7 @@ export class Shell implements OnInit {
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe(() => this.live.start());
+    this.features.load();
 
     this.live.placed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(order =>
       this.show({ id: order.id, kind: 'order', order }));

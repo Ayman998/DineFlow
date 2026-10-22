@@ -1,6 +1,7 @@
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Infrastructure.Email;
+using DineFlow.Infrastructure.Messaging;
 using DineFlow.Infrastructure.Payments;
 using DineFlow.Infrastructure.Persistence;
 using DineFlow.Infrastructure.Security;
@@ -68,12 +69,36 @@ public static class DependencyInjection
         services.AddSingleton<IEmailSender>(sp => new FileEmailSender(
             sp.GetRequiredService<IOptions<EmailOptions>>(), contentRootPath, sp.GetRequiredService<ILogger<FileEmailSender>>()));
 
+        services.AddOptions<FeatureOptions>().Bind(configuration.GetSection(FeatureOptions.Section));
+
+        // WhatsApp payment alerts: a local outbox until the WhatsApp Cloud API is configured.
+        services.AddOptions<WhatsAppOptions>()
+            .Bind(configuration.GetSection(WhatsAppOptions.Section))
+            .Validate(o => o.Provider is WhatsAppOptions.Outbox or WhatsAppOptions.Meta, "WhatsApp:Provider must be 'outbox' or 'meta'.")
+            .Validate(o => o.Provider != WhatsAppOptions.Meta || (o.MetaApi.PhoneNumberId.Length > 0 && o.MetaApi.AccessToken.Length > 0),
+                "WhatsApp:MetaApi:PhoneNumberId and AccessToken are required when WhatsApp:Provider is 'meta'.")
+            .ValidateOnStart();
+        if (configuration[$"{WhatsAppOptions.Section}:Provider"] == WhatsAppOptions.Meta)
+        {
+            services.AddHttpClient<MetaWhatsAppSender>(c => c.Timeout = TimeSpan.FromSeconds(15));
+            services.AddScoped<IWhatsAppSender>(sp => sp.GetRequiredService<MetaWhatsAppSender>());
+        }
+        else
+        {
+            services.AddSingleton<IWhatsAppSender>(sp => new OutboxWhatsAppSender(
+                sp.GetRequiredService<IOptions<WhatsAppOptions>>(), contentRootPath, sp.GetRequiredService<ILogger<OutboxWhatsAppSender>>()));
+        }
+        services.AddSingleton<NotificationWorkerStatus>();
+        services.AddHostedService<NotificationWorker>();
+
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IQrTokenService, QrTokenService>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
         services.AddSingleton<IPasswordService, PasswordService>();
 
-        services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
+        services.AddHealthChecks()
+            .AddDbContextCheck<AppDbContext>("database")
+            .AddCheck<NotificationHealthCheck>("notifications");
 
         return services;
     }

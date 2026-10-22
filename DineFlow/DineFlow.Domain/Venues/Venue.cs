@@ -48,6 +48,11 @@ public class Venue : Entity, ITenantOwned
     /// <summary>Heading of the private feedback form for 1–3 stars; null for the app's default.</summary>
     public string? FeedbackTitle { get; private set; }
 
+    /// <summary>Whether the venue's alert contacts get a WhatsApp message for every successful payment (P1-STAFF-02).</summary>
+    public bool WhatsAppAlertsEnabled { get; private set; }
+
+    public void SetWhatsAppAlerts(bool enabled) => WhatsAppAlertsEnabled = enabled;
+
     public void SetReviews(bool enabled, ReviewPlatform? platform, string? url, string? feedbackTitle)
     {
         url = string.IsNullOrWhiteSpace(url) ? null : url.Trim();

@@ -1,0 +1,137 @@
+@let list = schedules();
+@let r = preview();
+
+<div class="mx-auto flex max-w-6xl flex-col gap-6">
+  <div>
+    <h1 class="text-2xl font-bold">Reports</h1>
+    <p class="text-sm text-ink-muted">Revenue, tips, orders, refunds and ratings by e-mail, every day, week or month.</p>
+  </div>
+
+  @if (!features.current().emailReports) {
+    <p class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">E-mail reports are switched off for this environment.</p>
+  } @else {
+    @if (error()) { <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p> }
+    @if (notice()) { <p class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{{ notice() }}</p> }
+
+    <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div class="flex min-w-0 flex-col gap-6">
+        <section class="card flex flex-col gap-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="font-semibold">E-mail reports</h2>
+            @if (auth.canManage() && editing() !== 'new') { <button type="button" class="btn-secondary" (click)="startNew()">New e-mail report</button> }
+          </div>
+
+          @if (list && !list.length && editing() !== 'new') {
+            <p class="text-sm text-ink-muted">No reports scheduled. Add one to get the figures in your inbox without opening the dashboard.</p>
+          }
+
+          <ul class="flex flex-col divide-y divide-line">
+            @for (s of list ?? []; track s.id) {
+              @if (editing() === s.id) {
+                <li class="py-3"><ng-container *ngTemplateOutlet="form" /></li>
+              } @else {
+                <li class="flex flex-wrap items-start justify-between gap-3 py-3 text-sm">
+                  <span class="min-w-0">
+                    <span class="block font-semibold">{{ s.frequency }} report @if (!s.isActive) { <span class="ms-1 rounded-full bg-surface px-2 py-0.5 text-xs text-ink-muted">Paused</span> }</span>
+                    <span class="block text-ink-muted">{{ describe(s) }}</span>
+                    <span class="block truncate text-ink-muted">To {{ s.recipients.join(', ') }}</span>
+                    <span class="block text-xs text-ink-muted">
+                      @if (s.isActive) { Next {{ when(s.nextRunAt) }} }@if (s.lastRunAt) { · last sent {{ when(s.lastRunAt) }} }
+                    </span>
+                  </span>
+                  @if (auth.canManage()) {
+                    <span class="flex shrink-0 gap-1">
+                      <button type="button" class="btn-ghost px-2 py-1" [disabled]="busy()" (click)="sendNow(s)">Send now</button>
+                      <button type="button" class="btn-ghost px-2 py-1" (click)="edit(s)">Edit</button>
+                      <button type="button" class="btn-ghost px-2 py-1 text-red-700" (click)="remove(s)">Delete</button>
+                    </span>
+                  }
+                </li>
+              }
+            }
+          </ul>
+          @if (editing() === 'new') { <ng-container *ngTemplateOutlet="form" /> }
+          @if (!auth.canManage()) { <p class="text-sm text-ink-muted">Only owners and managers can change who gets reports.</p> }
+        </section>
+
+        <section class="card min-w-0">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold">Preview</h2>
+              @if (r) { <p class="text-sm text-ink-muted">{{ r.periodLabel }}, compared with the {{ r.frequency === 'Daily' ? 'day' : r.frequency === 'Weekly' ? 'week' : 'month' }} before</p> }
+            </div>
+            <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" aria-label="Report period">
+              @for (f of frequencies; track f) {
+                <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="previewFrequency() === f"
+                        [class]="previewFrequency() === f ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setPreview(f)">{{ f }}</button>
+              }
+            </div>
+          </div>
+          @if (r) {
+            <table class="w-full text-sm">
+              <thead class="border-b border-line text-xs text-ink-muted uppercase">
+                <tr>
+                  <th scope="col" class="py-2 text-start font-semibold">Figure</th>
+                  <th scope="col" class="py-2 text-end font-semibold">This period</th>
+                  <th scope="col" class="py-2 text-end font-semibold">Before</th>
+                  <th scope="col" class="py-2 text-end font-semibold">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (m of r.metrics; track m.key) {
+                  <tr class="border-b border-line last:border-0">
+                    <td class="py-2">{{ m.label }}</td>
+                    <td class="py-2 text-end font-semibold tabular-nums">{{ value(r, m, m.value) }}</td>
+                    <td class="py-2 text-end text-ink-muted tabular-nums">{{ value(r, m, m.previous) }}</td>
+                    <td class="py-2 text-end tabular-nums" [class]="changeClass(m)">{{ change(m) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (r.topItems.length) {
+              <p class="mt-4 text-xs font-bold tracking-wide text-ink-muted uppercase">Best sellers</p>
+              <ul class="mt-1 text-sm">
+                @for (i of r.topItems; track i.name) {
+                  <li class="flex justify-between py-1"><span>{{ i.quantity }} × {{ i.name }}</span><span class="tabular-nums">{{ money(i.totalMinor, r.currency) }}</span></li>
+                }
+              </ul>
+            }
+          } @else {
+            <p class="text-sm text-ink-muted">Loading…</p>
+          }
+        </section>
+      </div>
+
+      <df-delivery-log class="h-fit" channel="Email" title="E-mailed" />
+    </div>
+  }
+</div>
+
+<ng-template #form>
+  <form class="grid gap-3 rounded-lg border border-line p-4" (submit)="$event.preventDefault(); save()">
+    <div class="grid gap-3 sm:grid-cols-2">
+      <label><span class="field-label">How often</span>
+        <select class="field" [value]="frequency()" (change)="frequency.set($any($event.target).value)">
+          <option value="Daily">Daily, for the day before</option>
+          <option value="Weekly">Weekly on Monday, for the week before</option>
+          <option value="Monthly">Monthly on the 1st, for the month before</option>
+        </select>
+      </label>
+      <label><span class="field-label">Send at (venue time)</span>
+        <select class="field" [value]="'' + hour()" (change)="hour.set(+$any($event.target).value)">
+          @for (h of hours; track h) { <option [value]="'' + h">{{ (h < 10 ? '0' : '') + h }}:00</option> }
+        </select>
+      </label>
+    </div>
+    <label><span class="field-label">Send to</span>
+      <textarea class="field" rows="2" placeholder="owner@example.com, finance@example.com" [value]="recipients()" (input)="recipients.set($any($event.target).value)"></textarea>
+      <span class="mt-1 block text-xs text-ink-muted">Up to 10 addresses, separated by commas.</span>
+    </label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 accent-brand" [checked]="active()" (change)="active.set($any($event.target).checked)" /> Send on schedule</label>
+    @if (formError()) { <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ formError() }}</p> }
+    <div class="flex justify-end gap-2">
+      <button type="button" class="btn-ghost" (click)="editing.set(null)">Cancel</button>
+      <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Save' }}</button>
+    </div>
+  </form>
+</ng-template>
