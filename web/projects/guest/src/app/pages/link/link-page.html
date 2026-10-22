@@ -1,0 +1,285 @@
+@let t = i18n.t();
+@let l = link();
+@let r = result();
+
+<div class="flex min-h-dvh flex-col bg-[#F6F7F9]">
+  <!-- Venue branding -->
+  <header class="px-5 pt-4 pb-6 text-white" [style.background-color]="l?.venue?.brandColor ?? '#0B3B38'">
+    <div class="flex justify-end">
+      <button type="button" class="inline-flex min-h-11 items-center gap-2 rounded-full border-[1.5px] border-white/40 px-3.5 text-sm font-semibold"
+              [attr.aria-label]="t.changeLanguage" (click)="i18n.toggle()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
+        </svg>
+        {{ t.otherLanguage }}
+      </button>
+    </div>
+    @if (l) {
+      <div class="mt-2 flex items-center gap-3.5">
+        <div class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-lg font-extrabold" [style.color]="l.venue.brandColor">
+          @if (l.venue.logoUrl) { <img [src]="l.venue.logoUrl" [alt]="l.venue.brandName" class="size-full object-cover" /> }
+          @else { <span aria-hidden="true">{{ initials(l.venue.brandName) }}</span> }
+        </div>
+        <div class="min-w-0">
+          <p class="truncate text-xl font-extrabold">{{ l.venue.brandName }}</p>
+          <p class="truncate text-sm text-[#CFE8E4]">{{ l.venue.branchName }}</p>
+        </div>
+      </div>
+    } @else {
+      <div class="mt-2 h-14" aria-hidden="true"></div>
+    }
+  </header>
+
+  @if (r) {
+    <!-- After the provider -->
+    @if (r.status === 'Succeeded') {
+      <main class="flex-1 pb-8">
+        <div class="px-5 pt-7 text-center">
+          <div class="mx-auto flex size-16 items-center justify-center rounded-full bg-[#D1FADF] text-[#05603A]" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+          </div>
+          <h1 class="mt-3 text-2xl font-extrabold">{{ t.paymentSuccessful }}</h1>
+          @if (l) { <p class="mt-1 text-sm text-ink-muted">{{ t.link.linkId(l.code) }}@if (l.reference) { · {{ t.link.reference(l.reference) }} }</p> }
+        </div>
+
+        <section class="mx-5 mt-4 rounded-[18px] border border-line bg-white px-[18px] py-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-[15px] font-extrabold">{{ t.link.title }}</h2>
+            @if (r.fullyPaid) {
+              <span class="inline-flex items-center gap-1.5 rounded-xl bg-[#D1FADF] px-3 py-1 text-[13px] font-extrabold text-[#05603A]">✓ {{ t.link.linkPaidInFull }}</span>
+            } @else {
+              <span class="inline-flex items-center gap-1.5 rounded-xl bg-amber-100 px-3 py-1 text-[13px] font-extrabold text-amber-900">{{ t.link.stillToPay(money(r.remainingMinor)) }}</span>
+            }
+          </div>
+          <div class="mt-2 flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.youPaid }}</span><span class="text-lg font-extrabold">{{ money(r.amountMinor) }}</span></div>
+          @if (r.mode === 'Equal') { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.yourShareOf(r.shares ?? 1, r.splitPeople ?? 1) }}</span><span>{{ money(r.billAmountMinor) }}</span></div> }
+          @if (r.mode === 'Custom') { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.customAmount }}</span><span>{{ money(r.billAmountMinor) }}</span></div> }
+          @if (r.tipMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.ofWhichTip }}</span><span>{{ money(r.tipMinor) }}</span></div> }
+          <p class="py-1 text-[13px] text-ink-muted">{{ t.paidWith(methodText(r)) }}</p>
+          <div class="mt-2.5 flex justify-between border-t border-dashed border-[#D0D5DD] pt-2.5 text-xs text-ink-muted">
+            <span>{{ t.reference(r.reference) }}</span><span>{{ when(r.succeededAt ?? r.createdAt) }}</span>
+          </div>
+        </section>
+
+        <section class="mx-5 mt-3.5 flex flex-col gap-2.5">
+          @if (sentTo(); as to) {
+            <p class="rounded-xl bg-[#E6F4F1] px-4 py-3 text-sm font-semibold text-[#0B3B38]" role="status">{{ t.receiptSent(to) }}</p>
+          } @else {
+            <form class="flex flex-col gap-2.5" (submit)="$event.preventDefault(); sendReceipt()">
+              <label for="receipt-email" class="text-sm font-bold">{{ t.receiptTitle }}</label>
+              <input id="receipt-email" type="email" autocomplete="email" maxlength="254" required
+                     class="h-[50px] rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                     [placeholder]="t.emailPlaceholder" [value]="email()" (input)="email.set($any($event.target).value)"
+                     [attr.aria-invalid]="!!receiptError()" aria-describedby="receipt-error" />
+              @if (receiptError()) { <p id="receipt-error" class="text-[13px] font-semibold text-[#B42318]" role="alert">{{ receiptError() }}</p> }
+              <button type="submit" class="min-h-[52px] rounded-[14px] bg-ink font-bold text-white disabled:opacity-50" [disabled]="sending() || !email().trim()">
+                {{ sending() ? t.sendingReceipt : t.sendReceipt }}
+              </button>
+            </form>
+          }
+          @if (!r.fullyPaid && l?.status === 'Active') {
+            <button type="button" class="min-h-[52px] rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white font-bold" (click)="backToPayment()">{{ t.link.backToPayment }}</button>
+          }
+        </section>
+      </main>
+    } @else if (r.status === 'Failed') {
+      <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+        <div class="flex size-16 items-center justify-center rounded-full bg-[#FEE4E2] text-[#B42318]" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </div>
+        <h1 class="text-xl font-extrabold">{{ t.failedTitle }}</h1>
+        @if (r.failureReason) { <p class="font-semibold">{{ r.failureReason }}</p> }
+        <p class="text-ink-muted">{{ t.failedBody }}</p>
+        <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="backToPayment()">{{ t.tryAgain }}</button>
+      </main>
+    } @else {
+      <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center" aria-live="polite">
+        <div class="size-12 animate-spin rounded-full border-4 border-[#D0D5DD] border-t-brand motion-reduce:animate-none" aria-hidden="true"></div>
+        <h1 class="text-xl font-extrabold">{{ t.confirmingTitle }}</h1>
+        <p class="text-ink-muted">{{ slow() ? t.stillWaiting : t.confirmingBody }}</p>
+        @if (slow() && r.checkoutUrl) {
+          <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-ink px-6 font-bold text-white" (click)="returnToProvider()">{{ t.returnToPayment }}</button>
+          <button type="button" class="min-h-11 font-bold text-ink-muted" (click)="cancelResult()">{{ t.cancelPayment }}</button>
+        }
+      </main>
+    }
+  } @else if (resultMissing()) {
+    <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+      <h1 class="text-xl font-extrabold">{{ t.paymentNotFound }}</h1>
+      <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="backToPayment()">{{ t.link.backToPayment }}</button>
+    </main>
+  } @else if (loadError(); as code) {
+    <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+      @if (code === 'link_not_found') {
+        <h1 class="text-xl font-extrabold">{{ t.link.invalidTitle }}</h1>
+        <p class="text-ink-muted">{{ t.link.invalidBody }}</p>
+      } @else if (code === 'venue_unavailable') {
+        <h1 class="text-xl font-extrabold">{{ t.link.unavailableTitle }}</h1>
+        <p class="text-ink-muted">{{ t.link.unavailableBody }}</p>
+      } @else {
+        <p class="text-ink-muted">{{ t.link.loadFailed }}</p>
+        <button type="button" class="min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="load()">{{ t.tryAgain }}</button>
+      }
+    </main>
+  } @else if (!l) {
+    <main class="flex flex-1 items-center justify-center px-8"><p class="text-ink-muted" aria-live="polite">{{ t.link.loading }}</p></main>
+  } @else if (l.status !== 'Active') {
+    <!-- Mockup "Link expired or paid" -->
+    <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+      @if (l.status === 'Paid') {
+        <div class="flex size-16 items-center justify-center rounded-full bg-[#D1FADF] text-[#05603A]" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7" /></svg>
+        </div>
+        <h1 class="text-2xl font-extrabold">{{ t.link.paidTitle }}</h1>
+        <p class="text-ink-muted">{{ t.link.paidBody }}</p>
+      } @else {
+        <div class="flex size-16 items-center justify-center rounded-full bg-amber-100 text-amber-800" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+        </div>
+        <h1 class="text-2xl font-extrabold">{{ l.status === 'Expired' ? t.link.expiredTitle : t.link.cancelledTitle }}</h1>
+        <p class="text-ink-muted">{{ t.link.closedBody(l.code, l.venue.brandName) }}</p>
+        <p class="text-sm text-ink-muted">{{ t.link.paidInFullNote }}</p>
+      }
+    </main>
+  } @else {
+    <!-- Checkout -->
+    <main class="-mt-3 flex-1 rounded-t-[24px] bg-white px-5 pt-5 pb-56">
+      <p class="text-[13px] font-bold tracking-[.04em] text-ink-muted uppercase">{{ t.link.title }}</p>
+      <p class="mt-0.5 text-sm text-ink-muted">{{ t.link.linkId(l.code) }}@if (l.reference) { · {{ t.link.reference(l.reference) }} }</p>
+      <p class="mt-3 text-[34px] leading-tight font-extrabold">{{ money(l.amountMinor) }}</p>
+      <p class="text-[13px] text-ink-muted">{{ t.link.inclusive }}</p>
+      @if (l.paidMinor) {
+        <div class="mt-3 rounded-xl bg-surface px-3.5 py-2.5">
+          <div class="sum"><span>{{ t.link.alreadyPaid }}</span><span>−{{ money(l.paidMinor) }}</span></div>
+          <div class="sum font-semibold text-ink"><span>{{ t.link.leftToPay }}</span><span>{{ money(l.remainingMinor) }}</span></div>
+        </div>
+      }
+      <p class="mt-2 text-[13px] font-semibold text-ink-muted">{{ t.link.payBy(when(l.expiresAt)) }}</p>
+
+      @if (notice()) { <p class="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">{{ notice() }}</p> }
+
+      @if (ownPending()) {
+        <div class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          <p class="font-semibold">{{ t.yourPaymentWaiting }}</p>
+          <div class="mt-2 flex gap-2">
+            <button type="button" class="min-h-11 flex-1 rounded-xl bg-ink font-bold text-white" (click)="continuePending()">{{ t.continuePayment }}</button>
+            <button type="button" class="min-h-11 flex-1 rounded-xl border-[1.5px] border-amber-300 bg-white font-bold" (click)="cancelPending()">{{ t.cancelPayment }}</button>
+          </div>
+        </div>
+      } @else if (l.paymentInProgress) {
+        <p class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          {{ l.availableMinor > 0 ? t.link.someonePaying(money(l.remainingMinor - l.availableMinor)) : t.link.someonePayingRest }}
+        </p>
+      }
+
+      @if (l.allowSplit) {
+        <h2 class="mt-[18px] mb-2.5 text-base font-extrabold">{{ t.link.howToPay }}</h2>
+        <div class="flex gap-2 rounded-[14px] bg-surface p-1" role="group" [attr.aria-label]="t.link.howToPay">
+          <button type="button" class="split-tab text-sm" [class.split-tab-on]="mode() === 'Full'" [attr.aria-pressed]="mode() === 'Full'" (click)="mode.set('Full')">{{ t.link.payInFull }}</button>
+          <button type="button" class="split-tab text-sm" [class.split-tab-on]="mode() === 'Equal'" [attr.aria-pressed]="mode() === 'Equal'" (click)="mode.set('Equal')">{{ t.link.equally }}</button>
+          <button type="button" class="split-tab text-sm" [class.split-tab-on]="mode() === 'Custom'" [attr.aria-pressed]="mode() === 'Custom'" (click)="mode.set('Custom')">{{ t.link.customAmount }}</button>
+        </div>
+
+        @if (mode() === 'Equal') {
+          <div class="mt-3 flex flex-col gap-3 rounded-xl border border-line px-3.5 py-3">
+            @for (row of [{ label: t.link.people, value: people(), min: 2, max: 50, set: 'people' }, { label: t.link.payingFor, value: shares(), min: 1, max: people(), set: 'shares' }]; track row.set) {
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-sm font-semibold">{{ row.label }}</span>
+                <span class="flex items-center gap-3">
+                  <button type="button" class="flex size-11 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] text-lg font-bold disabled:opacity-40"
+                          [attr.aria-label]="t.link.fewer + ' · ' + row.label" [disabled]="row.value <= row.min"
+                          (click)="row.set === 'people' ? setPeople(row.value - 1) : setShares(row.value - 1)">−</button>
+                  <span class="w-6 text-center text-lg font-extrabold tabular-nums" aria-live="polite">{{ row.value }}</span>
+                  <button type="button" class="flex size-11 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] text-lg font-bold disabled:opacity-40"
+                          [attr.aria-label]="t.link.more + ' · ' + row.label" [disabled]="row.value >= row.max"
+                          (click)="row.set === 'people' ? setPeople(row.value + 1) : setShares(row.value + 1)">+</button>
+                </span>
+              </div>
+            }
+            <p class="text-[13px] text-ink-muted">{{ t.link.eachShare(money(eachShare())) }}</p>
+          </div>
+        } @else if (mode() === 'Custom') {
+          <label for="link-amount" class="mt-3 mb-1.5 block text-sm font-bold">{{ t.link.amountLabel(l.currency) }}</label>
+          <input id="link-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                 inputmode="decimal" autocomplete="off" maxlength="12" [value]="customText()" (input)="customText.set($any($event.target).value)"
+                 [attr.aria-invalid]="!!customError()" aria-describedby="link-amount-help" />
+          <p id="link-amount-help" class="mt-1 text-[13px]" [class]="customError() ? 'font-semibold text-[#B42318]' : 'text-ink-muted'">
+            {{ customError() ?? t.link.amountHint(money(l.availableMinor)) }}
+          </p>
+        }
+      }
+
+      @if (l.tips.enabled) {
+        <h2 class="mt-[18px] mb-2.5 text-base font-extrabold">{{ t.addTip }}</h2>
+        <div class="flex items-end gap-2" role="radiogroup" [attr.aria-label]="t.addTip">
+          <div class="min-w-0 flex-1">
+            <button type="button" role="radio" class="tip-chip" [class.tip-on]="tipChoice().kind === 'none'"
+                    [attr.aria-checked]="tipChoice().kind === 'none'" (click)="tipChoice.set({ kind: 'none' })">{{ t.notNow }}</button>
+          </div>
+          @for (bp of l.tips.presetsBasisPoints; track bp) {
+            <div class="flex min-w-0 flex-1 flex-col items-center gap-1">
+              @if (bp === l.tips.mostCommonBasisPoints) {
+                <span class="text-[10px] font-extrabold tracking-[.04em] whitespace-nowrap text-brand uppercase">{{ t.mostCommon }}</span>
+              }
+              <button type="button" role="radio" class="tip-chip" [class.tip-on]="isPreset(bp)" [attr.aria-checked]="isPreset(bp)"
+                      (click)="tipChoice.set({ kind: 'preset', basisPoints: bp })">
+                {{ money(presetAmount(bp)) }}<small>{{ percent(bp) }}</small>
+              </button>
+            </div>
+          }
+        </div>
+        @if (tipChoice().kind !== 'custom') {
+          <button type="button" class="mt-1.5 flex min-h-11 items-center gap-2 text-sm font-bold text-brand" (click)="tipChoice.set({ kind: 'custom' })">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            {{ t.customTip }}
+          </button>
+        } @else {
+          @let tip = customTip();
+          <label for="link-tip" class="mt-3 mb-1.5 block text-sm font-bold">{{ t.customTipLabel }}</label>
+          <input id="link-tip" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                 inputmode="decimal" autocomplete="off" maxlength="12" [placeholder]="t.customTipPlaceholder"
+                 [value]="customTipText()" (input)="customTipText.set($any($event.target).value)"
+                 [attr.aria-invalid]="tip && 'error' in tip" aria-describedby="link-tip-help" />
+          <p id="link-tip-help" class="mt-1 text-[13px]" [class]="tip && 'error' in tip ? 'font-semibold text-[#B42318]' : 'text-ink-muted'">
+            @if (tip && 'error' in tip) { {{ tip.error === 'tooHigh' ? t.customTipTooHigh : t.customTipInvalid }} }
+            @else if (tip && 'minor' in tip) { {{ t.tip }}: {{ money(tip.minor) }} }
+            @else { {{ t.customTipHint }} }
+          </p>
+        }
+      }
+
+      <h2 class="mt-[18px] mb-0.5 text-base font-extrabold" id="link-method-label">{{ t.paymentMethod }}</h2>
+      <div role="radiogroup" aria-labelledby="link-method-label">
+        @for (m of methods(); track m) {
+          <button type="button" role="radio" class="pm w-full text-start" [class.pm-on]="method() === m" [attr.aria-checked]="method() === m" (click)="chosenMethod.set(m)">
+            <span class="pm-dot"></span>
+            {{ t.methodNames[m] }}
+            @if (m === 'Card') { <span class="ms-auto text-[13px] font-medium text-ink-muted">{{ t.cardBrands }}</span> }
+          </button>
+        }
+      </div>
+
+      <div class="mt-3.5 border-t border-line pt-2">
+        @if (mode() !== 'Full' || l.availableMinor !== l.amountMinor) { <div class="sum font-semibold text-ink"><span>{{ t.link.yourShare }}</span><span>{{ money(share()) }}</span></div> }
+        @if (tipMinor()) { <div class="sum"><span>{{ t.tip }}</span><span>{{ money(tipMinor()) }}</span></div> }
+      </div>
+      <p class="mt-6 text-center text-xs text-ink-muted">{{ t.poweredBy }}</p>
+    </main>
+
+    <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-[22px] shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
+      @if (payError()) { <p class="mb-2 rounded-xl bg-[#FEE4E2] px-4 py-2.5 text-sm text-[#B42318]" role="alert">{{ payError() }}</p> }
+      <div class="mb-2 flex items-baseline justify-between" aria-live="polite">
+        <span class="text-[15px] font-extrabold">{{ t.youPay }}</span>
+        <span class="text-xl font-extrabold">{{ money(total()) }}</span>
+      </div>
+      <button type="button" class="min-h-14 w-full rounded-[14px] bg-ink text-base font-bold text-white disabled:bg-[#D0D5DD] disabled:text-ink-muted"
+              [disabled]="!canPay()" (click)="pay()">
+        @if (paying()) { {{ t.redirecting }} }
+        @else if (method(); as m) { {{ t.payWith(money(total()), t.methodNames[m]) }} }
+      </button>
+      <p class="mt-2.5 text-center text-xs leading-snug text-ink-muted">
+        {{ t.termsBefore }}<a [href]="l.termsUrl" target="_blank" rel="noopener" class="font-semibold text-brand">{{ t.termsLink }}</a>{{ t.termsAfter }}
+      </p>
+    </div>
+  }
+</div>

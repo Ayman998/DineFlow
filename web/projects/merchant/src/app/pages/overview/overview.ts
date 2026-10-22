@@ -43,7 +43,7 @@ export class Overview implements OnInit {
 
   ngOnInit(): void {
     this.venue.load().subscribe({ next: () => this.load(), error: error => this.error.set(errorMessage(error)) });
-    merge(this.live.placed, this.live.changed, this.live.paid, this.live.refunded, this.live.reviewed)
+    merge(this.live.placed, this.live.changed, this.live.paid, this.live.refunded, this.live.reviewed, this.live.linkPaid)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.load());
   }

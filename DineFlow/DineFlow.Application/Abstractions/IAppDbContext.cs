@@ -38,6 +38,7 @@ public interface IAppDbContext
     DbSet<Payment> Payments { get; }
     DbSet<LedgerEntry> LedgerEntries { get; }
     DbSet<Refund> Refunds { get; }
+    DbSet<PaymentLink> PaymentLinks { get; }
     DbSet<PromoCode> PromoCodes { get; }
     DbSet<ProcessedWebhook> ProcessedWebhooks { get; }
 

@@ -18,7 +18,7 @@ public enum TransactionState
 
 public enum TransactionFilter { All, Succeeded, Refunded, Pending, Failed }
 
-/// <param name="Search">A reference (e.g. DF-1A2B), a table label (e.g. 7) or an amount (e.g. 73.70).</param>
+/// <param name="Search">A reference (e.g. DF-1A2B), a payment link (e.g. PL-1A2B), a table label (e.g. 7) or an amount (e.g. 73.70).</param>
 public record TransactionQuery(
     [Required] Guid VenueId,
     DateTimeOffset? From = null,
@@ -38,8 +38,11 @@ public record TransactionRowDto(
     string? CardBrand,
     string? CardLast4,
     PaymentMode Mode,
+    /// <summary>Empty for a payment through a payment link.</summary>
     string LocationType,
     string LocationLabel,
+    /// <summary>The payment link it was paid through, e.g. PL-1A2B3C4D; null for a payment at the table.</summary>
+    string? PaymentLinkCode,
     IReadOnlyList<int> OrderNumbers,
     string Currency,
     long AmountMinor,
@@ -66,6 +69,9 @@ public record TimelineEventDto(DateTimeOffset At, string Kind, string Text);
 public record TransactionDetailDto(
     TransactionRowDto Summary,
     string? AreaName,
+    /// <summary>The payment link it was paid through; null for a payment at the table.</summary>
+    Guid? PaymentLinkId,
+    string? PaymentLinkReference,
     long BillAmountMinor,
     long DiscountMinor,
     string? PromoCode,

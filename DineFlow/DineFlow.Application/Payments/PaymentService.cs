@@ -4,6 +4,7 @@ using System.Text;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Common;
+using DineFlow.Application.PaymentLinks;
 using DineFlow.Application.Promotions;
 using DineFlow.Domain.Bills;
 using DineFlow.Domain.Common;
@@ -184,7 +185,10 @@ public class PaymentService(
     {
         var payment = await db.Payments.IgnoreQueryFilters().AsNoTracking()
             .SingleOrDefaultAsync(p => p.Provider == providerName && p.ProviderPaymentId == providerPaymentId, ct);
-        return payment is not null && payment.IsInFlight(clock.GetUtcNow());
+        if (payment is null || !payment.IsInFlight(clock.GetUtcNow())) return false;
+        // A link the merchant has deactivated takes no more money, even from a payment already under way.
+        return payment.PaymentLinkId is not { } linkId
+            || await db.PaymentLinks.IgnoreQueryFilters().AnyAsync(l => l.Id == linkId && l.Status != PaymentLinkStatus.Cancelled, ct);
     }
 
     /// <summary>
@@ -247,6 +251,11 @@ public class PaymentService(
             throw;
         }
 
+        if (payment?.PaymentLinkId is { } linkId)
+        {
+            if (succeeded) await SettleLinkAsync(payment, linkId, ct);
+            return;
+        }
         if (failed)
         {
             await notifier.TableBillChangedAsync(payment!.TenantId, (await LocationAsync(payment, ct)).Id, "payment", ct);
@@ -254,7 +263,7 @@ public class PaymentService(
         }
         if (!succeeded) return;
 
-        var totals = await bills.TotalsAsync(payment!.CheckId, ct);
+        var totals = await bills.TotalsAsync(payment!.CheckId!.Value, ct);
         if (totals.RemainingMinor == 0)
         {
             var check = await db.Checks.IgnoreQueryFilters().SingleAsync(c => c.Id == payment.CheckId, ct);
@@ -269,6 +278,29 @@ public class PaymentService(
             payment.Id, payment.Reference, payment.Currency, payment.AmountMinor, payment.TipMinor,
             totals.RemainingMinor, totals.RemainingMinor == 0,
             payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
+    }
+
+    /// <summary>
+    /// A payment through a link went through: once nothing is left to pay, the link closes by
+    /// itself (P1-LNK-02), and staff are told either way.
+    /// </summary>
+    private async Task SettleLinkAsync(Payment payment, Guid linkId, CancellationToken ct)
+    {
+        var (link, totals) = await Concurrency.RetryAsync(db, async () =>
+        {
+            var link = await db.PaymentLinks.IgnoreQueryFilters().SingleAsync(l => l.Id == linkId, ct);
+            var totals = await LinkTotals.LoadAsync(db, link, clock.GetUtcNow(), ct);
+            if (totals.RemainingMinor == 0 && link.Status == PaymentLinkStatus.Active)
+            {
+                link.MarkPaid(clock.GetUtcNow());
+                await db.SaveChangesAsync(ct);
+            }
+            return (link, totals);
+        });
+
+        await notifier.PaymentLinkPaidAsync(new PaymentLinkNotice(
+            payment.TenantId, payment.VenueId, link.Id, link.Code, link.Reference, payment.Id, payment.Reference,
+            payment.Currency, payment.AmountMinor, payment.TipMinor, totals.RemainingMinor, totals.RemainingMinor == 0), ct);
     }
 
     /// <summary>The provider's verdict on a refund: a success writes the refund's own ledger entry (blueprint 7.2).</summary>
@@ -358,7 +390,7 @@ public class PaymentService(
 
         if (p.Status == PaymentStatus.Succeeded)
         {
-            var totals = await bills.TotalsAsync(p.CheckId, ct);
+            var totals = await bills.TotalsAsync(p.CheckId!.Value, ct);
             remaining = totals.RemainingMinor;
             fullyPaid = totals.RemainingMinor == 0;
             offer = await promotions.NextVisitOfferAsync(ct);
@@ -461,6 +493,44 @@ internal static class Receipt
               <table style="width:100%;border-collapse:collapse">{Rows(rows)}</table>
               <hr style="border:0;border-top:1px solid #E4E7EC">
               <table style="width:100%;border-collapse:collapse">{Rows(totals, bold: true)}</table>
+              <p style="color:#475467">Paid with {E(method)}. Includes all taxes and charges.</p>
+            </div>
+            """;
+
+        return new EmailMessage(to, $"Your receipt from {venue.Tenant.DisplayName} ({payment.Reference})", text.ToString(), html);
+    }
+
+    /// <summary>The receipt for a payment through a payment link: the link, its reference and what was paid.</summary>
+    public static EmailMessage BuildForLink(string to, Venue venue, PaymentLink link, Payment payment)
+    {
+        string Money(long minor) => FormatMoney(minor, payment.Currency);
+        var when = TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
+            ? TimeZoneInfo.ConvertTime(payment.SucceededAt ?? payment.CreatedAt, zone)
+            : payment.SucceededAt ?? payment.CreatedAt;
+        var method = payment.CardLast4 is { } last4 ? $"{payment.CardBrand ?? payment.Method.ToString()} •••• {last4}" : payment.Method.ToString();
+        var place = $"Payment link {link.Code}{(link.Reference is { } r ? $" · Reference {r}" : "")}";
+
+        var rows = new List<(string Label, string Value)> { ("Amount requested", Money(link.AmountMinor)) };
+        if (payment.BillAmountMinor != link.AmountMinor)
+            rows.Add((payment.Mode == PaymentMode.Equal ? $"Your share ({payment.Shares} of {payment.SplitPeople} people)" : "Your amount", Money(payment.BillAmountMinor)));
+        if (payment.TipMinor > 0) rows.Add(("Tip", Money(payment.TipMinor)));
+        rows.Add(("Paid", Money(payment.AmountMinor)));
+
+        var text = new StringBuilder()
+            .AppendLine($"{venue.Tenant.DisplayName} · {venue.Name}")
+            .AppendLine(place)
+            .AppendLine($"Receipt {payment.Reference} · {when:dd MMM yyyy HH:mm}")
+            .AppendLine();
+        foreach (var (label, value) in rows) text.AppendLine($"{label,-40} {value}");
+        text.AppendLine().AppendLine($"Paid with {method}. Includes all taxes and charges.");
+
+        static string E(string s) => WebUtility.HtmlEncode(s);
+        var html = $"""
+            <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
+              <h2 style="margin:0">{E(venue.Tenant.DisplayName)} · {E(venue.Name)}</h2>
+              <p style="color:#475467;margin:4px 0 16px">{E(place)} · Receipt {E(payment.Reference)} · {when:dd MMM yyyy HH:mm}</p>
+              <table style="width:100%;border-collapse:collapse">{string.Concat(rows.Select(r =>
+                  $"<tr><td style=\"padding:4px 0\">{E(r.Label)}</td><td style=\"padding:4px 0;text-align:right;font-weight:700\">{E(r.Value)}</td></tr>"))}</table>
               <p style="color:#475467">Paid with {E(method)}. Includes all taxes and charges.</p>
             </div>
             """;

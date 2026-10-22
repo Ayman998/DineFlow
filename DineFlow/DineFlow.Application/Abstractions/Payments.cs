@@ -57,7 +57,16 @@ public interface IPaymentNotifier
 
     /// <summary>Tells staff screens a refund was confirmed or declined by the provider.</summary>
     Task RefundUpdatedAsync(RefundNotice notice, CancellationToken ct);
+
+    /// <summary>Tells staff screens a payment came in through a payment link (blueprint 9.3 PaymentLinkPaid).</summary>
+    Task PaymentLinkPaidAsync(PaymentLinkNotice notice, CancellationToken ct);
 }
+
+/// <param name="AmountMinor">What this payment charged, tip included.</param>
+/// <param name="FullyPaid">The link is now paid in full and has closed.</param>
+public record PaymentLinkNotice(
+    Guid TenantId, Guid VenueId, Guid PaymentLinkId, string Code, string? LinkReference,
+    Guid PaymentId, string Reference, string Currency, long AmountMinor, long TipMinor, long RemainingMinor, bool FullyPaid);
 
 public record RefundNotice(Guid TenantId, Guid VenueId, Guid PaymentId, Guid RefundId, string Reference, string Currency, long AmountMinor, RefundStatus Status);
 

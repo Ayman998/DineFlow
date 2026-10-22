@@ -5,7 +5,8 @@ namespace DineFlow.Api.Hubs;
 
 /// <summary>
 /// Sends "paymentReceived" (a <see cref="PaymentNotice"/>) to the venue's staff screens and
-/// "billChanged" to the guests at the table. Failures are logged, never thrown: the payment is
+/// "billChanged" to the guests at the table, plus "refundUpdated" and "paymentLinkPaid" to staff
+/// screens. Failures are logged, never thrown: the payment is
 /// already recorded, and screens catch up on reload.
 /// </summary>
 public class SignalRPaymentNotifier(
@@ -36,6 +37,18 @@ public class SignalRPaymentNotifier(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Couldn't push refund {RefundId}; screens will catch up on reload.", notice.RefundId);
+        }
+    }
+
+    public async Task PaymentLinkPaidAsync(PaymentLinkNotice notice, CancellationToken ct)
+    {
+        try
+        {
+            await merchants.Clients.Group(MerchantHub.Group(notice.TenantId)).SendAsync("paymentLinkPaid", notice, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't push payment {Reference} for link {Code}; screens will catch up on reload.", notice.Reference, notice.Code);
         }
     }
 

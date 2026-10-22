@@ -73,6 +73,23 @@
         </div>
         <a routerLink="/transactions" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open transactions</a>
       </div>
+    } @else if (toast.kind === 'link') {
+      @let l = toast.link;
+      <div class="rounded-xl border-s-4 border-emerald-500 bg-white p-4 shadow-lg" role="alert">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="font-bold">Payment link paid · {{ money(l.amountMinor, l.currency) }}</div>
+            <div class="text-sm text-ink-muted">
+              {{ l.code }}@if (l.linkReference) { · {{ l.linkReference }} }@if (l.tipMinor) { · tip {{ money(l.tipMinor, l.currency) }} }
+            </div>
+            <div class="mt-1 text-sm font-semibold" [class]="l.fullyPaid ? 'text-emerald-700' : 'text-amber-800'">
+              {{ l.fullyPaid ? 'Paid in full' : money(l.remainingMinor, l.currency) + ' still to pay' }}
+            </div>
+          </div>
+          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+        </div>
+        <a routerLink="/payment-links" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open payment links</a>
+      </div>
     } @else if (toast.kind === 'review') {
       @let r = toast.review;
       <div class="rounded-xl border-s-4 bg-white p-4 shadow-lg" [class]="r.rating >= 4 ? 'border-[#F5A524]' : 'border-red-500'" role="alert">

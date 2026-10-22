@@ -573,7 +573,7 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<long>("AmountMinor")
                         .HasColumnType("bigint");
 
-                    b.Property<Guid>("CheckId")
+                    b.Property<Guid?>("CheckId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -632,7 +632,7 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasColumnType("nchar(4)")
                         .IsFixedLength();
 
-                    b.Property<Guid>("CheckId")
+                    b.Property<Guid?>("CheckId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CheckoutUrl")
@@ -658,7 +658,7 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<Guid>("GuestSessionId")
+                    b.Property<Guid?>("GuestSessionId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Method")
@@ -670,6 +670,9 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("PaymentLinkId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PromoCode")
                         .HasMaxLength(20)
@@ -736,13 +739,111 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("CheckId", "Status");
 
                     b.HasIndex("GuestSessionId", "ClientRequestId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[GuestSessionId] IS NOT NULL");
+
+                    b.HasIndex("PaymentLinkId", "ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("[PaymentLinkId] IS NOT NULL");
 
                     b.HasIndex("Provider", "ProviderPaymentId")
                         .IsUnique()
                         .HasFilter("[ProviderPaymentId] IS NOT NULL");
 
                     b.ToTable("Payments", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Payments.PaymentLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AllowSplit")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CancelledByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("CustomerEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<DateTimeOffset?>("CustomerNotifiedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<bool>("RequestTip")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("VenueId", "CreatedAt");
+
+                    b.ToTable("PaymentLinks", (string)null);
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Payments.ProcessedWebhook", b =>
@@ -789,7 +890,7 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<long>("AmountMinor")
                         .HasColumnType("bigint");
 
-                    b.Property<Guid>("CheckId")
+                    b.Property<Guid?>("CheckId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ClientRequestId")
@@ -1570,8 +1671,7 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("DineFlow.Domain.Bills.Check", null)
                         .WithMany()
                         .HasForeignKey("CheckId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DineFlow.Domain.Payments.Payment", null)
                         .WithMany()
@@ -1591,20 +1691,38 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("DineFlow.Domain.Bills.Check", null)
                         .WithMany()
                         .HasForeignKey("CheckId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DineFlow.Domain.Sessions.GuestSession", null)
                         .WithMany()
                         .HasForeignKey("GuestSessionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DineFlow.Domain.Payments.PaymentLink", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentLinkId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DineFlow.Domain.Promotions.PromoCode", null)
                         .WithMany()
                         .HasForeignKey("PromoCodeId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Payments.PaymentLink", b =>
+                {
                     b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
                         .WithMany()
                         .HasForeignKey("TenantId")

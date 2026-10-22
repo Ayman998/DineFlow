@@ -57,10 +57,13 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.HasOne<Check>().WithMany().HasForeignKey(p => p.CheckId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<GuestSession>().WithMany().HasForeignKey(p => p.GuestSessionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<PromoCode>().WithMany().HasForeignKey(p => p.PromoCodeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PaymentLink>().WithMany().HasForeignKey(p => p.PaymentLinkId).OnDelete(DeleteBehavior.Restrict);
 
         // The reference is for people (receipts, staff look-ups), not a key: 8 hex digits can repeat across the platform.
         builder.HasIndex(p => p.Reference);
-        builder.HasIndex(p => new { p.GuestSessionId, p.ClientRequestId }).IsUnique();
+        // A retried request returns the same payment: per guest at the table, or per payment link.
+        builder.HasIndex(p => new { p.GuestSessionId, p.ClientRequestId }).IsUnique().HasFilter("[GuestSessionId] IS NOT NULL");
+        builder.HasIndex(p => new { p.PaymentLinkId, p.ClientRequestId }).IsUnique().HasFilter("[PaymentLinkId] IS NOT NULL");
         builder.HasIndex(p => new { p.Provider, p.ProviderPaymentId }).IsUnique().HasFilter("[ProviderPaymentId] IS NOT NULL");
         builder.HasIndex(p => new { p.CheckId, p.Status });
     }
@@ -181,6 +184,32 @@ public class PromoCodeConfiguration : IEntityTypeConfiguration<PromoCode>
 
         builder.HasOne<Tenant>().WithMany().HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(p => new { p.TenantId, p.Code }).IsUnique();
+    }
+}
+
+public class PaymentLinkConfiguration : IEntityTypeConfiguration<PaymentLink>
+{
+    public void Configure(EntityTypeBuilder<PaymentLink> builder)
+    {
+        builder.ToTable("PaymentLinks");
+        builder.HasKey(l => l.Id);
+        builder.Property(l => l.Code).HasMaxLength(16).IsRequired();
+        builder.Property(l => l.TokenHash).HasMaxLength(64).IsFixedLength().IsRequired();
+        builder.Property(l => l.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
+        builder.Property(l => l.Reference).HasMaxLength(PaymentLink.MaxReferenceLength);
+        builder.Property(l => l.CustomerEmail).HasMaxLength(254);
+        builder.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
+        // Saved only if nobody else changed the link since it was read (see PaymentLink.Revision).
+        builder.Property(l => l.Revision).IsConcurrencyToken();
+
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Venue>().WithMany().HasForeignKey(l => l.VenueId).OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(l => l.TokenHash).IsUnique();
+        builder.HasIndex(l => new { l.TenantId, l.ClientRequestId }).IsUnique();
+        // Like payment references, the code is for people; the token is the key.
+        builder.HasIndex(l => l.Code);
+        builder.HasIndex(l => new { l.VenueId, l.CreatedAt });
     }
 }
 

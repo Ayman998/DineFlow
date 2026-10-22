@@ -7,6 +7,7 @@ using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
 using DineFlow.Application.Orders;
+using DineFlow.Application.PaymentLinks;
 using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
 using DineFlow.Application.Reviews;
@@ -69,6 +70,8 @@ public sealed class TestHost : IDisposable
         Transactions = new TransactionService(Db, _tenant, Sandbox, Clock);
         TableStatus = new TableStatusService(Db, _tenant, Clock);
         Overview = new OverviewService(Db, _tenant, TableStatus, Clock);
+        PaymentLinks = new PaymentLinkService(Db, _tenant, QrTokens, Emails, guestOptions, Clock);
+        LinkCheckout = new PaymentLinkCheckoutService(Db, QrTokens, Sandbox, Emails, paymentOptions, guestOptions, Clock);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -104,6 +107,8 @@ public sealed class TestHost : IDisposable
     public TransactionService Transactions { get; }
     public TableStatusService TableStatus { get; }
     public OverviewService Overview { get; }
+    public PaymentLinkService PaymentLinks { get; }
+    public PaymentLinkCheckoutService LinkCheckout { get; }
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own
@@ -117,10 +122,12 @@ public sealed class TestHost : IDisposable
         var promotions = new PromotionService(db, _tenant, bills, Clock);
         var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, paymentOptions,
             Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock);
-        return new Scope(db, bills, payments, new TransactionService(db, _tenant, Sandbox, Clock));
+        return new Scope(db, bills, payments, new TransactionService(db, _tenant, Sandbox, Clock),
+            new PaymentLinkCheckoutService(db, QrTokens, Sandbox, Emails, paymentOptions, Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock));
     }
 
-    public sealed record Scope(AppDbContext Db, BillService Bills, PaymentService Payments, TransactionService Transactions) : IDisposable
+    public sealed record Scope(AppDbContext Db, BillService Bills, PaymentService Payments, TransactionService Transactions,
+        PaymentLinkCheckoutService LinkCheckout) : IDisposable
     {
         public void Dispose() => Db.Dispose();
     }
@@ -227,6 +234,14 @@ public sealed class TestHost : IDisposable
         public Task RefundUpdatedAsync(RefundNotice notice, CancellationToken ct)
         {
             Refunds.Add(notice);
+            return Task.CompletedTask;
+        }
+
+        public List<PaymentLinkNotice> LinkPayments { get; } = [];
+
+        public Task PaymentLinkPaidAsync(PaymentLinkNotice notice, CancellationToken ct)
+        {
+            LinkPayments.Add(notice);
             return Task.CompletedTask;
         }
     }

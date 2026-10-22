@@ -12,6 +12,12 @@ public interface IQrTokenService
     /// </summary>
     string CreateToken(Guid qrTokenId);
 
+    /// <summary>
+    /// The raw token in a payment link's URL (blueprint 14.3 "signed, non-guessable"). Derived from
+    /// the link id the same way, but with its own purpose, so it can never match a QR token.
+    /// </summary>
+    string CreatePaymentLinkToken(Guid paymentLinkId);
+
     /// <summary>Lower-case hex SHA-256 of a raw token; this is what the database stores.</summary>
     string Hash(string token);
 

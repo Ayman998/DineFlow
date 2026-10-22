@@ -15,6 +15,7 @@ const PAGES: Partial<Record<string, LoadComponent>> = {
   reviews: () => import('./pages/reviews/reviews').then(m => m.Reviews),
   overview: () => import('./pages/overview/overview').then(m => m.Overview),
   transactions: () => import('./pages/transactions/transactions').then(m => m.Transactions),
+  'payment-links': () => import('./pages/payment-links/payment-links').then(m => m.PaymentLinks),
   settings: () => import('./pages/settings/settings').then(m => m.Settings)
 };
 

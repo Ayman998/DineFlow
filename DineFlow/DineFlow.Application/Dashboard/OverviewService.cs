@@ -122,13 +122,15 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
 
         var failures = await db.Payments.AsNoTracking()
             .Where(p => p.VenueId == venueId && p.Status == PaymentStatus.Failed && p.UpdatedAt >= today)
-            .OrderByDescending(p => p.UpdatedAt).Select(p => new { p.CheckId, p.UpdatedAt }).ToListAsync(ct);
+            .OrderByDescending(p => p.UpdatedAt).Select(p => new { p.CheckId, p.PaymentLinkId, p.UpdatedAt }).ToListAsync(ct);
         if (failures.Count > 0)
         {
             var last = failures[0];
-            var label = await db.Checks.AsNoTracking().Where(c => c.Id == last.CheckId)
-                .Join(db.ServiceLocations.AsNoTracking(), c => c.ServiceLocationId, l => l.Id, (c, l) => l.DisplayName)
-                .SingleOrDefaultAsync(ct);
+            var label = last.PaymentLinkId is { } linkId
+                ? "Payment link " + await db.PaymentLinks.AsNoTracking().Where(l => l.Id == linkId).Select(l => l.Code).SingleAsync(ct)
+                : await db.Checks.AsNoTracking().Where(c => c.Id == last.CheckId)
+                    .Join(db.ServiceLocations.AsNoTracking(), c => c.ServiceLocationId, l => l.Id, (c, l) => l.DisplayName)
+                    .SingleOrDefaultAsync(ct);
             items.Add(new("payment", failures.Count == 1 ? "1 payment failure today" : $"{failures.Count} payment failures today",
                 $"Last: {label} · {TimeZoneInfo.ConvertTime(last.UpdatedAt, zone):HH:mm}", failures.Count));
         }

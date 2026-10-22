@@ -581,8 +581,11 @@ export interface TransactionRow {
   cardBrand: string | null;
   cardLast4: string | null;
   mode: 'Full' | 'Equal' | 'Items' | 'Custom';
+  /** Empty for a payment through a payment link. */
   locationType: string;
   locationLabel: string;
+  /** The payment link it was paid through, e.g. PL-1A2B3C4D. */
+  paymentLinkCode: string | null;
   orderNumbers: number[];
   currency: string;
   amountMinor: number;
@@ -613,6 +616,8 @@ export interface RefundRow {
 export interface TransactionDetail {
   summary: TransactionRow;
   areaName: string | null;
+  paymentLinkId: string | null;
+  paymentLinkReference: string | null;
   billAmountMinor: number;
   discountMinor: number;
   promoCode: string | null;
@@ -715,3 +720,132 @@ export class FinanceApi {
   }
 }
 
+
+// ---- Payment links (Sprint 8) ----
+
+export type PaymentLinkStatus = 'Active' | 'Paid' | 'Expired' | 'Cancelled';
+export type PaymentLinkFilter = 'All' | PaymentLinkStatus;
+export type ValidityUnit = 'Hours' | 'Days';
+
+export interface PaymentLinkRow {
+  id: string;
+  code: string;
+  reference: string | null;
+  status: PaymentLinkStatus;
+  currency: string;
+  amountMinor: number;
+  /** Paid towards the amount so far (tips not included). */
+  paidMinor: number;
+  tipsMinor: number;
+  paymentCount: number;
+  allowSplit: boolean;
+  requestTip: boolean;
+  customerEmail: string | null;
+  createdAt: string;
+  expiresAt: string;
+  paidAt: string | null;
+  /** The public link to share. */
+  url: string;
+}
+
+export interface PaymentLinkPage {
+  items: PaymentLinkRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: { all: number; active: number; paid: number; expired: number; cancelled: number };
+}
+
+export interface PaymentLinkDetail {
+  summary: PaymentLinkRow;
+  remainingMinor: number;
+  createdBy: string | null;
+  customerNotifiedAt: string | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  payments: {
+    id: string;
+    reference: string;
+    state: TransactionState;
+    method: string;
+    cardBrand: string | null;
+    cardLast4: string | null;
+    mode: 'Full' | 'Equal' | 'Items' | 'Custom';
+    shares: number | null;
+    splitPeople: number | null;
+    billAmountMinor: number;
+    tipMinor: number;
+    amountMinor: number;
+    refundedMinor: number;
+    createdAt: string;
+    succeededAt: string | null;
+  }[];
+  timeline: { at: string; kind: string; text: string }[];
+}
+
+export interface CreatePaymentLink {
+  venueId: string;
+  clientRequestId: string;
+  amountMinor: number;
+  reference: string | null;
+  allowSplit: boolean;
+  requestTip: boolean;
+  validFor: number;
+  validityUnit: ValidityUnit;
+  customerEmail: string | null;
+}
+
+export interface PaymentLinkQuery {
+  venueId: string;
+  status?: PaymentLinkFilter;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Pushed to staff screens when a payment comes in through a payment link. */
+export interface PaymentLinkNotice {
+  tenantId: string;
+  venueId: string;
+  paymentLinkId: string;
+  code: string;
+  linkReference: string | null;
+  paymentId: string;
+  reference: string;
+  currency: string;
+  amountMinor: number;
+  tipMinor: number;
+  remainingMinor: number;
+  fullyPaid: boolean;
+}
+
+/** Payment links (blueprint 9.2 /v1/merchant/payment-links/*). */
+@Injectable({ providedIn: 'root' })
+export class PaymentLinksApi {
+  private readonly http = inject(HttpClient);
+
+  list(query: PaymentLinkQuery) {
+    return this.http.get<PaymentLinkPage>('/v1/merchant/payment-links', { params: params(query) });
+  }
+
+  get(id: string) {
+    return this.http.get<PaymentLinkDetail>(`/v1/merchant/payment-links/${id}`);
+  }
+
+  /** Safe to retry with the same clientRequestId. */
+  create(request: CreatePaymentLink) {
+    return this.http.post<PaymentLinkDetail>('/v1/merchant/payment-links', request);
+  }
+
+  cancel(id: string) {
+    return this.http.post<PaymentLinkDetail>(`/v1/merchant/payment-links/${id}/cancel`, {});
+  }
+
+  notify(id: string, email: string) {
+    return this.http.post<PaymentLinkDetail>(`/v1/merchant/payment-links/${id}/notify`, { email });
+  }
+
+  export(query: PaymentLinkQuery) {
+    return this.http.get('/v1/merchant/payment-links/export', { params: params(query), responseType: 'blob' });
+  }
+}

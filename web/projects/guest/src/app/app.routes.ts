@@ -6,6 +6,8 @@ export const routes: Routes = [
   { path: '', loadComponent: () => import('./pages/home/home').then(m => m.Home) },
   // Printed QR codes point here: /q/{opaque token}
   { path: 'q/:token', loadComponent: () => import('./pages/landing/landing').then(m => m.Landing) },
+  // Payment links point here: /l/{opaque token}[?payment={id}&cancelled=1]
+  { path: 'l/:token', loadComponent: () => import('./pages/link/link-page').then(m => m.LinkPage) },
   {
     path: 'menu',
     canActivate: [sessionGuard],

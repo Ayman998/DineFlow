@@ -3,9 +3,10 @@ using DineFlow.Domain.Common;
 namespace DineFlow.Domain.Payments;
 
 /// <summary>
-/// One guest payment against a check (blueprint 7.1). The provider's verified webhook is the
-/// only thing that makes it <see cref="PaymentStatus.Succeeded"/>; the app never trusts the
-/// browser for that. Terminal states never go back, so late or duplicate webhooks are harmless.
+/// One guest payment against a table's check, or against a payment link (blueprint 7.1, E16).
+/// The provider's verified webhook is the only thing that makes it <see cref="PaymentStatus.Succeeded"/>;
+/// the app never trusts the browser for that. Terminal states never go back, so late or
+/// duplicate webhooks are harmless.
 /// </summary>
 /// <remarks>
 /// Amounts: <see cref="BillAmountMinor"/> is how much of the bill this settles,
@@ -19,8 +20,12 @@ public class Payment : Entity, ITenantOwned
 
     public Guid TenantId { get; private set; }
     public Guid VenueId { get; private set; }
-    public Guid CheckId { get; private set; }
-    public Guid GuestSessionId { get; private set; }
+    /// <summary>The table's bill this pays; null for a payment-link payment.</summary>
+    public Guid? CheckId { get; private set; }
+    /// <summary>The guest at the table who paid; null for a payment-link payment.</summary>
+    public Guid? GuestSessionId { get; private set; }
+    /// <summary>The payment link this pays; null for a payment at the table.</summary>
+    public Guid? PaymentLinkId { get; private set; }
     /// <summary>The guest app's id for this attempt; retries return the same payment (blueprint 7.3).</summary>
     public Guid ClientRequestId { get; private set; }
     /// <summary>Short reference shown on the receipt and the staff screen, e.g. DF-1A2B3C4D.</summary>
@@ -58,8 +63,31 @@ public class Payment : Entity, ITenantOwned
 
     private Payment() { }
 
+    /// <summary>A guest at the table paying all or part of its check.</summary>
     public Payment(
         Guid tenantId, Guid venueId, Guid checkId, Guid guestSessionId, Guid clientRequestId,
+        string provider, PaymentMethod method, PaymentMode mode, int? shares, int? splitPeople, string currency,
+        long billAmountMinor, long discountMinor, long tipMinor,
+        Guid? promoCodeId, string? promoCode, string termsVersion, DateTimeOffset now)
+        : this(tenantId, venueId, clientRequestId, provider, method, mode, shares, splitPeople, currency,
+            billAmountMinor, discountMinor, tipMinor, promoCodeId, promoCode, termsVersion, now)
+    {
+        CheckId = checkId;
+        GuestSessionId = guestSessionId;
+    }
+
+    /// <summary>A customer paying all or part of a payment link. Links take no promotion codes and can't be paid by item.</summary>
+    public static Payment ForLink(
+        PaymentLink link, Guid clientRequestId, string provider, PaymentMethod method, PaymentMode mode, int? shares, int? splitPeople,
+        long amountMinor, long tipMinor, string termsVersion, DateTimeOffset now)
+    {
+        if (mode == PaymentMode.Items) throw new DomainException("A payment link can't be paid by item.");
+        return new Payment(link.TenantId, link.VenueId, clientRequestId, provider, method, mode, shares, splitPeople, link.Currency,
+            amountMinor, 0, tipMinor, null, null, termsVersion, now) { PaymentLinkId = link.Id };
+    }
+
+    private Payment(
+        Guid tenantId, Guid venueId, Guid clientRequestId,
         string provider, PaymentMethod method, PaymentMode mode, int? shares, int? splitPeople, string currency,
         long billAmountMinor, long discountMinor, long tipMinor,
         Guid? promoCodeId, string? promoCode, string termsVersion, DateTimeOffset now)
@@ -73,8 +101,6 @@ public class Payment : Entity, ITenantOwned
 
         TenantId = tenantId;
         VenueId = venueId;
-        CheckId = checkId;
-        GuestSessionId = guestSessionId;
         ClientRequestId = clientRequestId;
         Reference = $"DF-{Id.ToString("N")[..8].ToUpperInvariant()}";
         Provider = provider;

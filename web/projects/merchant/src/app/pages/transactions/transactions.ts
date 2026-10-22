@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { merge } from 'rxjs';
 
-import { FinanceApi, TransactionDetail, TransactionFilter, TransactionPage, TransactionState } from '../../core/api';
+import { FinanceApi, TransactionDetail, TransactionFilter, TransactionPage, TransactionRow, TransactionState } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { LiveOrders } from '../../core/live-orders';
@@ -47,7 +47,7 @@ export class Transactions implements OnInit {
 
   ngOnInit(): void {
     this.venue.load().subscribe({ next: () => this.load(), error: error => this.error.set(errorMessage(error)) });
-    merge(this.live.paid, this.live.refunded).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+    merge(this.live.paid, this.live.refunded, this.live.linkPaid).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.load();
       const open = this.detail();
       if (open) this.open(open.summary.id);
@@ -141,6 +141,11 @@ export class Transactions implements OnInit {
       case 'Custom': return 'Custom amount';
       default: return null;
     }
+  }
+
+  /** Where it was paid: the table, or the payment link. */
+  protected place(row: TransactionRow): string {
+    return row.paymentLinkCode ? `Link ${row.paymentLinkCode}` : `${row.locationType} ${row.locationLabel}`;
   }
 
   protected money(minor: number, currency: string): string {

@@ -4,14 +4,16 @@ namespace DineFlow.Domain.Payments;
 
 /// <summary>
 /// Append-only money movement (blueprint 7.2). A successful payment writes its bill share,
-/// any promotion and any tip as separate entries; refunds will be new entries, never edits.
-/// The bill's paid amount is the sum of its BillPayment and Discount entries.
+/// any promotion and any tip as separate entries; refunds are new entries, never edits.
+/// The bill's paid amount is the sum of its BillPayment and Discount entries; a payment link's
+/// is the sum of its payments' BillPayment entries.
 /// </summary>
 public class LedgerEntry : Entity, ITenantOwned
 {
     public Guid TenantId { get; private set; }
     public Guid VenueId { get; private set; }
-    public Guid CheckId { get; private set; }
+    /// <summary>The table's bill; null for money paid through a payment link.</summary>
+    public Guid? CheckId { get; private set; }
     public Guid PaymentId { get; private set; }
     public LedgerEntryType Type { get; private set; }
     public long AmountMinor { get; private set; }

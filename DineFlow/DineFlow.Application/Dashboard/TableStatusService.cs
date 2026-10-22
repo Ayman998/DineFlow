@@ -40,12 +40,12 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
             .Select(o => new { o.Id, CheckId = o.CheckId!.Value, o.Number, o.Status, o.CreatedAt, o.TotalMinor })
             .ToListAsync(ct);
         var ledger = await db.LedgerEntries.AsNoTracking()
-            .Where(e => checkIds.Contains(e.CheckId))
+            .Where(e => e.CheckId != null && checkIds.Contains(e.CheckId.Value))
             .GroupBy(e => new { e.CheckId, e.Type })
             .Select(g => new { g.Key.CheckId, g.Key.Type, Sum = g.Sum(e => e.AmountMinor) })
             .ToListAsync(ct);
         var payments = await db.Payments.AsNoTracking()
-            .Where(p => checkIds.Contains(p.CheckId))
+            .Where(p => p.CheckId != null && checkIds.Contains(p.CheckId.Value))
             .Select(p => new { p.CheckId, p.Status, p.CreatedAt, p.UpdatedAt })
             .ToListAsync(ct);
         var scannedSince = now - OrderingWindow;

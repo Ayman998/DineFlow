@@ -30,8 +30,8 @@ public class GuestReviewService(IAppDbContext db, IReviewNotifier notifier, Time
     /// <summary>Rates the visit a payment belongs to. Rating the same payment again returns the first rating.</summary>
     public async Task<ReviewResultDto> SubmitAsync(Guid sessionId, SubmitReviewRequest request, CancellationToken ct)
     {
-        var payment = await db.Payments.SingleOrDefaultAsync(p => p.Id == request.PaymentId && p.GuestSessionId == sessionId, ct)
-            ?? throw AppException.NotFound("payment_not_found", "Payment not found.");
+        var payment = await db.Payments.SingleOrDefaultAsync(p => p.Id == request.PaymentId && p.GuestSessionId == sessionId, ct);
+        if (payment?.CheckId is not { } checkId) throw AppException.NotFound("payment_not_found", "Payment not found.");
         if (payment.Status != PaymentStatus.Succeeded)
             throw AppException.Conflict("not_paid", "You can rate your visit once the payment has gone through.");
 
@@ -42,12 +42,12 @@ public class GuestReviewService(IAppDbContext db, IReviewNotifier notifier, Time
         var existing = await db.Reviews.SingleOrDefaultAsync(r => r.PaymentId == payment.Id, ct);
         if (existing is not null) return ToResult(existing, venue);
 
-        var locationId = await db.Checks.Where(c => c.Id == payment.CheckId).Select(c => c.ServiceLocationId).SingleAsync(ct);
-        var staff = await ServedByAsync(payment.CheckId, ct);
+        var locationId = await db.Checks.Where(c => c.Id == checkId).Select(c => c.ServiceLocationId).SingleAsync(ct);
+        var staff = await ServedByAsync(checkId, ct);
         Review review;
         try
         {
-            review = new Review(payment.TenantId, payment.VenueId, locationId, payment.CheckId, payment.Id, sessionId,
+            review = new Review(payment.TenantId, payment.VenueId, locationId, checkId, payment.Id, sessionId,
                 request.Rating, request.Comment, venue.ReviewUrl is null ? null : venue.ReviewPlatform, staff, clock.GetUtcNow());
         }
         catch (DomainException ex)

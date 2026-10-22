@@ -56,12 +56,15 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
             ?? throw AppException.NotFound("transaction_not_found", "Transaction not found.");
         var row = (await RowsAsync([payment], ct)).Single();
 
-        var check = await db.Checks.AsNoTracking().SingleAsync(c => c.Id == payment.CheckId, ct);
-        var location = await db.ServiceLocations.AsNoTracking().Include(l => l.DiningArea).SingleAsync(l => l.Id == check.ServiceLocationId, ct);
-        var orders = await db.Orders.AsNoTracking().Where(o => o.CheckId == payment.CheckId)
-            .Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
+        // A payment at the table has its check, place and orders; a payment-link payment has its link.
+        var check = await db.Checks.AsNoTracking().SingleOrDefaultAsync(c => c.Id == payment.CheckId, ct);
+        var location = check is null ? null
+            : await db.ServiceLocations.AsNoTracking().Include(l => l.DiningArea).SingleAsync(l => l.Id == check.ServiceLocationId, ct);
+        var link = await db.PaymentLinks.AsNoTracking().SingleOrDefaultAsync(l => l.Id == payment.PaymentLinkId, ct);
+        var orders = check is null ? []
+            : await db.Orders.AsNoTracking().Where(o => o.CheckId == check.Id).Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
         var refunds = await db.Refunds.AsNoTracking().Where(r => r.PaymentId == payment.Id).OrderBy(r => r.CreatedAt).ToListAsync(ct);
-        var staffIds = refunds.Select(r => r.RequestedByStaffId).Distinct().ToList();
+        var staffIds = refunds.Select(r => r.RequestedByStaffId).Append(link?.CreatedByStaffId ?? Guid.Empty).Distinct().ToList();
         var staff = await db.StaffUsers.AsNoTracking().Where(s => staffIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.DisplayName, ct);
         var review = await db.Reviews.AsNoTracking().Where(r => r.PaymentId == payment.Id)
             .Select(r => new { r.Id, r.Rating, r.CreatedAt }).SingleOrDefaultAsync(ct);
@@ -70,7 +73,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         var refundDtos = refunds.Select(r => new RefundDto(r.Id, r.AmountMinor, r.Reason, r.Status, r.FailureReason,
             staff.GetValueOrDefault(r.RequestedByStaffId), r.CreatedAt, r.CompletedAt)).ToList();
 
-        return new TransactionDetailDto(row, location.DiningArea?.Name,
+        return new TransactionDetailDto(row, location?.DiningArea?.Name, link?.Id, link?.Reference,
             payment.BillAmountMinor, payment.DiscountMinor, payment.PromoCode, payment.TipMinor, payment.AmountMinor,
             Refundable(payment, refunds), payment.Shares, payment.SplitPeople, itemCount, payment.FailureReason,
             review?.Rating, review?.Id,
@@ -78,7 +81,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
                 o.Lines.OrderBy(l => l.Position).Select(l => new TransactionOrderLineDto(l.Name, l.Quantity, l.LineTotalMinor)).ToList(),
                 o.TotalMinor)).ToList(),
             refundDtos,
-            await TimelineAsync(payment, location.DisplayName, orders, refunds, staff, review is null ? null : (review.CreatedAt, review.Rating), ct));
+            await TimelineAsync(payment, location?.DisplayName, link, orders, refunds, staff, review is null ? null : (review.CreatedAt, review.Rating), ct));
     }
 
     /// <summary>
@@ -108,9 +111,9 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
                 throw AppException.Conflict("refund_not_allowed", ex.Message);
             }
 
-            // Two managers refunding the same payment at once: the bill's revision makes one of them think again.
-            var check = await db.Checks.SingleAsync(c => c.Id == payment.CheckId, ct);
-            check.Touch();
+            // Two managers refunding the same payment at once: the bill's (or link's) revision makes one of them think again.
+            if (payment.CheckId is { } checkId) (await db.Checks.SingleAsync(c => c.Id == checkId, ct)).Touch();
+            else if (payment.PaymentLinkId is { } linkId) (await db.PaymentLinks.SingleAsync(l => l.Id == linkId, ct)).Touch();
             db.Refunds.Add(created);
             db.AuditEntries.Add(new AuditEntry(payment.TenantId, staffUserId, "payment.refund.requested", nameof(Payment), payment.Id, created.CreatedAt));
             await db.SaveChangesAsync(ct);
@@ -151,21 +154,24 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         var reference = text.ToUpperInvariant();
         var locationIds = await db.ServiceLocations.AsNoTracking()
             .Where(l => l.VenueId == venueId && l.Label == text).Select(l => l.Id).ToListAsync(ct);
-        var checkIds = db.Checks.AsNoTracking().Where(c => locationIds.Contains(c.ServiceLocationId)).Select(c => c.Id);
+        var checkIds = db.Checks.AsNoTracking().Where(c => locationIds.Contains(c.ServiceLocationId)).Select(c => (Guid?)c.Id);
+        var linkIds = db.PaymentLinks.AsNoTracking().Where(l => l.VenueId == venueId && l.Code.Contains(reference)).Select(l => (Guid?)l.Id);
         long? amount = decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var major)
             ? (long)Math.Round(major * (decimal)Math.Pow(10, MinorDigits(currency)))
             : null;
 
         // Short searches like "8" are table numbers or amounts, not pieces of a reference.
-        var byReference = reference.StartsWith("DF-") || reference.Length >= 4;
-        return payments.Where(p => (byReference && p.Reference.Contains(reference)) || checkIds.Contains(p.CheckId)
+        var byReference = reference.StartsWith("DF-") || reference.StartsWith("PL-") || reference.Length >= 4;
+        return payments.Where(p => (byReference && (p.Reference.Contains(reference) || linkIds.Contains(p.PaymentLinkId))) || checkIds.Contains(p.CheckId)
             || (amount != null && (p.AmountMinor == amount || p.BillAmountMinor == amount)));
     }
 
     private async Task<IReadOnlyList<TransactionRowDto>> RowsAsync(IReadOnlyList<Payment> payments, CancellationToken ct)
     {
         var ids = payments.Select(p => p.Id).ToList();
-        var checkIds = payments.Select(p => p.CheckId).Distinct().ToList();
+        var checkIds = payments.Where(p => p.CheckId != null).Select(p => p.CheckId!.Value).Distinct().ToList();
+        var linkIds = payments.Where(p => p.PaymentLinkId != null).Select(p => p.PaymentLinkId!.Value).Distinct().ToList();
+        var links = await db.PaymentLinks.AsNoTracking().Where(l => linkIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Code, ct);
         var refunds = await db.Refunds.AsNoTracking().Where(r => ids.Contains(r.PaymentId)).ToListAsync(ct);
         var checks = await db.Checks.AsNoTracking().Where(c => checkIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.ServiceLocationId, ct);
         var locationIds = checks.Values.Distinct().ToList();
@@ -177,15 +183,16 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         {
             var mine = refunds.Where(r => r.PaymentId == p.Id).ToList();
             var refunded = mine.Where(r => r.Status == RefundStatus.Succeeded).Sum(r => r.AmountMinor);
-            var location = locations.GetValueOrDefault(checks.GetValueOrDefault(p.CheckId));
+            var location = p.CheckId is { } checkId ? locations.GetValueOrDefault(checks.GetValueOrDefault(checkId)) : null;
             return new TransactionRowDto(p.Id, p.Reference, p.CreatedAt, p.SucceededAt, StateOf(p, refunded), p.Method, p.CardBrand, p.CardLast4,
                 p.Mode, location?.Type.ToString() ?? "", location?.Label ?? "",
+                p.PaymentLinkId is { } linkId ? links.GetValueOrDefault(linkId) : null,
                 orders.Where(o => o.CheckId == p.CheckId).Select(o => o.Number).Order().ToList(),
                 p.Currency, p.AmountMinor, p.TipMinor, refunded, mine.Any(r => r.Status == RefundStatus.Pending));
         }).ToList();
     }
 
-    private static TransactionState StateOf(Payment p, long refundedMinor) => p.Status switch
+    internal static TransactionState StateOf(Payment p, long refundedMinor) => p.Status switch
     {
         PaymentStatus.Succeeded when refundedMinor >= p.AmountMinor => TransactionState.Refunded,
         PaymentStatus.Succeeded when refundedMinor > 0 => TransactionState.PartiallyRefunded,
@@ -195,13 +202,16 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         _ => TransactionState.Pending
     };
 
-    /// <summary>Session → orders → payment → provider → ledger → review → refunds, in time order.</summary>
+    /// <summary>Session (or payment link) → orders → payment → provider → ledger → review → refunds, in time order.</summary>
     private async Task<IReadOnlyList<TimelineEventDto>> TimelineAsync(
-        Payment payment, string place, IReadOnlyList<Order> orders, IReadOnlyList<Refund> refunds,
+        Payment payment, string? place, PaymentLink? link, IReadOnlyList<Order> orders, IReadOnlyList<Refund> refunds,
         Dictionary<Guid, string> staff, (DateTimeOffset At, int Rating)? review, CancellationToken ct)
     {
         string Money(long minor) => FormatMoney(minor, payment.Currency);
         var events = new List<TimelineEventDto>();
+
+        if (link is not null)
+            events.Add(new(link.CreatedAt, "link", $"Payment link {link.Code} created{(staff.GetValueOrDefault(link.CreatedByStaffId) is { } by ? $" by {by}" : "")} for {Money(link.AmountMinor)}"));
 
         var sessionStart = await db.GuestSessions.AsNoTracking().Where(s => s.Id == payment.GuestSessionId).Select(s => (DateTimeOffset?)s.CreatedAt).SingleOrDefaultAsync(ct);
         if (sessionStart is { } started) events.Add(new(started, "session", $"Guest scanned the QR code at {place}"));
@@ -253,7 +263,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         return events.OrderBy(e => e.At).ThenBy(e => Array.IndexOf(TimelineOrder, e.Kind)).ToList();
     }
 
-    private static readonly string[] TimelineOrder = ["session", "order", "payment", "refund", "provider", "ledger", "review"];
+    private static readonly string[] TimelineOrder = ["link", "session", "order", "payment", "refund", "provider", "ledger", "review"];
 
     private static string LedgerName(LedgerEntryType type) => type switch
     {
@@ -275,7 +285,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
 
     internal static int MinorDigits(string currency) => currency is "KWD" or "BHD" or "OMR" or "JOD" ? 3 : 2;
 
-    private static string FormatMoney(long minor, string currency)
+    internal static string FormatMoney(long minor, string currency)
     {
         var digits = MinorDigits(currency);
         return $"{currency} {(minor / (decimal)Math.Pow(10, digits)).ToString($"N{digits}", CultureInfo.InvariantCulture)}";

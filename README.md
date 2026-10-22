@@ -126,6 +126,28 @@ Owners and managers can refund all or part of a payment, with a reason that goes
 
 Not built yet: QR groups, posting refunds to a POS, and the diner fee.
 
+### Payment links
+
+**Payment Links** lets staff ask a customer to pay ahead, e.g. a booking deposit or an order to collect. Any staff member can create one with:
+
+- an amount, including taxes and charges, and an optional reference such as "Booking 42";
+- how long it stays active, from 1 hour to 90 days, with the exact expiry shown as you type;
+- whether several people can split it, and whether to ask for a tip, using the venue's tip choices;
+- an optional customer e-mail address, which sends the link straight away.
+
+Each link gets an identifier like `PL-1A2B3C4D` and a URL ending in a signed token that can't be guessed. Like QR tokens, only the token's hash is stored. Share it by QR code (shown and downloadable), WhatsApp, e-mail, copy or the device's share sheet.
+
+The customer opens `/l/{token}` in the guest app. No table or account is needed. The page shows:
+
+- the venue's branding, the link identifier and reference;
+- the amount, with anything already paid and what's left;
+- a tip and split options if the link has them;
+- the payment methods and the Terms notice.
+
+A split link can be paid in full, by a custom amount, or in equal shares of the link's amount. Shares round up and the last one pays exactly what's left. Payments go through the same provider and signed webhook as payments at the table. While someone is on the provider's page, their amount is held for 15 minutes, so two people can't pay the same money. Once the amount is fully paid the link closes by itself. An expired, paid or deactivated link shows a clear message instead of the checkout.
+
+The list has counts per status (active, paid, expired, deactivated), search by identifier, reference, e-mail or amount, and CSV export. Each link opens its payments and a timeline. Deactivating a link stops new payments, and the provider page also refuses a payment that's already under way. Link payments appear in **Transactions** as "Link PL-…", searchable by the identifier. They can be refunded like any other payment, and they count in the Overview's revenue and tips. A refund doesn't reopen the link. Staff see a "Payment link paid" alert as money comes in. Promotion codes and reviews aren't offered on links.
+
 To apply migrations without starting the API:
 
 ```bash
@@ -195,12 +217,17 @@ npm --prefix web test
 | `GET /v1/merchant/transactions?venueId=&from=&to=&status=&search=&page=&pageSize=` | merchant | Payments for a period, with totals |
 | `GET /v1/merchant/transactions/{paymentId}` | merchant | A payment with its items, refunds and timeline |
 | `POST /v1/merchant/transactions/{paymentId}/refunds` | manager | Refund all or part of a payment (idempotent per `clientRequestId`, reason required) |
+| `GET /v1/merchant/payment-links?venueId=&status=&search=&page=&pageSize=`, `GET …/export` | merchant | Links with counts per status; CSV export |
+| `POST /v1/merchant/payment-links` | merchant | Create a link (idempotent per `clientRequestId`); e-mails the customer when an address is given |
+| `GET /v1/merchant/payment-links/{id}`, `POST …/{id}/cancel`, `POST …/{id}/notify` | merchant | A link with its payments and timeline; deactivate it; e-mail it |
+| `GET /v1/public/payment-links/{token}` | anyone with the link (rate limited) | The link as the customer sees it |
+| `POST /v1/public/payment-links/{token}/payments`, `GET …/payments/{id}`, `POST …/payments/{id}/cancel`, `POST …/payments/{id}/receipt` | anyone with the link | Pay what's left, equal shares or an amount (idempotent per `clientRequestId`); status; cancel; e-mail the receipt |
 
 ### Real-time
 
-SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived`, `reviewSubmitted` and `refundUpdated` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
+SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived`, `reviewSubmitted`, `refundUpdated` and `paymentLinkPaid` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
-Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired` or `refund_not_allowed`.
+Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired` or `link_paid`.
 
 ## Ground rules (from the blueprint)
 
@@ -224,5 +251,5 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 5 | Split the bill: equal, by item and custom, with item holds and concurrency protection ✅ | E7 |
 | 6 | Reviews: post-payment rating, public-review routing, private feedback with consent, reviews dashboard, staff ratings ✅ | E27 |
 | 7 | Merchant overview, live table status, transactions with timeline, refunds ✅ | E11, E12 |
-| 8 | Payment links | E16 |
+| 8 | Payment links: create, share (QR, WhatsApp, e-mail), split and tip options, expiry, status tracking, export ✅ | E16 |
 | 9 | Hardening, Foodics connector, WhatsApp, email reports | E9, E15, E28 |

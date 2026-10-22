@@ -16,7 +16,8 @@ public class Refund : Entity, ITenantOwned
     public Guid TenantId { get; private set; }
     public Guid VenueId { get; private set; }
     public Guid PaymentId { get; private set; }
-    public Guid CheckId { get; private set; }
+    /// <summary>The table's bill the payment was for; null for a payment-link payment.</summary>
+    public Guid? CheckId { get; private set; }
     /// <summary>The merchant app's id for this request; retries return the same refund (blueprint 7.3).</summary>
     public Guid ClientRequestId { get; private set; }
     public long AmountMinor { get; private set; }
