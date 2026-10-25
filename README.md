@@ -38,7 +38,7 @@ web/
 dotnet run --project DineFlow/DineFlow.Api --launch-profile http
 ```
 
-In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Dubai Marina**: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, 10% service charge with 5% VAT included in prices, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
+In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Abdoun, Amman**, in JOD (3 decimals) and Arabic by default: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, a 10% service charge with Jordan's 16% sales tax included in prices, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (SQL Server) is at `/health/ready`.
 
@@ -54,7 +54,7 @@ That serves both apps. Sign in to the merchant portal at http://localhost:4300, 
 
 ### Paying the bill
 
-On the guest side, **Pay Bill** opens checkout for everything the table has ordered. The guest picks a tip (the venue's "Most common" one starts selected), can enter a promo code and choose a payment method, then pays on the provider's page. The demo seeds two codes: **WELCOME10** (10% off, up to AED 50) and **NEXT15**, which is offered on the payment confirmation for the next visit. Manage codes under **Promotions** in the merchant portal. When the payment goes through, the guest sees the confirmation and can e-mail a receipt. Staff get a "Payment received" alert with the tip and what's still owed. Once nothing is left, the table's bill closes, and the next order opens a new one.
+On the guest side, **Pay Bill** opens checkout for everything the table has ordered. The guest picks a tip (the venue's "Most common" one starts selected), can enter a promo code and choose a payment method, then pays on the provider's page. The demo seeds two codes: **WELCOME10** (10% off, up to JOD 5.000) and **NEXT15**, which is offered on the payment confirmation for the next visit. Manage codes under **Promotions** in the merchant portal. When the payment goes through, the guest sees the confirmation and can e-mail a receipt. Staff get a "Payment received" alert with the tip and what's still owed. Once nothing is left, the table's bill closes, and the next order opens a new one.
 
 Until a real PSP is connected, payments go through the built-in **sandbox provider**. It's a hosted test page at `/sandbox/pay/…` that takes these test cards (any future expiry, any CVC):
 
@@ -66,6 +66,32 @@ Until a real PSP is connected, payments go through the built-in **sandbox provid
 | `4000 0000 0000 9995` | Insufficient funds |
 
 Apple Pay, Google Pay and STC Pay show Approve and Decline buttons. The sandbox reports each result through a signed webhook, verified the same way a real provider's would be. No real money moves. Outside Development the API refuses to start with the sandbox, unless `Payments:Sandbox:AllowOutsideDevelopment` is set, e.g. for a demo server.
+
+#### Real payments: Mastercard Gateway
+
+DineFlow's venues are in Jordan. Jordanian acquirers (MEPS, Network International Jordan and the banks) give merchants a **Mastercard Gateway (MPGS)** account, so that's the real provider. Set `Payments:Provider` to `mastercard`.
+
+How a payment works:
+
+1. **INITIATE_CHECKOUT** opens a Hosted Checkout session. It carries the amount in the currency's decimals (JOD `12.500`), DineFlow's return and cancel URLs, and the webhook URL.
+2. The guest goes to DineFlow's small launcher page, `/v1/public/checkout/mastercard`. It loads the gateway's `checkout.js` and shows the gateway's own payment page. Card details never touch DineFlow.
+3. The result arrives as a webhook to `/v1/webhooks/payments/mastercard`. It's accepted only with the merchant's secret in `X-Notification-Secret`, compared in constant time.
+4. Mastercard says its webhooks aren't guaranteed to arrive, so DineFlow also asks the gateway (**Retrieve Order**) every 15 seconds about any payment or refund still waiting. A result that arrives both ways is counted once.
+5. Refunds are **REFUND** transactions on the gateway order. Their result comes back the same two ways.
+
+Settings, all from your acquirer or Merchant Administration:
+
+| Setting | What |
+|---|---|
+| `Payments:Mastercard:GatewayUrl` | The gateway host your acquirer gives you (default: Mastercard's test gateway) |
+| `Payments:Mastercard:MerchantId` | Gateway merchant id |
+| `Payments:Mastercard:ApiPassword` | **Secret.** Admin → Integration Settings |
+| `Payments:Mastercard:WebhookSecret` | **Secret.** Admin → Webhook Notifications (also turn webhooks on there) |
+| `Payments:Mastercard:NotificationUrl` | DineFlow's public **https** webhook URL |
+| `Payments:Mastercard:ApiVersion` | REST API version of your merchant profile (default 100) |
+| `Payments:Mastercard:Methods` | What guests can pick before the gateway page (default Card, ApplePay; Apple Pay must be enabled by your acquirer) |
+
+Set the two secrets with user-secrets or a key vault, never in `appsettings.json`. The provider is built from Mastercard's public API documentation and tested against a fake gateway. Confirm it with your acquirer's test credentials before going live: the API version, Apple Pay and 3-D Secure settings vary by merchant profile.
 
 Receipts aren't sent in Development. Each one is written as an `.eml` file to `DineFlow/DineFlow.Api/App_Data/outbox` (git-ignored), and any mail app can open it.
 
@@ -236,7 +262,7 @@ dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFl
 
 ### Keys and secrets
 
-`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code. With `WhatsApp:Provider` set to `meta`, `WhatsApp:MetaApi:AccessToken` is a secret too, and the API refuses to start without it and `PhoneNumberId`.
+`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code. With `Payments:Provider` set to `mastercard`, `Payments:Mastercard:ApiPassword` and `WebhookSecret` are required secrets. With `WhatsApp:Provider` set to `meta`, `WhatsApp:MetaApi:AccessToken` is a secret too, and the API refuses to start without it and `PhoneNumberId`.
 
 ### Uploaded images
 
@@ -337,4 +363,5 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 7 | Merchant overview, live table status, transactions with timeline, refunds ✅ | E11, E12 |
 | 8 | Payment links: create, share (QR, WhatsApp, e-mail), split and tip options, expiry, status tracking, export ✅ | E16 |
 | 9a | WhatsApp payment alerts, scheduled e-mail reports, notification outbox with retries, audit log, correlation ids, security headers, health checks, feature flags ✅ | E15, E28 |
-| 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |
+| 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |
+| 10 | Real payments for Jordan: Mastercard Gateway (MPGS) Hosted Checkout, verified webhooks plus status checks, refunds, JOD defaults (to verify with acquirer test credentials) ✅ | E8 |

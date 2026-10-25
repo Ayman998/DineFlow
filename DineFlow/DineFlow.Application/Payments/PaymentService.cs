@@ -210,6 +210,16 @@ public class PaymentService(
         try { webhook = provider.ParseWebhook(body, headers); }
         catch (InvalidWebhookException ex) { throw AppException.BadRequest("invalid_webhook", ex.Message); }
 
+        await ApplyEventAsync(webhook, ct);
+    }
+
+    /// <summary>
+    /// Applies a provider's verdict on a payment or refund, whether it came by webhook or by asking the
+    /// provider (<see cref="IPaymentStatusSource"/>). Each event id is applied once, so the same outcome
+    /// arriving both ways is counted once.
+    /// </summary>
+    public async Task ApplyEventAsync(ProviderWebhookEvent webhook, CancellationToken ct)
+    {
         // Webhooks carry no tenant, so these lookups bypass the tenant filter.
         if (await db.ProcessedWebhooks.AnyAsync(w => w.Provider == provider.Name && w.EventId == webhook.EventId, ct)) return;
 

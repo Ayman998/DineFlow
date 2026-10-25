@@ -29,6 +29,20 @@ public interface IPaymentProvider
     Task<ProviderRefund> RefundAsync(ProviderRefundRequest request, CancellationToken ct);
 }
 
+/// <summary>
+/// A provider DineFlow can ask for the current state of a payment or refund, e.g. because its
+/// webhooks aren't guaranteed to arrive (Mastercard Gateway says so). Results are applied through
+/// the same path as webhooks, so nothing is counted twice.
+/// </summary>
+public interface IPaymentStatusSource
+{
+    /// <summary>The payment's current state at the provider, or null when the provider has nothing final or useful yet.</summary>
+    Task<ProviderWebhookEvent?> GetPaymentStatusAsync(string providerPaymentId, CancellationToken ct);
+
+    /// <summary>The refund's current state at the provider, or null when it isn't final yet.</summary>
+    Task<ProviderWebhookEvent?> GetRefundStatusAsync(string providerPaymentId, string providerRefundId, CancellationToken ct);
+}
+
 public record ProviderRefundRequest(Guid RefundId, string ProviderPaymentId, long AmountMinor, string Currency);
 
 public record ProviderRefund(string ProviderRefundId);

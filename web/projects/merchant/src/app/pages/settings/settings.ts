@@ -9,10 +9,11 @@ import { AlertSettingsPanel } from './alert-settings';
 import { AuditLog } from './audit-log';
 import { PosSettingsPanel } from './pos-settings';
 
-const CURRENCIES = ['AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'JOD', 'EGP', 'USD', 'EUR', 'GBP'];
+// Jordan first: DineFlow's venues are in Amman.
+const CURRENCIES = ['JOD', 'AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'EGP', 'USD', 'EUR', 'GBP'];
 const TIME_ZONES = [
-  'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Kuwait', 'Asia/Bahrain', 'Asia/Muscat',
-  'Asia/Amman', 'Africa/Cairo', 'Europe/London', 'UTC'
+  'Asia/Amman', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Kuwait', 'Asia/Bahrain', 'Asia/Muscat',
+  'Africa/Cairo', 'Europe/London', 'UTC'
 ];
 
 /** Venue profile, branding and guest features (P1-MER-01); WhatsApp alerts; the audit log for managers. */

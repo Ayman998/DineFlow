@@ -56,16 +56,39 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         var provider = configuration[$"{PaymentOptions.Section}:Provider"] ?? SandboxPaymentProvider.ProviderName;
-        if (provider != SandboxPaymentProvider.ProviderName)
-            throw new InvalidOperationException($"Unknown payment provider '{provider}'. Only '{SandboxPaymentProvider.ProviderName}' is built in so far.");
-        services.AddOptions<SandboxOptions>()
-            .Bind(configuration.GetSection(SandboxOptions.Section))
-            .Validate(o => KeyBytes.IsStrong(o.SecretKey), "Payments:Sandbox:SecretKey must be base64 of at least 32 bytes.")
-            .ValidateOnStart();
+        if (provider is not (SandboxPaymentProvider.ProviderName or MastercardGatewayProvider.ProviderName))
+            throw new InvalidOperationException($"Unknown payment provider '{provider}'. Use '{SandboxPaymentProvider.ProviderName}' or '{MastercardGatewayProvider.ProviderName}'.");
+
+        // The sandbox's page and dispatcher are always registered (they're inert unless it's the provider);
+        // its key is only required when it is.
+        var sandboxOptions = services.AddOptions<SandboxOptions>().Bind(configuration.GetSection(SandboxOptions.Section));
         services.AddSingleton<SandboxWebhookOutbox>();
         services.AddHostedService<SandboxWebhookDispatcher>();
         services.AddSingleton<SandboxPaymentProvider>();
-        services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<SandboxPaymentProvider>());
+
+        // Mastercard Gateway (MPGS) Hosted Checkout: what Jordanian acquirers (MEPS, Network International, banks) provide.
+        var mastercardOptions = services.AddOptions<MastercardGatewayOptions>().Bind(configuration.GetSection(MastercardGatewayOptions.Section));
+        services.AddHttpClient<MastercardGatewayProvider>(c => c.Timeout = Timeout.InfiniteTimeSpan); // the provider applies its own timeout
+
+        if (provider == MastercardGatewayProvider.ProviderName)
+        {
+            mastercardOptions
+                .Validate(o => o.MerchantId.Length > 0 && o.ApiPassword.Length > 0, "Payments:Mastercard:MerchantId and ApiPassword are required.")
+                .Validate(o => o.WebhookSecret.Length >= 16, "Payments:Mastercard:WebhookSecret is required (from Merchant Administration → Webhook Notifications).")
+                .Validate(o => Uri.TryCreate(o.GatewayUrl, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps, "Payments:Mastercard:GatewayUrl must be an https URL.")
+                .Validate(o => o.NotificationUrl.Length == 0 || o.NotificationUrl.StartsWith("https://"), "Payments:Mastercard:NotificationUrl must be https (the gateway won't call http).")
+                .ValidateOnStart();
+            services.AddScoped<IPaymentProvider>(sp => sp.GetRequiredService<MastercardGatewayProvider>());
+        }
+        else
+        {
+            sandboxOptions
+                .Validate(o => KeyBytes.IsStrong(o.SecretKey), "Payments:Sandbox:SecretKey must be base64 of at least 32 bytes.")
+                .ValidateOnStart();
+            services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<SandboxPaymentProvider>());
+        }
+        // Asks the provider about payments still waiting, for providers whose webhooks aren't guaranteed.
+        services.AddHostedService<PaymentStatusWorker>();
 
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.Section));
         services.AddSingleton<IEmailSender>(sp => new FileEmailSender(

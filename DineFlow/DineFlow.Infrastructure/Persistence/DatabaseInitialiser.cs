@@ -88,12 +88,13 @@ public static class DatabaseInitialiser
         AppDbContext db, IQrTokenService qrTokens, IPasswordService passwords,
         string ownerEmail, string ownerPassword, CancellationToken ct)
     {
-        var tenant = new Tenant(DemoTenantLegalName, "Demo Bistro", "AE");
+        var tenant = new Tenant(DemoTenantLegalName, "Demo Bistro", "JO");
         tenant.Activate();
         db.Tenants.Add(tenant);
 
-        var venue = new Venue(tenant.Id, "Dubai Marina", "AED", "Asia/Dubai", "en");
-        venue.SetCharges(serviceChargeBasisPoints: 1000, taxBasisPoints: 500, pricesIncludeTax: true);
+        // The demo venue is in Amman: JOD (3 decimals), Jordan's 16% general sales tax and a 10% service charge.
+        var venue = new Venue(tenant.Id, "Abdoun, Amman", "JOD", "Asia/Amman", "ar");
+        venue.SetCharges(serviceChargeBasisPoints: 1000, taxBasisPoints: 1600, pricesIncludeTax: true);
         db.Venues.Add(venue);
 
         var mainHall = new DiningArea(tenant.Id, venue.Id, "Main hall", 0);
