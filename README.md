@@ -176,7 +176,7 @@ The list has counts per status (active, paid, expired, deactivated), search by i
 
 ### WhatsApp alerts, e-mail reports and the audit log
 
-**Settings → Notifications** turns on WhatsApp payment alerts and lists the numbers that get them: up to 10, in international format (`+971 50 123 4567` is stored as `+971501234567`). Every successful payment, at a table or through a payment link, sends each number a short message. It's short enough to read on a smartwatch:
+**Settings → Notifications** turns on WhatsApp payment alerts and lists the numbers that get them: up to 10, in international format (`+962 79 123 4567` is stored as `+962791234567`). Every successful payment, at a table or through a payment link, sends each number a short message. It's short enough to read on a smartwatch:
 
 ```
 Demo Bistro · Table 7

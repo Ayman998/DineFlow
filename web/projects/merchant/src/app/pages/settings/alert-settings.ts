@@ -51,7 +51,7 @@ import { DeliveryLog } from '../../shared/delivery-log';
             <label><span class="field-label">Name</span>
               <input class="field" maxlength="60" placeholder="e.g. Floor manager" [value]="name()" (input)="name.set($any($event.target).value)" /></label>
             <label><span class="field-label">WhatsApp number</span>
-              <input class="field" type="tel" maxlength="30" placeholder="+971 50 123 4567" [value]="phone()" (input)="phone.set($any($event.target).value)" /></label>
+              <input class="field" type="tel" maxlength="30" placeholder="+962 79 123 4567" [value]="phone()" (input)="phone.set($any($event.target).value)" /></label>
             <button type="submit" class="btn-secondary self-end" [disabled]="busy() || !name().trim() || !phone().trim()">Add</button>
           </form>
           <div>

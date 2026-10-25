@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Domain.Payments;
@@ -64,7 +63,7 @@ public class MastercardGatewayOptions
 /// set against your acquirer's merchant profile (API version, Apple Pay, 3-D Secure) with test credentials.
 /// Amounts are sent in major units with the currency's decimals, e.g. JOD 12.500.
 /// </remarks>
-public partial class MastercardGatewayProvider(HttpClient http, IOptions<MastercardGatewayOptions> options, IOptions<GuestOptions> guest)
+public class MastercardGatewayProvider(HttpClient http, IOptions<MastercardGatewayOptions> options, IOptions<GuestOptions> guest)
     : IPaymentProvider, IPaymentStatusSource
 {
     public const string ProviderName = "mastercard";
@@ -182,7 +181,7 @@ public partial class MastercardGatewayProvider(HttpClient http, IOptions<Masterc
     public static string OrderIdFor(Guid paymentId) => $"df-{paymentId:N}";
 
     /// <summary>A gateway session id as it may appear in the launcher URL (31–35 ASCII characters, per the API docs).</summary>
-    public static bool IsSessionId(string? value) => value is not null && SessionPattern().IsMatch(value);
+    public static bool IsSessionId(string? value) => value is { Length: >= 20 and <= 40 } && value.All(char.IsAsciiLetterOrDigit);
 
     /// <summary>A gateway transaction (webhook body or Retrieve Transaction) as a provider event; null when it's not one DineFlow acts on.</summary>
     private static ProviderWebhookEvent? ReadTransaction(JsonObject t)
@@ -274,7 +273,4 @@ public partial class MastercardGatewayProvider(HttpClient http, IOptions<Masterc
             return null;
         throw new HttpRequestException($"Mastercard Gateway refused the request ({(int)response.StatusCode}): {explanation}");
     }
-
-    [GeneratedRegex("^[A-Za-z0-9]{20,40}$")]
-    private static partial Regex SessionPattern();
 }

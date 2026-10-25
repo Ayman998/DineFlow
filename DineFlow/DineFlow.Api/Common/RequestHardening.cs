@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using DineFlow.Application.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -13,14 +12,14 @@ namespace DineFlow.Api.Common;
 /// becomes the request's TraceIdentifier (so ProblemDetails' traceId matches), and is attached to
 /// every log line written while handling the request.
 /// </summary>
-public partial class CorrelationIdMiddleware(RequestDelegate next)
+public class CorrelationIdMiddleware(RequestDelegate next)
 {
     public const string Header = "X-Correlation-Id";
 
     public async Task InvokeAsync(HttpContext context)
     {
         var incoming = context.Request.Headers[Header].ToString();
-        var id = SafeId().IsMatch(incoming) ? incoming : Guid.NewGuid().ToString("N");
+        var id = IsSafe(incoming) ? incoming : Guid.NewGuid().ToString("N");
         context.TraceIdentifier = id;
         context.Response.OnStarting(() =>
         {
@@ -32,8 +31,9 @@ public partial class CorrelationIdMiddleware(RequestDelegate next)
             await next(context);
     }
 
-    [GeneratedRegex("^[A-Za-z0-9._-]{8,64}$")]
-    private static partial Regex SafeId();
+    /// <summary>8–64 letters, digits, '.', '_' or '-': safe to echo and to put in logs.</summary>
+    private static bool IsSafe(string value) =>
+        value.Length is >= 8 and <= 64 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-');
 }
 
 /// <summary>
