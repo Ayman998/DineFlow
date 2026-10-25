@@ -1,6 +1,7 @@
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Common;
+using DineFlow.Application.Pos;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,7 @@ public record OrderCountsDto(int New, int Accepted, int Preparing, int Ready);
 /// The standalone order queue (blueprint 4.4 "Orders", P1-ORD-03/04): staff see orders as they
 /// arrive and move them through accepted → preparing → ready → served, or reject them.
 /// </summary>
-public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, BillService bills, TimeProvider clock)
+public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, BillService bills, PosSync pos, TimeProvider clock)
 {
     private const int PageSize = 100;
 
@@ -69,6 +70,8 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Bil
         catch (DomainException ex) { throw AppException.BadRequest("invalid_request", ex.Message); }
 
         await db.SaveChangesAsync(ct);
+        // Accepted orders go to the POS (kitchen) when the venue has one that takes orders.
+        if (order.Status == OrderStatus.Accepted) await pos.OrderAcceptedAsync(order, ct);
         var dto = order.ToDto();
         await notifier.OrderChangedAsync(dto, ct);
         return dto;

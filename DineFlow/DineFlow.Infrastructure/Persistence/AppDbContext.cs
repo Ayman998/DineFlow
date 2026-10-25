@@ -8,6 +8,7 @@ using DineFlow.Domain.Menus;
 using DineFlow.Domain.Notifications;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
+using DineFlow.Domain.Pos;
 using DineFlow.Domain.Promotions;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
@@ -46,6 +47,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<AlertContact> AlertContacts => Set<AlertContact>();
     public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
     public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
+    public DbSet<PosConnection> PosConnections => Set<PosConnection>();
+    public DbSet<PosCommand> PosCommands => Set<PosCommand>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<ProcessedWebhook> ProcessedWebhooks => Set<ProcessedWebhook>();
 

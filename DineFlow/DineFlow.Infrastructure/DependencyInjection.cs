@@ -4,8 +4,10 @@ using DineFlow.Infrastructure.Email;
 using DineFlow.Infrastructure.Messaging;
 using DineFlow.Infrastructure.Payments;
 using DineFlow.Infrastructure.Persistence;
+using DineFlow.Infrastructure.Pos;
 using DineFlow.Infrastructure.Security;
 using DineFlow.Infrastructure.Storage;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +92,20 @@ public static class DependencyInjection
         }
         services.AddSingleton<NotificationWorkerStatus>();
         services.AddHostedService<NotificationWorker>();
+
+        // POS connectors (blueprint section 6). Access tokens are encrypted with Data Protection; the keys
+        // live in App_Data/keys (git-ignored) here, and should be in shared, protected storage in production.
+        services.AddDataProtection()
+            .SetApplicationName("DineFlow")
+            .PersistKeysToFileSystem(new DirectoryInfo(Path.GetFullPath(Path.Combine(contentRootPath, "App_Data/keys"))));
+        services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
+        services.AddOptions<FoodicsOptions>().Bind(configuration.GetSection(FoodicsOptions.Section));
+        services.AddHttpClient<FoodicsConnector>(c => c.Timeout = Timeout.InfiniteTimeSpan); // the connector applies its own timeout
+        services.AddSingleton<SimulatedPosConnector>();
+        services.AddScoped<IPosConnector>(sp => sp.GetRequiredService<SimulatedPosConnector>());
+        services.AddScoped<IPosConnector>(sp => sp.GetRequiredService<FoodicsConnector>());
+        services.AddScoped<IPosConnectorRegistry, PosConnectorRegistry>();
+        services.AddHostedService<PosWorker>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IQrTokenService, QrTokenService>();

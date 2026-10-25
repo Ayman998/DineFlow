@@ -5,6 +5,7 @@ using DineFlow.Domain.Menus;
 using DineFlow.Domain.Notifications;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
+using DineFlow.Domain.Pos;
 using DineFlow.Domain.Promotions;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Staff;
@@ -43,6 +44,8 @@ public interface IAppDbContext
     DbSet<AlertContact> AlertContacts { get; }
     DbSet<NotificationDelivery> NotificationDeliveries { get; }
     DbSet<ReportSchedule> ReportSchedules { get; }
+    DbSet<PosConnection> PosConnections { get; }
+    DbSet<PosCommand> PosCommands { get; }
     DbSet<PromoCode> PromoCodes { get; }
     DbSet<ProcessedWebhook> ProcessedWebhooks { get; }
 

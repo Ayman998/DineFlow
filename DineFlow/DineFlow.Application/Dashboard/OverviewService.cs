@@ -3,6 +3,7 @@ using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
+using DineFlow.Domain.Pos;
 using Microsoft.EntityFrameworkCore;
 
 namespace DineFlow.Application.Dashboard;
@@ -133,6 +134,18 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
                     .SingleOrDefaultAsync(ct);
             items.Add(new("payment", failures.Count == 1 ? "1 payment failure today" : $"{failures.Count} payment failures today",
                 $"Last: {label} · {TimeZoneInfo.ConvertTime(last.UpdatedAt, zone):HH:mm}", failures.Count));
+        }
+
+        // Payments the POS hasn't got yet after a while (blueprint "POS offline for an extended period"), or that it refused.
+        var stuckSince = now - PosCommand.AttentionAfter;
+        var stuck = await db.PosCommands.AsNoTracking().Where(c => c.VenueId == venueId
+            && (c.Status == PosCommandStatus.Failed || (c.Status == PosCommandStatus.Pending && c.CreatedAt <= stuckSince)))
+            .GroupBy(c => c.Status).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
+        if (stuck.Sum(s => s.Count) is var stuckCount and > 0)
+        {
+            var refused = stuck.Where(s => s.Key == PosCommandStatus.Failed).Sum(s => s.Count);
+            items.Add(new("pos", stuckCount == 1 ? "1 item not in the POS yet" : $"{stuckCount} items not in the POS yet",
+                refused > 0 ? $"{refused} refused by the POS: fix and retry under Settings → POS" : "Waiting for the POS to come back; nobody is charged again", stuckCount));
         }
 
         var waiting = await db.Orders.AsNoTracking().CountAsync(o => o.VenueId == venueId && o.Status == OrderStatus.Submitted

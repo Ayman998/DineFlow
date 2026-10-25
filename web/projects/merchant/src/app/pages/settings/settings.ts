@@ -7,6 +7,7 @@ import { CurrentVenue } from '../../core/current-venue';
 import { Features } from '../../core/features';
 import { AlertSettingsPanel } from './alert-settings';
 import { AuditLog } from './audit-log';
+import { PosSettingsPanel } from './pos-settings';
 
 const CURRENCIES = ['AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'JOD', 'EGP', 'USD', 'EUR', 'GBP'];
 const TIME_ZONES = [
@@ -17,7 +18,7 @@ const TIME_ZONES = [
 /** Venue profile, branding and guest features (P1-MER-01); WhatsApp alerts; the audit log for managers. */
 @Component({
   selector: 'df-settings',
-  imports: [ReactiveFormsModule, AlertSettingsPanel, AuditLog],
+  imports: [ReactiveFormsModule, AlertSettingsPanel, AuditLog, PosSettingsPanel],
   templateUrl: './settings.html'
 })
 export class Settings implements OnInit {
@@ -26,9 +27,10 @@ export class Settings implements OnInit {
   protected readonly auth = inject(Auth);
   private readonly features = inject(Features);
 
-  protected readonly view = signal<'venue' | 'notifications' | 'activity'>('venue');
+  protected readonly view = signal<'venue' | 'pos' | 'notifications' | 'activity'>('venue');
   protected readonly tabs = computed(() => [
     { value: 'venue' as const, label: 'Venue' },
+    { value: 'pos' as const, label: 'POS' },
     ...(this.features.current().whatsAppAlerts ? [{ value: 'notifications' as const, label: 'Notifications' }] : []),
     ...(this.auth.canManage() ? [{ value: 'activity' as const, label: 'Activity' }] : [])
   ]);

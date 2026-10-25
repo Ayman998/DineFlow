@@ -191,6 +191,39 @@ WhatsApp goes through the **WhatsApp Cloud API** (Meta). Development needs no ac
 - `/health/ready` checks the database and the outbox. It's Degraded if the worker stops or messages are more than ten minutes overdue.
 - `Features:PaymentLinks`, `Features:WhatsAppAlerts` and `Features:EmailReports` (default `true`) switch features off without a release. Their endpoints answer `404 feature_disabled`, the merchant app hides them, and their background work stops.
 
+### POS connection
+
+**Settings → POS** connects the venue's POS:
+
+1. Pick the POS, add its branch id and access token, then **Check connection**.
+2. Map each table to its table id in the POS.
+3. If the POS only takes its own items (Foodics does), map menu items to its product ids.
+
+Every connector implements the blueprint's adapter contract (section 6): health check, open checks, check details, create order, post payment and close check. Each connector declares what its POS can do (`PaymentPosting`, `AutoClose`, `TipPosting`, `OrderCreate`, …), and DineFlow only asks for those.
+
+While the connection is active, the order of events is:
+
+1. When staff **accept** an order, it's sent to the POS. The bill's first order opens a POS check on the mapped table; later orders are added to it.
+2. When the provider confirms a **payment** at a table, it's posted to that check as a tender, with the tip. Payment links aren't on a POS check, so they aren't posted.
+3. Once the bill is paid in full, the POS check is **closed**, if the venue wants that and the POS supports it.
+
+Nothing here holds up the guest. Each step is queued and a background worker sends it, oldest first for each bill, so a payment never reaches the POS before its order.
+
+When things go wrong:
+
+- **The POS is down or slow:** the step waits (`POSTING_PENDING`) and is retried after 30 seconds, then 1, 2, 5 and 10 minutes, then every 15 minutes until the POS is back. The guest isn't charged again.
+- **An answer is lost after the POS may have applied the step:** the next attempt asks the POS whether the tender is already on the check before posting again, so a payment is posted exactly once. Orders carry DineFlow's order id for the same reason.
+- **The POS refuses a step** (e.g. a table that isn't mapped): it's marked **Refused** with the reason, and later steps for that bill wait. Fix the cause and press **Retry**.
+
+Anything waiting more than 15 minutes, or refused, shows in the Overview's **Needs attention** and on the POS tab. Transactions show each payment's POS state ("In the POS", "Waiting for the POS", "POS refused it") and a timeline entry.
+
+Access tokens are encrypted with ASP.NET Core Data Protection before they're stored, and are never returned. The keys live in `DineFlow/DineFlow.Api/App_Data/keys` (git-ignored); production should keep them in shared, protected storage.
+
+Two connectors are built in:
+
+- **Simulated POS** keeps checks in memory and needs no account. The POS tab shows its checks and can switch it to **Offline**, **Time out after applying** (once) or **Refuse everything**, to try the failure cases from blueprint 13.1. These controls exist in Development only.
+- **Foodics** uses Foodics API v5. Set `Pos:Foodics:BaseUrl` (sandbox by default), and set `Pos:Foodics:PaymentMethodId` to a payment method created for DineFlow in Foodics. It's built from Foodics' public documentation and tested against a fake Foodics. The calls that add products and payments to an existing order still need confirming with a Foodics sandbox account.
+
 To apply migrations without starting the API:
 
 ```bash
@@ -271,6 +304,8 @@ npm --prefix web test
 | `GET /v1/merchant/audit?area=&from=&to=&page=` | manager | The audit log |
 | `GET /v1/merchant/features` | merchant | Which switchable features are on |
 | `GET /health/live`, `GET /health/ready` | anyone | Liveness; readiness with database and outbox checks |
+| `GET`/`PUT /v1/merchant/venues/{id}/pos`, `POST …/pos/check`, `PUT …/pos/mappings` | merchant / manager | POS connection (token write-only), health check, table and product mapping |
+| `GET /v1/merchant/pos/commands?venueId=&status=`, `POST …/{id}/retry` | merchant / manager | What's been sent to the POS, what's waiting or refused; retry |
 
 ### Real-time
 
@@ -285,7 +320,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 - QR tokens are opaque, rotatable and never stored. Only their SHA-256 hash is saved.
 - The server prices every cart and order. Guests confirm the server's total, and a changed total is never ordered silently.
 - Only the verified PSP webhook confirms a payment. Every write carries an idempotency key; orders are unique per session + `clientRequestId`.
-- If the payment succeeds but posting to the POS fails, the state becomes `POSTING_PENDING` and the post is retried. The guest is never charged twice.
+- If the payment succeeds but posting to the POS fails, the state becomes `POSTING_PENDING` and the post is retried. The guest is never charged twice. See [POS connection](#pos-connection).
 - Never store card numbers or CVV. Use the PSP's hosted fields.
 
 ## Roadmap
@@ -302,4 +337,4 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 7 | Merchant overview, live table status, transactions with timeline, refunds ✅ | E11, E12 |
 | 8 | Payment links: create, share (QR, WhatsApp, e-mail), split and tip options, expiry, status tracking, export ✅ | E16 |
 | 9a | WhatsApp payment alerts, scheduled e-mail reports, notification outbox with retries, audit log, correlation ids, security headers, health checks, feature flags ✅ | E15, E28 |
-| 9b | POS connector framework, payment posting with POSTING_PENDING retries, Foodics connector (simulated until sandbox access) | E3, E9 |
+| 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |

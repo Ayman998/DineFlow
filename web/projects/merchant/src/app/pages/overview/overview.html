@@ -89,7 +89,7 @@
                   <a [routerLink]="link(a.kind)" class="flex items-start gap-3 rounded-lg p-2 hover:bg-surface">
                     <span class="mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold"
                           [class]="a.kind === 'payment' ? 'bg-red-50 text-red-800' : a.kind === 'review' ? 'bg-amber-50 text-amber-800' : 'bg-surface text-ink-muted'">
-                      {{ a.kind === 'payment' ? 'Payment' : a.kind === 'tables' ? 'Tables' : a.kind === 'review' ? 'Review' : a.kind === 'refund' ? 'Refund' : 'Orders' }}
+                      {{ a.kind === 'payment' ? 'Payment' : a.kind === 'tables' ? 'Tables' : a.kind === 'review' ? 'Review' : a.kind === 'refund' ? 'Refund' : a.kind === 'pos' ? 'POS' : 'Orders' }}
                     </span>
                     <span class="min-w-0">
                       <span class="block text-sm font-semibold text-ink">{{ a.title }}</span>

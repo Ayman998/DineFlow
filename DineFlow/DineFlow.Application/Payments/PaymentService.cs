@@ -6,6 +6,7 @@ using DineFlow.Application.Bills;
 using DineFlow.Application.Common;
 using DineFlow.Application.Notifications;
 using DineFlow.Application.PaymentLinks;
+using DineFlow.Application.Pos;
 using DineFlow.Application.Promotions;
 using DineFlow.Domain.Bills;
 using DineFlow.Domain.Common;
@@ -31,6 +32,7 @@ public class PaymentService(
     IPaymentNotifier notifier,
     IEmailSender email,
     PaymentAlerts alerts,
+    PosSync pos,
     IOptions<PaymentOptions> paymentOptions,
     IOptions<GuestOptions> guestOptions,
     TimeProvider clock)
@@ -280,6 +282,7 @@ public class PaymentService(
             payment.Id, payment.Reference, payment.Currency, payment.AmountMinor, payment.TipMinor,
             totals.RemainingMinor, totals.RemainingMinor == 0,
             payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
+        await pos.PaymentSucceededAsync(payment, ct);
         await alerts.QueueTableAsync(payment, $"{location.DisplayName}{(location.DiningArea is { } area ? $" ({area.Name})" : "")}",
             totals.RemainingMinor, ct);
     }

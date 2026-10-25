@@ -10,6 +10,7 @@ using DineFlow.Application.Menus;
 using DineFlow.Application.Notifications;
 using DineFlow.Application.Orders;
 using DineFlow.Application.PaymentLinks;
+using DineFlow.Application.Pos;
 using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
 using DineFlow.Application.Reports;
@@ -20,7 +21,9 @@ using DineFlow.Application.Venues;
 using DineFlow.Domain.Tenants;
 using DineFlow.Infrastructure.Payments;
 using DineFlow.Infrastructure.Persistence;
+using DineFlow.Infrastructure.Pos;
 using DineFlow.Infrastructure.Security;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -65,11 +68,13 @@ public sealed class TestHost : IDisposable
         var paymentOptions = Options.Create(new PaymentOptions());
         Sandbox = new SandboxPaymentProvider(Options.Create(new SandboxOptions { SecretKey = RandomKey() }), guestOptions, Clock);
         Bills = new BillService(Db, Sandbox, PaymentNotifier, paymentOptions, Clock);
-        MerchantOrders = new MerchantOrderService(Db, Notifier, Bills, Clock);
+        PosConnectors = new PosConnectorRegistry([Simulator]);
+        PosSync = new PosSync(Db, PosConnectors, Clock);
+        MerchantOrders = new MerchantOrderService(Db, Notifier, Bills, PosSync, Clock);
         Promotions = new PromotionService(Db, _tenant, Bills, Clock);
         var features = Options.Create(Features);
         Alerts = new PaymentAlerts(Db, features, Clock);
-        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, Alerts, paymentOptions, guestOptions, Clock);
+        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, Alerts, PosSync, paymentOptions, guestOptions, Clock);
         GuestReviews = new GuestReviewService(Db, ReviewNotifier, Clock);
         MerchantReviews = new MerchantReviewService(Db, _tenant, Clock);
         Transactions = new TransactionService(Db, _tenant, Sandbox, Clock);
@@ -81,6 +86,8 @@ public sealed class TestHost : IDisposable
         Dispatcher = new NotificationDispatcher(Db, WhatsApp, Emails, Clock);
         Reports = new ReportService(Db, _tenant, new ReportBuilder(Db), features, Clock);
         AuditLog = new AuditService(Db, _tenant);
+        PosDispatcher = new PosDispatcher(Db, PosConnectors, Secrets, Clock);
+        Pos = new PosService(Db, _tenant, PosConnectors, Secrets, Clock);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -126,6 +133,13 @@ public sealed class TestHost : IDisposable
     public NotificationDispatcher Dispatcher { get; }
     public ReportService Reports { get; }
     public AuditService AuditLog { get; }
+    /// <summary>The in-memory POS; switch its <see cref="SimulatedPosConnector.Mode"/> to make it fail.</summary>
+    public SimulatedPosConnector Simulator { get; } = new();
+    public ISecretProtector Secrets { get; } = new DataProtectionSecretProtector(new EphemeralDataProtectionProvider());
+    public IPosConnectorRegistry PosConnectors { get; }
+    public PosSync PosSync { get; }
+    public PosDispatcher PosDispatcher { get; }
+    public PosService Pos { get; }
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own
@@ -137,7 +151,8 @@ public sealed class TestHost : IDisposable
         var paymentOptions = Options.Create(new PaymentOptions());
         var bills = new BillService(db, Sandbox, PaymentNotifier, paymentOptions, Clock);
         var promotions = new PromotionService(db, _tenant, bills, Clock);
-        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, new PaymentAlerts(db, Options.Create(Features), Clock), paymentOptions,
+        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, new PaymentAlerts(db, Options.Create(Features), Clock),
+            new PosSync(db, PosConnectors, Clock), paymentOptions,
             Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock);
         return new Scope(db, bills, payments, new TransactionService(db, _tenant, Sandbox, Clock),
             new PaymentLinkCheckoutService(db, QrTokens, Sandbox, Emails, paymentOptions, Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock),

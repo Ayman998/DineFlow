@@ -26,6 +26,15 @@ public class Check : Entity, ITenantOwned
     public int Revision { get; private set; }
     /// <summary>How many people the table is splitting the bill between equally; null when not splitting.</summary>
     public int? SplitPeople { get; private set; }
+    /// <summary>This bill's check in the POS, once the first order has been sent there.</summary>
+    public string? PosCheckRef { get; private set; }
+
+    public void LinkPosCheck(string checkRef)
+    {
+        if (PosCheckRef is not null && PosCheckRef != checkRef)
+            throw new DomainException("This bill is already linked to a different POS check.");
+        PosCheckRef = checkRef;
+    }
 
     public const int MaxSplitPeople = 50;
 

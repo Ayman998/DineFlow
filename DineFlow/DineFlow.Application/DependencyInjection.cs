@@ -8,6 +8,7 @@ using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
 using DineFlow.Application.Orders;
 using DineFlow.Application.PaymentLinks;
+using DineFlow.Application.Pos;
 using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
 using DineFlow.Application.Reviews;
@@ -48,6 +49,9 @@ public static class DependencyInjection
         services.AddScoped<ReportBuilder>();
         services.AddScoped<ReportService>();
         services.AddScoped<AuditService>();
+        services.AddScoped<PosSync>();
+        services.AddScoped<PosDispatcher>();
+        services.AddScoped<PosService>();
         return services;
     }
 }

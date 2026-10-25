@@ -592,6 +592,8 @@ export interface TransactionRow {
   tipMinor: number;
   refundedMinor: number;
   refundPending: boolean;
+  /** Where the payment stands with the venue's POS; null when it isn't posted to one. */
+  posStatus: 'Pending' | 'Posted' | 'Failed' | null;
 }
 
 export interface TransactionPage {
@@ -998,5 +1000,104 @@ export class AdminApi {
 
   features() {
     return this.http.get<Features>('/v1/merchant/features');
+  }
+}
+
+// ---- POS connector (Sprint 9b) ----
+
+export type PosCommandKind = 'SendOrder' | 'PostPayment' | 'CloseCheck';
+export type PosCommandStatus = 'Pending' | 'Done' | 'Failed';
+export type SimulatorMode = 'Online' | 'Offline' | 'TimeoutAfterApplying' | 'Refuse';
+
+export interface PosProvider { provider: string; displayName: string; capabilities: string[]; requiresAccessToken: boolean }
+
+export interface PosConnection {
+  provider: string;
+  branchRef: string | null;
+  hasAccessToken: boolean;
+  isActive: boolean;
+  autoClose: boolean;
+  lastCheckedAt: string | null;
+  lastCheckHealthy: boolean | null;
+  lastCheckMessage: string | null;
+}
+
+export interface PosSettings {
+  connection: PosConnection | null;
+  providers: PosProvider[];
+  tables: { locationId: string; displayName: string; areaName: string | null; externalRef: string | null }[];
+  products: { itemId: string; name: string; category: string; posProductRef: string | null }[];
+  /** Waiting more than 15 minutes, or refused by the POS. */
+  waiting: number;
+}
+
+export interface PosConnectionRequest {
+  provider: string;
+  branchRef: string | null;
+  /** null keeps the stored token; "" removes it. */
+  accessToken: string | null;
+  isActive: boolean;
+  autoClose: boolean;
+}
+
+export interface PosCommand {
+  id: string;
+  kind: PosCommandKind;
+  description: string;
+  status: PosCommandStatus;
+  needsAttention: boolean;
+  attempts: number;
+  createdAt: string;
+  nextAttemptAt: string | null;
+  completedAt: string | null;
+  lastError: string | null;
+  resultRef: string | null;
+  paymentId: string | null;
+}
+
+export interface PosCommandPage { items: PosCommand[]; total: number; page: number; pageSize: number; waiting: number }
+
+export interface PosSimulator {
+  mode: SimulatorMode;
+  checks: { checkRef: string; tableRef: string; totalMinor: number; paidMinor: number; isOpen: boolean;
+    lines: { name: string; quantity: number; lineTotalMinor: number }[];
+    payments: { postingRef: string; externalPaymentId: string | null; amountMinor: number; tipMinor: number }[] }[];
+}
+
+/** The venue's POS (blueprint E3, E9). */
+@Injectable({ providedIn: 'root' })
+export class PosApi {
+  private readonly http = inject(HttpClient);
+
+  settings(venueId: string) {
+    return this.http.get<PosSettings>(`/v1/merchant/venues/${venueId}/pos`);
+  }
+
+  save(venueId: string, request: PosConnectionRequest) {
+    return this.http.put<PosSettings>(`/v1/merchant/venues/${venueId}/pos`, request);
+  }
+
+  check(venueId: string) {
+    return this.http.post<PosSettings>(`/v1/merchant/venues/${venueId}/pos/check`, {});
+  }
+
+  map(venueId: string, tables: { locationId: string; externalRef: string | null }[] | null, products: { itemId: string; posProductRef: string | null }[] | null) {
+    return this.http.put<PosSettings>(`/v1/merchant/venues/${venueId}/pos/mappings`, { tables, products });
+  }
+
+  commands(venueId: string, status?: PosCommandStatus) {
+    return this.http.get<PosCommandPage>('/v1/merchant/pos/commands', { params: params({ venueId, status, pageSize: 30 }) });
+  }
+
+  retry(commandId: string) {
+    return this.http.post<PosCommand>(`/v1/merchant/pos/commands/${commandId}/retry`, {});
+  }
+
+  simulator(venueId: string) {
+    return this.http.get<PosSimulator>(`/v1/merchant/venues/${venueId}/pos/simulator`);
+  }
+
+  setSimulator(venueId: string, mode: SimulatorMode) {
+    return this.http.put<PosSimulator>(`/v1/merchant/venues/${venueId}/pos/simulator`, { mode });
   }
 }

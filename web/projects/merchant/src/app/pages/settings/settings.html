@@ -8,7 +8,9 @@
   }
 </div>
 
-@if (view() === 'notifications') {
+@if (view() === 'pos') {
+  <df-pos-settings />
+} @else if (view() === 'notifications') {
   <df-alert-settings />
 } @else if (view() === 'activity') {
   <df-audit-log />

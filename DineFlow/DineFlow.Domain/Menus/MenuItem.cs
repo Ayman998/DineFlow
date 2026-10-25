@@ -29,6 +29,10 @@ public class MenuItem : Entity, ITenantOwned
     /// <summary>Merchant-defined labels such as "Vegan" or "Spicy" (P1-MENU-07).</summary>
     public List<string> Tags { get; private set; } = [];
     public int SortOrder { get; private set; }
+    /// <summary>The matching product in the POS, so orders sent there use the POS's own item (blueprint E3 mapping).</summary>
+    public string? PosProductRef { get; private set; }
+
+    public void SetPosProductRef(string? productRef) => PosProductRef = Text.Optional(productRef, 100, "POS product");
 
     public IReadOnlyList<ModifierGroup> ModifierGroups => _modifierGroups;
 

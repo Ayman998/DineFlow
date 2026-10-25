@@ -46,6 +46,7 @@ public class MenuItemConfiguration : IEntityTypeConfiguration<MenuItem>
         builder.ToTable("MenuItems");
         builder.HasKey(i => i.Id);
         builder.Property(i => i.Name).HasMaxLength(120).IsRequired();
+        builder.Property(i => i.PosProductRef).HasMaxLength(100);
         builder.Property(i => i.NameAr).HasMaxLength(120);
         builder.Property(i => i.Description).HasMaxLength(500);
         builder.Property(i => i.DescriptionAr).HasMaxLength(500);

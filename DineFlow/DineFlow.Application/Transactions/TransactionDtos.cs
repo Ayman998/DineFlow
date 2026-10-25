@@ -48,7 +48,9 @@ public record TransactionRowDto(
     long AmountMinor,
     long TipMinor,
     long RefundedMinor,
-    bool RefundPending);
+    bool RefundPending,
+    /// <summary>Where the payment stands with the venue's POS; null when it isn't posted to one (blueprint POSTED / POSTING_PENDING).</summary>
+    string? PosStatus);
 
 /// <summary>Money for the successful payments that match the filters (not just the current page).</summary>
 public record TransactionTotalsDto(int Count, long GrossMinor, long TipsMinor, long RefundsMinor, long NetMinor);

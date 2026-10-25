@@ -22,6 +22,7 @@ public class CheckConfiguration : IEntityTypeConfiguration<Check>
         builder.Property(c => c.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
         // Saved only if nobody else changed the check since it was read (see Check.Revision).
         builder.Property(c => c.Revision).IsConcurrencyToken();
+        builder.Property(c => c.PosCheckRef).HasMaxLength(100);
 
         builder.HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Venue>().WithMany().HasForeignKey(c => c.VenueId).OnDelete(DeleteBehavior.Restrict);

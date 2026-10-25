@@ -76,7 +76,7 @@ export class Overview implements OnInit {
   }
 
   protected link(kind: string): string {
-    return { payment: '/transactions', refund: '/transactions', tables: '/tables', review: '/reviews', orders: '/orders' }[kind] ?? '/overview';
+    return { payment: '/transactions', refund: '/transactions', tables: '/tables', review: '/reviews', orders: '/orders', pos: '/settings' }[kind] ?? '/overview';
   }
 
   private load(): void {

@@ -5,6 +5,7 @@ using DineFlow.Domain.Audit;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
+using DineFlow.Domain.Pos;
 using Microsoft.EntityFrameworkCore;
 
 namespace DineFlow.Application.Transactions;
@@ -173,6 +174,8 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         var linkIds = payments.Where(p => p.PaymentLinkId != null).Select(p => p.PaymentLinkId!.Value).Distinct().ToList();
         var links = await db.PaymentLinks.AsNoTracking().Where(l => linkIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Code, ct);
         var refunds = await db.Refunds.AsNoTracking().Where(r => ids.Contains(r.PaymentId)).ToListAsync(ct);
+        var postings = await db.PosCommands.AsNoTracking().Where(c => c.PaymentId != null && ids.Contains(c.PaymentId.Value))
+            .ToDictionaryAsync(c => c.PaymentId!.Value, c => c.Status, ct);
         var checks = await db.Checks.AsNoTracking().Where(c => checkIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.ServiceLocationId, ct);
         var locationIds = checks.Values.Distinct().ToList();
         var locations = await db.ServiceLocations.AsNoTracking().Where(l => locationIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, ct);
@@ -188,7 +191,13 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
                 p.Mode, location?.Type.ToString() ?? "", location?.Label ?? "",
                 p.PaymentLinkId is { } linkId ? links.GetValueOrDefault(linkId) : null,
                 orders.Where(o => o.CheckId == p.CheckId).Select(o => o.Number).Order().ToList(),
-                p.Currency, p.AmountMinor, p.TipMinor, refunded, mine.Any(r => r.Status == RefundStatus.Pending));
+                p.Currency, p.AmountMinor, p.TipMinor, refunded, mine.Any(r => r.Status == RefundStatus.Pending),
+                postings.TryGetValue(p.Id, out var posting) ? posting switch
+                {
+                    PosCommandStatus.Done => "Posted",
+                    PosCommandStatus.Failed => "Failed",
+                    _ => "Pending"
+                } : null);
         }).ToList();
     }
 
@@ -251,6 +260,16 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
 
         if (review is { } r) events.Add(new(r.At, "review", $"Guest rated the visit {r.Rating} / 5"));
 
+        var posting = await db.PosCommands.AsNoTracking().SingleOrDefaultAsync(c => c.PaymentId == payment.Id, ct);
+        if (posting is not null)
+            events.Add(posting.Status switch
+            {
+                PosCommandStatus.Done => new(posting.CompletedAt ?? posting.CreatedAt, "pos", $"Posted to the POS ({posting.Provider}, {posting.ResultRef})"),
+                PosCommandStatus.Failed => new(posting.LastAttemptAt ?? posting.CreatedAt, "pos", $"The POS refused the payment: {posting.LastError}"),
+                _ => new(posting.LastAttemptAt ?? posting.CreatedAt, "pos",
+                    posting.Attempts == 0 ? "Waiting to post to the POS" : $"Waiting to post to the POS ({posting.Attempts} attempts): {posting.LastError}")
+            });
+
         foreach (var refund in refunds)
         {
             events.Add(new(refund.CreatedAt, "refund",
@@ -263,7 +282,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         return events.OrderBy(e => e.At).ThenBy(e => Array.IndexOf(TimelineOrder, e.Kind)).ToList();
     }
 
-    private static readonly string[] TimelineOrder = ["link", "session", "order", "payment", "refund", "provider", "ledger", "review"];
+    private static readonly string[] TimelineOrder = ["link", "session", "order", "payment", "refund", "provider", "ledger", "pos", "review"];
 
     private static string LedgerName(LedgerEntryType type) => type switch
     {

@@ -34,6 +34,9 @@ public class ServiceLocation : Entity, ITenantOwned
         Label = label.Trim();
     }
 
+    /// <summary>Maps this location to its table in the POS; null unmaps it.</summary>
+    public void SetExternalRef(string? externalRef) => ExternalRef = Text.Optional(externalRef, 100, "POS table");
+
     /// <summary>Guest-facing name, e.g. "Table 12" or "Room 204".</summary>
     public string DisplayName => Type switch
     {
