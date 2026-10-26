@@ -256,6 +256,38 @@ To apply migrations without starting the API:
 dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFlow.Api
 ```
 
+### Settlements and reconciliation
+
+**Reports → Reconciliation** answers whether every payment reached the bank. For each business day (in the venue's time zone) DineFlow compares three things:
+
+1. **The ledger:** succeeded payments and refunds in DineFlow.
+2. **The acquirer's settlements:** the payout batches it reports, line by line.
+3. **The POS:** whether each table payment was posted to its check.
+
+Payments are matched to settlement lines by the gateway's order id or by DineFlow's payment reference. Whatever doesn't add up lands in a queue of **differences**:
+
+| Difference | Meaning |
+|---|---|
+| Not settled | A payment has no settlement line 3 days after the day it was taken. Before that it counts as **awaiting settlement**, because acquirers pay a day or two later. |
+| Unknown to DineFlow | A settlement line matches no payment. |
+| Amount differs | The settled amount isn't what the guest paid. |
+| Refund differs | A refund is missing from the settlement, or settled for a different amount. |
+| Settled twice | Two lines settle the same payment. |
+| Not in POS | The POS refused the payment, or still hasn't taken it an hour later. |
+
+A day is reconciled again every hour for the last week, whenever a settlement is imported, and on **Reconcile yesterday now**. A difference that goes away (the settlement arrived, the POS caught up) is cleared by itself. Others are **resolved** by a manager with a note, e.g. the claim raised with the acquirer. Resolving is audit-logged, and a resolved difference stays resolved.
+
+**Reports → Settlements** imports the acquirer's settlement report as CSV (up to 5 MB). It needs one row per transaction with a header row. Commas or semicolons both work, and column names are matched loosely:
+
+- batch or payout id, and payout date
+- transaction date and type (sale, refund or fee)
+- the gateway's order id, or DineFlow's payment reference
+- amount in major units (e.g. `12.500` for JOD), and optionally fee, refund id and currency
+
+A batch that's already been imported is refused, so importing the same file twice changes nothing. In Development, **Simulate a payout** settles every unsettled sandbox payment as an acquirer would, with a 2.25% + 0.100 fee, so you can see a clean day.
+
+**Ledger export** downloads every money movement for a date range as CSV, for the accountant. Each row has the payment, the table or link, and the settlement batch, payout date and fee once settled.
+
 ### From Visual Studio
 
 `DineFlow.slnx` includes the Angular workspace as `DineFlow.Web` (`web/DineFlow.Web.esproj`). Pick the **API + Web** launch profile in the toolbar's startup dropdown and press F5. That starts the API and runs `npm start`, which serves both Angular apps.
@@ -332,12 +364,18 @@ npm --prefix web test
 | `GET /health/live`, `GET /health/ready` | anyone | Liveness; readiness with database and outbox checks |
 | `GET`/`PUT /v1/merchant/venues/{id}/pos`, `POST …/pos/check`, `PUT …/pos/mappings` | merchant / manager | POS connection (token write-only), health check, table and product mapping |
 | `GET /v1/merchant/pos/commands?venueId=&status=`, `POST …/{id}/retry` | merchant / manager | What's been sent to the POS, what's waiting or refused; retry |
+| `GET /v1/merchant/settlements?venueId=`, `GET …/settlements/{id}` | manager | Settlement batches with totals; a batch with its lines and the payments they matched |
+| `POST /v1/merchant/settlements/import?venueId=` | manager | Import an acquirer settlement CSV (multipart `file`); reconciles the days it covers |
+| `POST /v1/merchant/settlements/sandbox-payout?venueId=` | manager (Development only) | Settle every unsettled sandbox payment |
+| `GET /v1/merchant/reconciliation?venueId=`, `POST …/reconciliation/run` | manager | Reconciled days; reconcile a day now (yesterday by default) |
+| `GET /v1/merchant/reconciliation/discrepancies?venueId=&status=&page=`, `POST …/discrepancies/{id}/resolve` | manager | The queue of differences; resolve one with a note (audit-logged) |
+| `GET /v1/merchant/ledger/export?venueId=&from=&to=` | manager | Ledger CSV with settlement batch and fee |
 
 ### Real-time
 
 SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived`, `reviewSubmitted`, `refundUpdated` and `paymentLinkPaid` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
-Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired`, `link_paid`, `invalid_contact` or `feature_disabled`, plus the request's `correlationId`.
+Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired`, `link_paid`, `invalid_contact`, `settlement_exists`, `invalid_settlement_file`, `nothing_to_settle` or `feature_disabled`, plus the request's `correlationId`.
 
 ## Ground rules (from the blueprint)
 
@@ -365,3 +403,4 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 9a | WhatsApp payment alerts, scheduled e-mail reports, notification outbox with retries, audit log, correlation ids, security headers, health checks, feature flags ✅ | E15, E28 |
 | 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |
 | 10 | Real payments for Jordan: Mastercard Gateway (MPGS) Hosted Checkout, verified webhooks plus status checks, refunds, JOD defaults (to verify with acquirer test credentials) ✅ | E8 |
+| 11 | Settlements and reconciliation: settlement CSV import, daily ledger vs settlement vs POS reconciliation, differences queue with resolve and audit, sandbox payout, ledger export ✅ | E12, E14 |

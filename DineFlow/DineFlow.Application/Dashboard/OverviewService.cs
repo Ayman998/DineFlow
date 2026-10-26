@@ -1,6 +1,7 @@
 using System.Globalization;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
+using DineFlow.Domain.Finance;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
 using DineFlow.Domain.Pos;
@@ -147,6 +148,12 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
             items.Add(new("pos", stuckCount == 1 ? "1 item not in the POS yet" : $"{stuckCount} items not in the POS yet",
                 refused > 0 ? $"{refused} refused by the POS: fix and retry under Settings → POS" : "Waiting for the POS to come back; nobody is charged again", stuckCount));
         }
+
+        // Reconciliation: money that doesn't add up between DineFlow, the acquirer and the POS.
+        var discrepancies = await db.Discrepancies.AsNoTracking().CountAsync(d => d.VenueId == venueId && d.Status == DiscrepancyStatus.Open, ct);
+        if (discrepancies > 0)
+            items.Add(new("reconciliation", discrepancies == 1 ? "1 reconciliation difference" : $"{discrepancies} reconciliation differences",
+                "Between DineFlow, the acquirer's settlements and the POS", discrepancies));
 
         var waiting = await db.Orders.AsNoTracking().CountAsync(o => o.VenueId == venueId && o.Status == OrderStatus.Submitted
             && o.CreatedAt <= now - TimeSpan.FromMinutes(5), ct);

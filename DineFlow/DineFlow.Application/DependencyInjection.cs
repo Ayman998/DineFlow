@@ -4,6 +4,7 @@ using DineFlow.Application.Notifications;
 using DineFlow.Application.Reports;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Dashboard;
+using DineFlow.Application.Finance;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
 using DineFlow.Application.Orders;
@@ -53,6 +54,8 @@ public static class DependencyInjection
         services.AddScoped<PosSync>();
         services.AddScoped<PosDispatcher>();
         services.AddScoped<PosService>();
+        services.AddScoped<Reconciler>();
+        services.AddScoped<FinanceService>();
         return services;
     }
 }

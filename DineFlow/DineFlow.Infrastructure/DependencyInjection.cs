@@ -89,6 +89,8 @@ public static class DependencyInjection
         }
         // Asks the provider about payments still waiting, for providers whose webhooks aren't guaranteed.
         services.AddHostedService<PaymentStatusWorker>();
+        // Re-reconciles recent days every hour as settlements arrive and POS posts catch up.
+        services.AddHostedService<ReconciliationWorker>();
 
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.Section));
         services.AddSingleton<IEmailSender>(sp => new FileEmailSender(

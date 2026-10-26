@@ -4,10 +4,23 @@
 <div class="mx-auto flex max-w-6xl flex-col gap-6">
   <div>
     <h1 class="text-2xl font-bold">Reports</h1>
-    <p class="text-sm text-ink-muted">Revenue, tips, orders, refunds and ratings by e-mail, every day, week or month.</p>
+    <p class="text-sm text-ink-muted">Whether every payment reached your bank, the acquirer's settlements, and the figures by e-mail.</p>
   </div>
 
-  @if (!features.current().emailReports) {
+  @if (auth.canManage()) {
+    <div class="flex w-fit gap-1 rounded-lg bg-surface p-1" role="tablist" aria-label="Reports">
+      @for (t of tabs; track t.value) {
+        <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === t.value"
+                [class]="view() === t.value ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(t.value)">{{ t.label }}</button>
+      }
+    </div>
+  }
+
+  @if (view() === 'reconciliation') {
+    <df-reconciliation-panel />
+  } @else if (view() === 'settlements') {
+    <df-settlements-panel />
+  } @else if (!features.current().emailReports) {
     <p class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">E-mail reports are switched off for this environment.</p>
   } @else {
     @if (error()) { <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p> }

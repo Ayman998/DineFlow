@@ -7,14 +7,17 @@ import { CurrentVenue } from '../../core/current-venue';
 import { Features } from '../../core/features';
 import { formatMoney } from '../../core/money';
 import { DeliveryLog } from '../../shared/delivery-log';
+import { ReconciliationPanel } from './reconciliation-panel';
+import { SettlementsPanel } from './settlements-panel';
 
 /**
- * Reports (blueprint 4.4, P1-MER-09): scheduled e-mail reports (who gets the daily, weekly or
- * monthly report and when), a preview of the latest one, and what was e-mailed.
+ * Reports: reconciliation and settlements for owners and managers (blueprint 9.2, Sprint 11),
+ * and scheduled e-mail reports (blueprint 4.4, P1-MER-09): who gets the daily, weekly or monthly
+ * report and when, a preview of the latest one, and what was e-mailed.
  */
 @Component({
   selector: 'df-reports',
-  imports: [DeliveryLog, NgTemplateOutlet],
+  imports: [DeliveryLog, NgTemplateOutlet, ReconciliationPanel, SettlementsPanel],
   templateUrl: './reports.html'
 })
 export class Reports implements OnInit {
@@ -23,6 +26,14 @@ export class Reports implements OnInit {
   protected readonly auth = inject(Auth);
   protected readonly features = inject(Features);
   private readonly log = viewChild(DeliveryLog);
+
+  protected readonly tabs = [
+    { value: 'reconciliation', label: 'Reconciliation' },
+    { value: 'settlements', label: 'Settlements' },
+    { value: 'email', label: 'E-mail reports' }
+  ] as const;
+  /** Settlements and reconciliation are for owners and managers only. */
+  protected readonly view = signal<'reconciliation' | 'settlements' | 'email'>(this.auth.canManage() ? 'reconciliation' : 'email');
 
   protected readonly frequencies: ReportFrequency[] = ['Daily', 'Weekly', 'Monthly'];
   protected readonly hours = Array.from({ length: 24 }, (_, h) => h);

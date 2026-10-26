@@ -1101,3 +1101,115 @@ export class PosApi {
     return this.http.put<PosSimulator>(`/v1/merchant/venues/${venueId}/pos/simulator`, { mode });
   }
 }
+
+// ---- Settlements and reconciliation (Sprint 11) ----
+
+export type DiscrepancyKind = 'NotSettled' | 'UnknownToDineFlow' | 'AmountMismatch' | 'RefundMismatch' | 'NotInPos' | 'SettledTwice';
+export type DiscrepancyStatus = 'Open' | 'Cleared' | 'Resolved';
+
+export interface Settlement {
+  id: string;
+  batchRef: string;
+  provider: string;
+  payoutDate: string;
+  status: 'Expected' | 'Paid';
+  source: 'File' | 'Provider';
+  fileName: string | null;
+  currency: string;
+  transactions: number;
+  grossMinor: number;
+  refundsMinor: number;
+  feesMinor: number;
+  netMinor: number;
+  importedAt: string;
+}
+
+export interface SettlementPage { items: Settlement[]; totals: { grossMinor: number; refundsMinor: number; feesMinor: number; netMinor: number } }
+
+export interface SettlementDetail {
+  settlement: Settlement;
+  lines: { id: string; kind: 'Payment' | 'Refund' | 'Adjustment'; transactionDate: string; orderId: string | null; reference: string | null;
+    amountMinor: number; feeMinor: number; paymentId: string | null; paymentReference: string | null }[];
+}
+
+export interface SettlementImportResult { settlements: Settlement[]; lines: number; days: string[]; openDiscrepancies: number }
+
+export interface ReconciliationRun {
+  businessDate: string;
+  ranAt: string;
+  currency: string;
+  payments: number;
+  ledgerGrossMinor: number;
+  ledgerTipsMinor: number;
+  ledgerRefundsMinor: number;
+  settled: number;
+  settledGrossMinor: number;
+  settledFeesMinor: number;
+  awaitingSettlement: number;
+  postedToPos: number;
+  matched: number;
+  openDiscrepancies: number;
+}
+
+export interface Discrepancy {
+  id: string;
+  businessDate: string;
+  kind: DiscrepancyKind;
+  reference: string;
+  expectedMinor: number;
+  actualMinor: number;
+  differenceMinor: number;
+  details: string;
+  status: DiscrepancyStatus;
+  paymentId: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  note: string | null;
+}
+
+export interface DiscrepancyPage { items: Discrepancy[]; total: number; page: number; pageSize: number; open: number }
+
+/** Settlements, reconciliation and the ledger export (blueprint 9.2); owners and managers. */
+@Injectable({ providedIn: 'root' })
+export class ReconciliationApi {
+  private readonly http = inject(HttpClient);
+
+  settlements(venueId: string) {
+    return this.http.get<SettlementPage>('/v1/merchant/settlements', { params: { venueId } });
+  }
+
+  settlement(id: string) {
+    return this.http.get<SettlementDetail>(`/v1/merchant/settlements/${id}`);
+  }
+
+  importSettlement(venueId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<SettlementImportResult>('/v1/merchant/settlements/import', form, { params: { venueId } });
+  }
+
+  sandboxPayout(venueId: string) {
+    return this.http.post<SettlementImportResult>('/v1/merchant/settlements/sandbox-payout', {}, { params: { venueId } });
+  }
+
+  runs(venueId: string) {
+    return this.http.get<ReconciliationRun[]>('/v1/merchant/reconciliation', { params: { venueId } });
+  }
+
+  reconcile(venueId: string, day: string | null) {
+    return this.http.post<ReconciliationRun>('/v1/merchant/reconciliation/run', { venueId, day });
+  }
+
+  discrepancies(venueId: string, status: DiscrepancyStatus | null) {
+    return this.http.get<DiscrepancyPage>('/v1/merchant/reconciliation/discrepancies', { params: params({ venueId, status: status ?? '' }) });
+  }
+
+  resolve(id: string, note: string) {
+    return this.http.post<Discrepancy>(`/v1/merchant/reconciliation/discrepancies/${id}/resolve`, { note });
+  }
+
+  ledger(venueId: string, from: string, to: string) {
+    return this.http.get('/v1/merchant/ledger/export', { params: { venueId, from, to }, responseType: 'blob' });
+  }
+}

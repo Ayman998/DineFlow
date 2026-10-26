@@ -166,6 +166,287 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("ItemClaims", (string)null);
                 });
 
+            modelBuilder.Entity("DineFlow.Domain.Finance.Discrepancy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ActualMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("ExpectedMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ResolvedByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SettlementLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VenueId", "Status");
+
+                    b.HasIndex("VenueId", "BusinessDate", "Key")
+                        .IsUnique();
+
+                    b.ToTable("Discrepancies", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.ReconciliationRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AwaitingSettlement")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<long>("LedgerGrossMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LedgerRefundsMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LedgerTipsMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Matched")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OpenDiscrepancies")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Payments")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PostedToPos")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("RanAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Settled")
+                        .HasColumnType("int");
+
+                    b.Property<long>("SettledFeesMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SettledGrossMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VenueId", "BusinessDate")
+                        .IsUnique();
+
+                    b.ToTable("ReconciliationRuns", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.Settlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchRef")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nchar(3)")
+                        .IsFixedLength();
+
+                    b.Property<long>("FeesMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("GrossMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("ImportedByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("NetMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("PayoutDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<long>("RefundsMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VenueId", "PayoutDate");
+
+                    b.HasIndex("VenueId", "Provider", "BatchRef")
+                        .IsUnique();
+
+                    b.ToTable("Settlements", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.SettlementLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("FeeMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProviderRefundId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Guid>("SettlementId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("TransactionDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("ProviderPaymentId");
+
+                    b.HasIndex("ProviderRefundId");
+
+                    b.HasIndex("Reference");
+
+                    b.HasIndex("SettlementId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TransactionDate");
+
+                    b.ToTable("SettlementLines", (string)null);
+                });
+
             modelBuilder.Entity("DineFlow.Domain.Menus.Menu", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1828,6 +2109,71 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("DineFlow.Domain.Finance.Discrepancy", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.ReconciliationRun", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.Settlement", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.SettlementLine", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Payments.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DineFlow.Domain.Finance.Settlement", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("SettlementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("DineFlow.Domain.Menus.Menu", b =>
                 {
                     b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
@@ -2306,6 +2652,11 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Finance.Settlement", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Menus.MenuItem", b =>

@@ -38,7 +38,12 @@ public class AuditService(IAppDbContext db, ITenantContext tenant)
         ["report_schedule.created"] = "Created an e-mail report",
         ["report_schedule.updated"] = "Changed an e-mail report",
         ["report_schedule.deleted"] = "Deleted an e-mail report",
-        ["report_schedule.sent_now"] = "Sent an e-mail report now"
+        ["report_schedule.sent_now"] = "Sent an e-mail report now",
+        ["settlement.imported"] = "Imported a settlement report",
+        ["reconciliation.resolved"] = "Resolved a reconciliation difference",
+        ["pos.connection.saved"] = "Changed the POS connection",
+        ["pos.mapping.saved"] = "Changed POS table or item mapping",
+        ["pos.command.retried"] = "Sent an item to the POS again"
     };
 
     public async Task<AuditPageDto> ListAsync(AuditQuery query, CancellationToken ct)

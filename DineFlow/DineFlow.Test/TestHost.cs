@@ -4,6 +4,7 @@ using DineFlow.Application.Audit;
 using DineFlow.Application.Auth;
 using DineFlow.Application.Bills;
 using DineFlow.Application.Dashboard;
+using DineFlow.Application.Finance;
 using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
@@ -88,6 +89,8 @@ public sealed class TestHost : IDisposable
         AuditLog = new AuditService(Db, _tenant);
         PosDispatcher = new PosDispatcher(Db, PosConnectors, Secrets, Clock);
         Pos = new PosService(Db, _tenant, PosConnectors, Secrets, Clock);
+        Reconciler = new Reconciler(Db, Clock);
+        Finance = new FinanceService(Db, _tenant, Reconciler, Sandbox, Clock);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -140,6 +143,8 @@ public sealed class TestHost : IDisposable
     public PosSync PosSync { get; }
     public PosDispatcher PosDispatcher { get; }
     public PosService Pos { get; }
+    public Reconciler Reconciler { get; }
+    public FinanceService Finance { get; }
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own

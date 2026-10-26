@@ -3,6 +3,7 @@ using DineFlow.Domain.Reviews;
 using System.Linq.Expressions;
 using DineFlow.Application.Abstractions;
 using DineFlow.Domain.Bills;
+using DineFlow.Domain.Finance;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Menus;
 using DineFlow.Domain.Notifications;
@@ -49,6 +50,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
     public DbSet<PosConnection> PosConnections => Set<PosConnection>();
     public DbSet<PosCommand> PosCommands => Set<PosCommand>();
+    public DbSet<Settlement> Settlements => Set<Settlement>();
+    public DbSet<SettlementLine> SettlementLines => Set<SettlementLine>();
+    public DbSet<ReconciliationRun> ReconciliationRuns => Set<ReconciliationRun>();
+    public DbSet<Discrepancy> Discrepancies => Set<Discrepancy>();
     public DbSet<PromoCode> PromoCodes => Set<PromoCode>();
     public DbSet<ProcessedWebhook> ProcessedWebhooks => Set<ProcessedWebhook>();
 

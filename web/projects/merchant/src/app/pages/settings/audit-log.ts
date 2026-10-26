@@ -9,7 +9,10 @@ const AREAS = [
   { value: 'review', label: 'Guest contact details' },
   { value: 'alerts', label: 'WhatsApp alerts' },
   { value: 'report', label: 'E-mail reports' },
-  { value: 'notification', label: 'Resent messages' }
+  { value: 'notification', label: 'Resent messages' },
+  { value: 'settlement', label: 'Settlement imports' },
+  { value: 'reconciliation', label: 'Resolved differences' },
+  { value: 'pos', label: 'POS' }
 ];
 
 /** Settings → Activity: the audit log for owners and managers (blueprint section 11, E15). */
