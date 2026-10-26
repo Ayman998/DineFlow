@@ -44,8 +44,9 @@ export class GuestSession {
    * Opens the table for a scanned QR token. Rescanning or refreshing the same QR keeps the
    * existing session but reloads it, so venue changes (branding, features) show straight away;
    * if that session has ended on the server, a new one is started.
+   * @param locale The guest's own choice of language, or null to use the venue's default.
    */
-  open(qrToken: string, locale: string): Observable<GuestContext> {
+  open(qrToken: string, locale: string | null): Observable<GuestContext> {
     const existing = this.current();
     if (existing?.qrToken === qrToken && !isExpired(existing.context)) {
       return this.http.get<GuestContext>(`/v1/public/sessions/${existing.context.sessionId}`).pipe(
@@ -57,9 +58,9 @@ export class GuestSession {
     return this.start(qrToken, locale);
   }
 
-  private start(qrToken: string, locale: string): Observable<GuestContext> {
+  private start(qrToken: string, locale: string | null): Observable<GuestContext> {
     return this.http
-      .get<QrResolution>(`/v1/public/qr/${encodeURIComponent(qrToken)}`, { params: { locale } })
+      .get<QrResolution>(`/v1/public/qr/${encodeURIComponent(qrToken)}`, { params: locale ? { locale } : {} })
       .pipe(
         tap(resolution => this.store({ qrToken, ...resolution })),
         map(resolution => resolution.context)

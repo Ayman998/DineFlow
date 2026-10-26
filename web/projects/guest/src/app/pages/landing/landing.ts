@@ -56,7 +56,8 @@ export class Landing implements OnInit {
 
   protected load(): void {
     this.state.set({ kind: 'loading' });
-    this.session.open(this.token(), this.i18n.lang()).subscribe({
+    // Only a language the guest picked overrides the venue's default (e.g. Arabic in Amman).
+    this.session.open(this.token(), this.i18n.hasPreference() ? this.i18n.lang() : null).subscribe({
       next: context => {
         this.i18n.useDefault(context.locale);
         this.state.set({ kind: 'ready', context });
