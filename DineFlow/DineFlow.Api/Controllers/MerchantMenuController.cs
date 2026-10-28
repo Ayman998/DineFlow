@@ -15,6 +15,11 @@ public class MerchantMenuController(MenuAdminService menus, MenuImageService ima
     [Authorize(Policy = Policies.Merchant)]
     public Task<MenuTreeDto> Tree(Guid venueId, CancellationToken ct) => menus.GetTreeAsync(venueId, ct);
 
+    /// <summary>Every category and item of a venue, and which items each menu shows.</summary>
+    [HttpGet("v1/merchant/venues/{venueId:guid}/catalog")]
+    [Authorize(Policy = Policies.Merchant)]
+    public Task<CatalogDto> Catalog(Guid venueId, CancellationToken ct) => menus.GetCatalogAsync(venueId, ct);
+
     [HttpPost("v1/merchant/venues/{venueId:guid}/menus")]
     public Task<MenuDto> CreateMenu(Guid venueId, MenuRequest request, CancellationToken ct) =>
         menus.CreateMenuAsync(venueId, request, ct);
@@ -27,6 +32,14 @@ public class MerchantMenuController(MenuAdminService menus, MenuImageService ima
     public async Task<IActionResult> DeleteMenu(Guid menuId, CancellationToken ct)
     {
         await menus.DeleteMenuAsync(menuId, ct);
+        return NoContent();
+    }
+
+    /// <summary>Links exactly these catalog items to the menu; any others are taken off it.</summary>
+    [HttpPut("v1/merchant/menu/menus/{menuId:guid}/items")]
+    public async Task<IActionResult> SetMenuItems(Guid menuId, MenuItemsRequest request, CancellationToken ct)
+    {
+        await menus.SetMenuItemsAsync(menuId, request, ct);
         return NoContent();
     }
 

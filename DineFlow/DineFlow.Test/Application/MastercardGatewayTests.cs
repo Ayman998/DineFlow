@@ -54,8 +54,9 @@ public class MastercardGatewayTests : IDisposable
         await _host.CreateTenantAsync("Hashem Kitchen");
         var venue = await _host.Venues.CreateAsync(new VenueSettingsRequest("Abdoun", "JOD", "Asia/Amman", "ar", null, "#0B3B38", true, true), default);
         var menu = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("All day", null, true, Enum.GetValues<DayOfWeek>(), null, null), default);
-        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, null, "Mains", null), default);
+        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", null), default);
         var mansaf = await _host.Menus.CreateItemAsync(new ItemRequest(mains.Id, "Mansaf", "منسف", null, null, 12_500, null, true, [], [], []), default);
+        await _host.Menus.SetMenuItemsAsync(menu.Id, new MenuItemsRequest([mansaf.Id]), default);
         var table = await _host.Tables.CreateLocationAsync(new CreateLocationRequest(venue.Id, null, ServiceLocationType.Table, "4"), default);
 
         var tenant = _host.CurrentTenant;

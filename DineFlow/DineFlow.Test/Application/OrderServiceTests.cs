@@ -31,16 +31,18 @@ public class OrderServiceTests : IDisposable
             new VenueSettingsRequest("Marina", "AED", "Asia/Dubai", "en", null, "#0B3B38", true, true, 1000, 500, true), default);
 
         var allDay = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("All day", null, true, Enum.GetValues<DayOfWeek>(), null, null), default);
-        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(allDay.Id, null, "Mains", null), default);
+        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", null), default);
         var burger = await _host.Menus.CreateItemAsync(new ItemRequest(mains.Id, "Burger", "برجر", null, null, 5500, null, true, [], [], [
             new ModifierGroupRequest(null, "Doneness", null, 1, 1, [new(null, "Medium", null, 0, false), new(null, "Well done", null, 0, false)]),
             new ModifierGroupRequest(null, "Extras", null, 0, 2, [new(null, "Cheese", null, 400, false), new(null, "Bacon", null, 600, false), new(null, "Egg", null, 300, false)])
         ]), default);
         var soup = await _host.Menus.CreateItemAsync(new ItemRequest(mains.Id, "Soup", null, null, null, 2400, null, false, [], [], []), default);
+        await _host.Menus.SetMenuItemsAsync(allDay.Id, new MenuItemsRequest([burger.Id, soup.Id]), default);
 
         var breakfast = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("Breakfast", null, true, Enum.GetValues<DayOfWeek>(), "07:00", "11:30"), default);
-        var plates = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(breakfast.Id, null, "Plates", null), default);
+        var plates = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Plates", null), default);
         var shakshuka = await _host.Menus.CreateItemAsync(new ItemRequest(plates.Id, "Shakshuka", null, null, null, 3800, null, true, [], [], []), default);
+        await _host.Menus.SetMenuItemsAsync(breakfast.Id, new MenuItemsRequest([shakshuka.Id]), default);
 
         var table = await _host.Tables.CreateLocationAsync(new CreateLocationRequest(venue.Id, null, ServiceLocationType.Table, "7"), default);
         var tenantId = _host.CurrentTenant;
@@ -98,6 +100,22 @@ public class OrderServiceTests : IDisposable
         Assert.Equal(
             [(0, "invalid_choices"), (1, "invalid_choices"), (2, "item_unavailable"), (3, "menu_closed"), (4, "option_not_found"), (5, "item_not_found")],
             quote.Issues.Select(i => (i.Index, i.Code)));
+    }
+
+    [Fact]
+    public async Task An_item_on_several_menus_can_be_ordered_while_any_of_them_is_served()
+    {
+        var f = await CreateAsync();
+        _host.Clock.Advance(TimeSpan.FromHours(2)); // 12:00 in Dubai: breakfast is over
+        var shakshuka = new CartRequest([new(f.Shakshuka.Id, 1, [], null)]);
+
+        var breakfastOnly = await _host.CartQuotes.QuoteAsync(f.SessionId, shakshuka, default);
+        var allDay = (await _host.Menus.GetTreeAsync(f.Venue.Id, default)).Menus.Single(m => m.Name == "All day");
+        await _host.Menus.SetMenuItemsAsync(allDay.Id, new MenuItemsRequest([f.Burger.Id, f.Soup.Id, f.Shakshuka.Id]), default);
+        var alsoAllDay = await _host.CartQuotes.QuoteAsync(f.SessionId, shakshuka, default);
+
+        Assert.Equal("Shakshuka is on the Breakfast menu, served 07:00–11:30.", breakfastOnly.Issues.Single().Message);
+        Assert.True(alsoAllDay.CanOrder);
     }
 
     [Fact]

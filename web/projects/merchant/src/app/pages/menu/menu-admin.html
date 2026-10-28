@@ -56,11 +56,11 @@
             </span>
           }
         </div>
-        <p class="mt-1 text-sm text-ink-muted">{{ schedule(m) }} · {{ t.admin.items(itemCount()) }}</p>
+        <p class="mt-1 text-sm text-ink-muted">{{ schedule(m) }} · {{ t.itemCount(itemCount()) }}</p>
       </div>
       @if (manage) {
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="btn-secondary" (click)="categoryDialog.set({ menuId: m.id, parentId: null, category: null })">{{ t.admin.addCategory }}</button>
+          <button type="button" class="btn-secondary" (click)="openLinks(m)">{{ t.admin.linkItems }}</button>
           <button type="button" class="btn-secondary" (click)="menuDialog.set({ menu: m })">{{ t.admin.editMenu }}</button>
           <button type="button" class="btn-ghost" [disabled]="menuIndex() === 0" (click)="moveMenu(m, -1)" [attr.aria-label]="t.admin.moveMenuEarlier">{{ t.admin.earlierArrow }}</button>
           <button type="button" class="btn-ghost" [disabled]="menuIndex() === tree()!.menus.length - 1" (click)="moveMenu(m, 1)" [attr.aria-label]="t.admin.moveMenuLater">{{ t.admin.laterArrow }}</button>
@@ -70,15 +70,18 @@
     </section>
 
     @if (!m.categories.length) {
-      <div class="card text-center text-ink-muted">{{ t.admin.noCategories }}</div>
+      <div class="card text-center">
+        <p class="font-semibold">{{ t.admin.noLinkedItems }}</p>
+        @if (manage) { <p class="mt-1 text-sm text-ink-muted">{{ t.admin.noLinkedItemsHint }}</p> }
+      </div>
     }
 
-    @for (category of m.categories; track category.id; let first = $first; let last = $last) {
+    @for (category of m.categories; track category.id) {
       <section class="card mb-4">
-        <ng-container *ngTemplateOutlet="categoryBlock; context: { $implicit: category, siblings: m.categories, first, last, menuId: m.id }" />
-        @for (sub of category.subcategories; track sub.id; let subFirst = $first; let subLast = $last) {
+        <ng-container *ngTemplateOutlet="categoryBlock; context: { $implicit: category }" />
+        @for (sub of category.subcategories; track sub.id) {
           <div class="mt-4 border-s-2 border-line ps-4">
-            <ng-container *ngTemplateOutlet="categoryBlock; context: { $implicit: sub, siblings: category.subcategories, first: subFirst, last: subLast, menuId: m.id }" />
+            <ng-container *ngTemplateOutlet="categoryBlock; context: { $implicit: sub }" />
           </div>
         }
       </section>
@@ -86,30 +89,16 @@
   }
 }
 
-<ng-template #categoryBlock let-category let-siblings="siblings" let-first="first" let-last="last" let-menuId="menuId">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <h3 class="font-bold" [class.text-base]="category.parentId" [class.text-lg]="!category.parentId">
-      {{ category.name }}
-      @if (category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ category.nameAr }}</span> }
-    </h3>
-    @if (manage) {
-      <div class="flex flex-wrap items-center gap-1 text-sm">
-        <button type="button" class="link" (click)="itemDialog.set({ categoryId: category.id, item: null })">{{ t.admin.addItem }}</button>
-        @if (!category.parentId) {
-          <button type="button" class="link ms-3" (click)="categoryDialog.set({ menuId, parentId: category.id, category: null })">{{ t.admin.addSubcategory }}</button>
-        }
-        <button type="button" class="link ms-3" (click)="categoryDialog.set({ menuId, parentId: category.parentId, category })">{{ t.admin.rename }}</button>
-        <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="moveCategory(category, siblings, -1)" [attr.aria-label]="t.admin.moveCategoryUp">↑</button>
-        <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="moveCategory(category, siblings, 1)" [attr.aria-label]="t.admin.moveCategoryDown">↓</button>
-        <button type="button" class="btn-ghost px-2 text-red-700" (click)="deleteCategory(category)" [attr.aria-label]="t.admin.deleteCategory">✕</button>
-      </div>
-    }
-  </div>
+<ng-template #categoryBlock let-category>
+  <h3 class="font-bold" [class.text-base]="category.parentId" [class.text-lg]="!category.parentId">
+    {{ category.name }}
+    @if (category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ category.nameAr }}</span> }
+  </h3>
 
   @if (category.items.length) {
     <table class="mt-3 w-full text-sm">
       <tbody>
-        @for (item of category.items; track item.id; let itemFirst = $first; let itemLast = $last) {
+        @for (item of category.items; track item.id) {
           <tr class="border-t border-line" [class.opacity-60]="!item.isAvailable">
             <td class="w-14 py-2">
               <div class="flex size-11 items-center justify-center overflow-hidden rounded-lg bg-surface text-xs font-bold text-ink-muted">
@@ -119,52 +108,29 @@
             <td class="py-2">
               <div class="font-semibold">{{ item.name }} @if (item.nameAr) { <span class="ms-1 font-normal text-ink-muted" dir="rtl">{{ item.nameAr }}</span> }</div>
               <div class="text-xs text-ink-muted">
-                @if (item.modifierGroups.length) { {{ t.admin.optionGroups(item.modifierGroups.length) }} · }
-                @if (item.allergens.length) { {{ t.admin.allergenCount(item.allergens.length) }} · }
+                @if (item.modifierGroups.length) { {{ t.optionGroups(item.modifierGroups.length) }} · }
+                @if (item.allergens.length) { {{ t.allergenCount(item.allergens.length) }} · }
                 {{ item.tags.join(', ') }}
               </div>
             </td>
             <td class="w-28 py-2 text-end font-semibold">{{ money(item.priceMinor) }}</td>
             <td class="w-36 py-2 text-end">
               <label class="inline-flex cursor-pointer items-center gap-2">
-                <span class="text-xs" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.admin.available : t.admin.soldOut }}</span>
+                <span class="text-xs" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
                 <input type="checkbox" class="toggle" [checked]="item.isAvailable" (change)="toggleAvailability(item)"
-                       [attr.aria-label]="item.isAvailable ? t.admin.markSoldOut(item.name) : t.admin.markAvailable(item.name)" />
+                       [attr.aria-label]="item.isAvailable ? t.markSoldOut(item.name) : t.markAvailable(item.name)" />
               </label>
             </td>
-            @if (manage) {
-              <td class="w-40 py-2 text-end whitespace-nowrap">
-                <button type="button" class="link" (click)="itemDialog.set({ categoryId: category.id, item })">{{ common.edit }}</button>
-                <button type="button" class="btn-ghost px-2" [disabled]="itemFirst" (click)="moveItem(item, category.items, -1)" [attr.aria-label]="t.admin.moveItemUp">↑</button>
-                <button type="button" class="btn-ghost px-2" [disabled]="itemLast" (click)="moveItem(item, category.items, 1)" [attr.aria-label]="t.admin.moveItemDown">↓</button>
-                <button type="button" class="btn-ghost px-2 text-red-700" (click)="deleteItem(item)" [attr.aria-label]="t.admin.deleteItem">✕</button>
-              </td>
-            }
           </tr>
         }
       </tbody>
     </table>
-  } @else if (!category.subcategories.length) {
-    <p class="mt-2 text-sm text-ink-muted">{{ t.admin.noItems }}</p>
   }
 </ng-template>
 
 @if (menuDialog(); as dialog) {
   <df-menu-editor [menu]="dialog.menu" (saved)="saveMenu($event)" (cancelled)="menuDialog.set(null)" />
 }
-@if (categoryDialog(); as dialog) {
-  <df-category-editor
-    [title]="dialog.category ? t.admin.renameCategory : dialog.parentId ? t.admin.newSubcategory : t.admin.newCategory"
-    [initial]="dialog.category"
-    (saved)="saveCategory($event)"
-    (cancelled)="categoryDialog.set(null)" />
-}
-@if (itemDialog(); as dialog) {
-  <df-item-editor
-    [item]="dialog.item"
-    [categoryId]="dialog.categoryId"
-    [categories]="categoryChoices()"
-    [currency]="currency()"
-    (saved)="saveItem($event)"
-    (cancelled)="itemDialog.set(null)" />
+@if (linkDialog(); as dialog) {
+  <df-link-items [menu]="dialog.menu" [catalog]="dialog.catalog" (saved)="saveLinks($event)" (cancelled)="linkDialog.set(null)" />
 }

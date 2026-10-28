@@ -35,8 +35,9 @@ public class PaymentServiceTests : IDisposable
             new VenueSettingsRequest("Marina", "AED", "Asia/Dubai", "en", null, "#0B3B38", true, true, TipsEnabled: tipsEnabled), default);
 
         var menu = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("All day", null, true, Enum.GetValues<DayOfWeek>(), null, null), default);
-        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, null, "Mains", null), default);
+        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", null), default);
         var burger = await _host.Menus.CreateItemAsync(new ItemRequest(mains.Id, "Burger", null, null, null, 5000, null, true, [], [], []), default);
+        await _host.Menus.SetMenuItemsAsync(menu.Id, new MenuItemsRequest([burger.Id]), default);
 
         await _host.Promotions.CreateAsync(new PromoCodeRequest("WELCOME10", "10% off", DiscountType.Percent, 1000, null, null, null, null, null, true, false), default);
         await _host.Promotions.CreateAsync(new PromoCodeRequest("NEXT15", "15% off your next visit", DiscountType.Percent, 1500, null, null, null, null, null, true, true), default);

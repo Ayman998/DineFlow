@@ -1,0 +1,129 @@
+@let t = this.t();
+@let common = i18n.t();
+@let manage = auth.canManage();
+
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold">{{ t.itemsPage.title }}</h1>
+    <p class="mt-1 text-sm text-ink-muted">{{ t.itemsPage.intro }}</p>
+  </div>
+  @if (manage && categoryChoices().length) {
+    <button type="button" class="btn-primary" (click)="dialog.set({ item: null })">{{ t.itemsPage.newItem }}</button>
+  }
+</div>
+
+@if (error()) {
+  <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
+}
+@if (notice()) {
+  <p class="mb-4 rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">{{ notice() }}</p>
+}
+
+@if (loading()) {
+  <div class="h-64 animate-pulse rounded-xl bg-white" aria-busy="true"></div>
+} @else if (!categoryChoices().length) {
+  <div class="card text-center">
+    <p class="font-semibold">{{ t.itemsPage.noCategories }}</p>
+    <p class="mt-1 text-sm text-ink-muted">{{ t.itemsPage.noCategoriesHint }}</p>
+    <a routerLink="/item-categories" class="link mt-3 inline-block text-sm">{{ t.itemsPage.goToCategories }}</a>
+  </div>
+} @else if (!itemTotal()) {
+  <div class="card text-center">
+    <p class="font-semibold">{{ t.itemsPage.noItems }}</p>
+    @if (manage) { <p class="mt-1 text-sm text-ink-muted">{{ t.itemsPage.noItemsHint }}</p> }
+  </div>
+} @else {
+  <div class="mb-4 flex flex-wrap gap-3">
+    <input type="search" class="field max-w-xs" [ngModel]="query()" (ngModelChange)="query.set($event)"
+           [placeholder]="t.itemsPage.search" [attr.aria-label]="t.itemsPage.search" />
+    <select class="field max-w-xs" [ngModel]="categoryFilter()" (ngModelChange)="categoryFilter.set($event)" [attr.aria-label]="t.itemsPage.category">
+      <option value="">{{ t.itemsPage.allCategories }}</option>
+      @for (c of categoryChoices(); track c.id) { <option [value]="c.id">{{ c.label }}</option> }
+    </select>
+  </div>
+
+  @if (!groups().length) {
+    <div class="card text-center text-ink-muted">{{ t.itemsPage.noMatches }}</div>
+  } @else {
+    <div class="card overflow-x-auto p-0">
+      <table class="w-full text-sm">
+        <thead class="border-b border-line text-xs text-ink-muted uppercase">
+          <tr>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.itemsPage.item }}</th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.itemsPage.menus }}</th>
+            <th scope="col" class="px-5 py-3 text-end font-semibold">{{ t.itemsPage.price }}</th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.itemsPage.status }}</th>
+            <th scope="col" class="px-5 py-3"><span class="sr-only">{{ t.itemsPage.actions }}</span></th>
+          </tr>
+        </thead>
+        @for (group of groups(); track group.category.id) {
+          <tbody>
+            <tr class="border-b border-line bg-surface">
+              <th scope="colgroup" colspan="5" class="px-5 py-2 text-start font-semibold">
+                {{ group.label }}
+                @if (group.category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ group.category.nameAr }}</span> }
+              </th>
+            </tr>
+            @for (item of group.items; track item.id; let first = $first; let last = $last) {
+              @let menus = menusOf(item);
+              <tr class="border-b border-line last:border-0">
+                <td class="px-5 py-2" [class.opacity-60]="!item.isAvailable">
+                  <div class="flex items-center gap-3">
+                    <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface text-xs font-bold text-ink-muted">
+                      @if (item.imageUrl) { <img [src]="item.imageUrl" alt="" class="size-full object-cover" loading="lazy" /> } @else { {{ item.name[0] }} }
+                    </div>
+                    <div>
+                      <div class="font-semibold">{{ item.name }} @if (item.nameAr) { <span class="ms-1 font-normal text-ink-muted" dir="rtl">{{ item.nameAr }}</span> }</div>
+                      <div class="text-xs text-ink-muted">
+                        @if (item.modifierGroups.length) { {{ t.optionGroups(item.modifierGroups.length) }} · }
+                        @if (item.allergens.length) { {{ t.allergenCount(item.allergens.length) }} · }
+                        {{ item.tags.join(', ') }}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-5 py-2">
+                  @if (menus.length) {
+                    <div class="flex flex-wrap gap-1">
+                      @for (name of menus; track name) { <span class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand-dark">{{ name }}</span> }
+                    </div>
+                  } @else {
+                    <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">{{ t.itemsPage.notOnAnyMenu }}</span>
+                  }
+                </td>
+                <td class="px-5 py-2 text-end font-semibold whitespace-nowrap tabular-nums">{{ money(item.priceMinor) }}</td>
+                <td class="px-5 py-2">
+                  <label class="inline-flex cursor-pointer items-center gap-2">
+                    <input type="checkbox" class="toggle" [checked]="item.isAvailable" (change)="toggleAvailability(item)"
+                           [attr.aria-label]="item.isAvailable ? t.markSoldOut(item.name) : t.markAvailable(item.name)" />
+                    <span class="text-xs" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
+                  </label>
+                </td>
+                <td class="px-5 py-2 text-end whitespace-nowrap">
+                  @if (manage) {
+                    <button type="button" class="link" (click)="dialog.set({ item })">{{ common.edit }}</button>
+                    @if (!searching()) {
+                      <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="move(item, group.category.items, -1)" [attr.aria-label]="t.itemsPage.moveUp">↑</button>
+                      <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="move(item, group.category.items, 1)" [attr.aria-label]="t.itemsPage.moveDown">↓</button>
+                    }
+                    <button type="button" class="btn-ghost px-2 text-red-700" (click)="delete(item)" [attr.aria-label]="t.itemsPage.delete">✕</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        }
+      </table>
+    </div>
+  }
+}
+
+@if (dialog(); as d) {
+  <df-item-editor
+    [item]="d.item"
+    [categoryId]="newItemCategory()"
+    [categories]="categoryChoices()"
+    [currency]="currency()"
+    (saved)="save($event)"
+    (cancelled)="dialog.set(null)" />
+}

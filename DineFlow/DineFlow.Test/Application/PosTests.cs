@@ -41,8 +41,9 @@ public class PosTests : IDisposable
         var tenant = await _host.CreateTenantAsync();
         var venue = await _host.CreateVenueAsync("Marina");
         var menu = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("All day", null, true, Enum.GetValues<DayOfWeek>(), null, null), default);
-        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, null, "Mains", null), default);
+        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", null), default);
         var burger = await _host.Menus.CreateItemAsync(new ItemRequest(mains.Id, "Burger", null, null, null, 5000, null, true, [], [], []), default);
+        await _host.Menus.SetMenuItemsAsync(menu.Id, new MenuItemsRequest([burger.Id]), default);
         var table7 = await _host.Tables.CreateLocationAsync(new CreateLocationRequest(venue.Id, null, ServiceLocationType.Table, "7"), default);
         var manager = new StaffUser(tenant.Id, "lina@demo.test", "Lina", StaffRole.Manager);
         _host.Db.StaffUsers.Add(manager);

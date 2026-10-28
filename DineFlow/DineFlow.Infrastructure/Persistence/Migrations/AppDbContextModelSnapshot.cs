@@ -502,9 +502,6 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid>("MenuId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -532,7 +529,7 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("MenuId", "SortOrder");
+                    b.HasIndex("VenueId", "ParentId", "SortOrder");
 
                     b.ToTable("MenuCategories", (string)null);
                 });
@@ -605,6 +602,35 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("CategoryId", "SortOrder");
 
                     b.ToTable("MenuItems", (string)null);
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Menus.MenuItemLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("MenuId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MenuItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MenuItemId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("MenuId", "MenuItemId")
+                        .IsUnique();
+
+                    b.ToTable("MenuItemLinks", (string)null);
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Menus.ModifierGroup", b =>
@@ -2202,12 +2228,6 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("DineFlow.Domain.Menus.MenuCategory", b =>
                 {
-                    b.HasOne("DineFlow.Domain.Menus.Menu", null)
-                        .WithMany()
-                        .HasForeignKey("MenuId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("DineFlow.Domain.Menus.MenuCategory", null)
                         .WithMany()
                         .HasForeignKey("ParentId")
@@ -2218,6 +2238,12 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Venues.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("DineFlow.Domain.Menus.MenuItem", b =>
@@ -2225,6 +2251,27 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.HasOne("DineFlow.Domain.Menus.MenuCategory", null)
                         .WithMany()
                         .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DineFlow.Domain.Menus.MenuItemLink", b =>
+                {
+                    b.HasOne("DineFlow.Domain.Menus.Menu", null)
+                        .WithMany()
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DineFlow.Domain.Menus.MenuItem", null)
+                        .WithMany()
+                        .HasForeignKey("MenuItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

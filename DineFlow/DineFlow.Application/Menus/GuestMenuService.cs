@@ -22,16 +22,19 @@ public class GuestMenuService(IAppDbContext db, TimeProvider clock)
             .ToListAsync(ct);
         var menuIds = menus.Select(m => m.Id).ToList();
 
-        var categories = await db.MenuCategories.AsNoTracking()
-            .Where(c => menuIds.Contains(c.MenuId))
+        var links = await db.MenuItemLinks.AsNoTracking()
+            .Where(l => menuIds.Contains(l.MenuId))
             .ToListAsync(ct);
-        var categoryIds = categories.Select(c => c.Id).ToList();
+        var itemIds = links.Select(l => l.MenuItemId).Distinct().ToList();
 
         var items = await db.MenuItems.AsNoTracking()
-            .Where(i => categoryIds.Contains(i.CategoryId))
+            .Where(i => itemIds.Contains(i.Id))
             .Include(i => i.ModifierGroups).ThenInclude(g => g.Options)
             .ToListAsync(ct);
+        var categories = await db.MenuCategories.AsNoTracking()
+            .Where(c => c.VenueId == venue.Id)
+            .ToListAsync(ct);
 
-        return MenuTree.Build(venue, menus, categories, items, VenueTime.LocalNow(clock, venue.TimeZone));
+        return MenuTree.Build(venue, menus, categories, items, links, VenueTime.LocalNow(clock, venue.TimeZone));
     }
 }

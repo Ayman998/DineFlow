@@ -47,11 +47,14 @@ public class CartQuoteService(IAppDbContext db, TimeProvider clock)
             .Include(i => i.ModifierGroups).ThenInclude(g => g.Options)
             .ToDictionaryAsync(i => i.Id, ct);
 
-        var categoryIds = items.Values.Select(i => i.CategoryId).Distinct().ToList();
-        var menuByCategory = await db.MenuCategories
-            .Where(c => categoryIds.Contains(c.Id))
-            .Join(db.Menus, c => c.MenuId, m => m.Id, (c, m) => new { CategoryId = c.Id, Menu = m })
-            .ToDictionaryAsync(x => x.CategoryId, x => x.Menu, ct);
+        // An item can be on several menus; it can be ordered while any of them is being served.
+        var menusByItem = (await db.MenuItemLinks
+            .Where(l => itemIds.Contains(l.MenuItemId))
+            .Join(db.Menus, l => l.MenuId, m => m.Id, (l, m) => new { l.MenuItemId, Menu = m })
+            .ToListAsync(ct))
+            .Where(x => x.Menu.IsPublished)
+            .OrderBy(x => x.Menu.SortOrder)
+            .ToLookup(x => x.MenuItemId, x => x.Menu);
 
         var localNow = VenueTime.LocalNow(clock, table.Venue.TimeZone);
         var quoteLines = new List<QuoteLineDto>();
@@ -69,11 +72,11 @@ public class CartQuoteService(IAppDbContext db, TimeProvider clock)
                 continue;
             }
 
-            var menu = menuByCategory.GetValueOrDefault(item.CategoryId);
+            var menus = menusByItem[item.Id].ToList();
             if (!item.IsAvailable)
                 Issue("item_unavailable", $"{item.Name} is sold out right now.");
-            else if (menu is null || !menu.IsAvailableAt(localNow))
-                Issue("menu_closed", menu?.StartTime is { } start
+            else if (!menus.Any(m => m.IsAvailableAt(localNow)))
+                Issue("menu_closed", menus.FirstOrDefault(m => m.StartTime is not null) is { StartTime: { } start } menu
                     ? $"{item.Name} is on the {menu.Name} menu, served {start:HH\\:mm}–{menu.EndTime:HH\\:mm}."
                     : $"{item.Name} isn't being served right now.");
 
