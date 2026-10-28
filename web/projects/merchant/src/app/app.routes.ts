@@ -11,6 +11,8 @@ const PAGES: Partial<Record<string, LoadComponent>> = {
   orders: () => import('./pages/orders/orders').then(m => m.Orders),
   tables: () => import('./pages/tables/tables').then(m => m.Tables),
   menu: () => import('./pages/menu/menu-admin').then(m => m.MenuAdmin),
+  'item-categories': () => import('./pages/item-categories/item-categories').then(m => m.ItemCategories),
+  items: () => import('./pages/items/items').then(m => m.Items),
   promotions: () => import('./pages/promotions/promotions').then(m => m.Promotions),
   reviews: () => import('./pages/reviews/reviews').then(m => m.Reviews),
   overview: () => import('./pages/overview/overview').then(m => m.Overview),

@@ -5,6 +5,8 @@ export const NAV_ITEMS = [
   { path: 'tables', sprint: 1 },
   { path: 'transactions', sprint: 7 },
   { path: 'menu', sprint: 2 },
+  { path: 'item-categories', sprint: 12 },
+  { path: 'items', sprint: 12 },
   { path: 'promotions', sprint: 4 },
   { path: 'payment-links', sprint: 8 },
   { path: 'reviews', sprint: 6 },

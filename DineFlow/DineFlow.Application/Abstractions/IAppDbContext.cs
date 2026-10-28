@@ -33,6 +33,7 @@ public interface IAppDbContext
     DbSet<Menu> Menus { get; }
     DbSet<MenuCategory> MenuCategories { get; }
     DbSet<MenuItem> MenuItems { get; }
+    DbSet<MenuItemLink> MenuItemLinks { get; }
     DbSet<Order> Orders { get; }
     DbSet<Check> Checks { get; }
     DbSet<ItemClaim> ItemClaims { get; }

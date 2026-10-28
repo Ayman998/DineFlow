@@ -31,10 +31,23 @@ const en = {
     Sulphites: 'Sulphites', Lupin: 'Lupin', Molluscs: 'Molluscs'
   } as Record<string, string>,
 
+  // Item rows, shared by the menu and items pages
+  itemCount: (n: number) => count(n, 'item', 'items'),
+  optionGroups: (n: number) => count(n, 'option group', 'option groups'),
+  allergenCount: (n: number) => count(n, 'allergen', 'allergens'),
+  available: 'Available',
+  soldOut: 'Sold out',
+  markSoldOut: (name: string) => `Mark sold out: ${name}`,
+  markAvailable: (name: string) => `Mark available: ${name}`,
+  availabilityChanged: (name: string, available: boolean) =>
+    `"${name}" is ${available ? 'back on the menu' : 'marked sold out'}.`,
+  saved: (name: string) => `Saved "${name}".`,
+  deleted: (name: string) => `Deleted "${name}".`,
+
   /** The menu page (menu-admin). */
   admin: {
     title: 'Menu',
-    intro: 'Menus, categories and items guests see when they scan a QR code.',
+    intro: 'The menus guests see when they scan a QR code, and the items on each.',
     newMenu: 'New menu',
     noMenus: 'No menus yet.',
     createOneWith: 'Create one with',
@@ -44,34 +57,15 @@ const en = {
     draft: 'Draft',
     servingNow: 'Serving now',
     notServingNow: 'Not serving now',
-    items: (n: number) => count(n, 'item', 'items'),
-    addCategory: 'Add category',
+    linkItems: 'Link items',
     editMenu: 'Edit menu',
     moveMenuEarlier: 'Move menu earlier',
     moveMenuLater: 'Move menu later',
     // Earlier menus sit at the start of the row, which is on the right in Arabic.
     earlierArrow: '←',
     laterArrow: '→',
-    noCategories: 'This menu has no categories yet.',
-    addItem: '+ Item',
-    addSubcategory: '+ Subcategory',
-    rename: 'Rename',
-    moveCategoryUp: 'Move category up',
-    moveCategoryDown: 'Move category down',
-    deleteCategory: 'Delete category',
-    optionGroups: (n: number) => count(n, 'option group', 'option groups'),
-    allergenCount: (n: number) => count(n, 'allergen', 'allergens'),
-    available: 'Available',
-    soldOut: 'Sold out',
-    markSoldOut: (name: string) => `Mark sold out: ${name}`,
-    markAvailable: (name: string) => `Mark available: ${name}`,
-    moveItemUp: 'Move item up',
-    moveItemDown: 'Move item down',
-    deleteItem: 'Delete item',
-    noItems: 'No items yet.',
-    renameCategory: 'Rename category',
-    newSubcategory: 'New subcategory',
-    newCategory: 'New category',
+    noLinkedItems: 'No items on this menu yet.',
+    noLinkedItemsHint: 'Use Link items to choose them from your items and item categories.',
     // Schedule line, e.g. "Mon, Tue, 08:00–11:30"
     everyDay: 'Every day',
     listSeparator: ', ',
@@ -79,16 +73,67 @@ const en = {
     hours: (days: string, start: string, end: string) => `${days}, ${start}–${end}`,
     // Notices and confirmations
     savedMenu: (name: string) => `Saved menu "${name}".`,
-    confirmDeleteMenu: (name: string) => `Delete the "${name}" menu with all its categories and items? This can't be undone.`,
+    confirmDeleteMenu: (name: string) => `Delete the "${name}" menu? Its items stay under Items.`,
     deletedMenu: (name: string) => `Deleted menu "${name}".`,
+    linked: (menu: string, n: number) => `"${menu}" now shows ${count(n, 'item', 'items')}.`
+  },
+
+  /** The item categories page. */
+  categoriesPage: {
+    title: 'Item Categories',
+    intro: 'Group your items, e.g. Starters, Mains and Drinks. A category can have one level of subcategories.',
+    newCategory: 'New category',
+    noCategories: 'No categories yet.',
+    noCategoriesHint: 'Add one with New category, for example "Starters" or "Drinks".',
+    viewItems: 'View items',
+    addSubcategory: '+ Subcategory',
+    rename: 'Rename',
+    moveUp: 'Move category up',
+    moveDown: 'Move category down',
+    delete: 'Delete category',
+    renameCategory: 'Rename category',
+    newSubcategory: 'New subcategory',
     savedCategory: (name: string) => `Saved category "${name}".`,
-    confirmDeleteCategory: (name: string, items: number) =>
-      `Delete "${name}"${items ? ` and its ${count(items, 'item', 'items')}` : ''}? This can't be undone.`,
-    confirmDeleteItem: (name: string) => `Delete "${name}"? This can't be undone.`,
-    deleted: (name: string) => `Deleted "${name}".`,
-    saved: (name: string) => `Saved "${name}".`,
-    availabilityChanged: (name: string, available: boolean) =>
-      `"${name}" is ${available ? 'back on the menu' : 'marked sold out'}.`
+    confirmDelete: (name: string, items: number) =>
+      `Delete "${name}"${items ? ` and its ${count(items, 'item', 'items')}` : ''}? They come off every menu. This can't be undone.`
+  },
+
+  /** The items page. */
+  itemsPage: {
+    title: 'Items',
+    intro: 'Every dish and drink, with prices, photos and options. Put them on a menu with Link items on the Menu page.',
+    newItem: 'New item',
+    search: 'Search items',
+    category: 'Category',
+    allCategories: 'All categories',
+    noCategories: 'Add a category first.',
+    noCategoriesHint: 'Items sit in categories such as Starters or Drinks.',
+    goToCategories: 'Go to Item Categories',
+    noItems: 'No items yet.',
+    noItemsHint: 'Add one with New item.',
+    noMatches: 'No items match.',
+    item: 'Item',
+    menus: 'Menus',
+    price: 'Price',
+    status: 'Status',
+    actions: 'Actions',
+    notOnAnyMenu: 'Not on any menu',
+    moveUp: 'Move item up',
+    moveDown: 'Move item down',
+    delete: 'Delete item',
+    confirmDelete: (name: string) => `Delete "${name}"? It comes off every menu. This can't be undone.`
+  },
+
+  /** The link items dialog (link-items). */
+  link: {
+    title: (menu: string) => `Link items to "${menu}"`,
+    intro: 'Tick the items this menu shows. Tick a category to take all of its items.',
+    search: 'Search items',
+    noItems: 'You have no items yet.',
+    noItemsHint: 'Add them under Items first.',
+    noMatches: 'No items match.',
+    allIn: (category: string) => `All items in ${category}`,
+    selected: (n: number) => `${count(n, 'item', 'items')} selected`
   },
 
   /** The menu dialog (menu-editor). */
@@ -197,9 +242,21 @@ export const MENU: Lexicon<typeof en> = {
       Sulphites: 'الكبريتيت', Lupin: 'الترمس', Molluscs: 'الرخويات'
     },
 
+    itemCount: (n: number) => arCount(n, 'صنف واحد', 'صنفان', 'أصناف', 'صنف'),
+    optionGroups: (n: number) => arCount(n, 'مجموعة إضافات واحدة', 'مجموعتا إضافات', 'مجموعات إضافات', 'مجموعة إضافات'),
+    allergenCount: (n: number) => arCount(n, 'مسبب حساسية واحد', 'مسببا حساسية', 'مسببات حساسية', 'مسبب حساسية'),
+    available: 'متوفر',
+    soldOut: 'نفد',
+    markSoldOut: (name: string) => `تحديد كنافد: ${name}`,
+    markAvailable: (name: string) => `تحديد كمتوفر: ${name}`,
+    availabilityChanged: (name: string, available: boolean) =>
+      available ? `"${name}" متوفر مجدداً في القائمة.` : `تم تحديد "${name}" كنافد.`,
+    saved: (name: string) => `تم حفظ "${name}".`,
+    deleted: (name: string) => `تم حذف "${name}".`,
+
     admin: {
       title: 'القائمة',
-      intro: 'القوائم والفئات والأصناف التي يراها الضيوف عند مسح رمز QR.',
+      intro: 'القوائم التي يراها الضيوف عند مسح رمز QR، والأصناف في كل منها.',
       newMenu: 'قائمة جديدة',
       noMenus: 'لا توجد قوائم بعد.',
       createOneWith: 'أنشئ قائمة عبر',
@@ -209,48 +266,77 @@ export const MENU: Lexicon<typeof en> = {
       draft: 'مسودة',
       servingNow: 'متاحة الآن',
       notServingNow: 'غير متاحة الآن',
-      items: (n: number) => arCount(n, 'صنف واحد', 'صنفان', 'أصناف', 'صنف'),
-      addCategory: 'إضافة فئة',
+      linkItems: 'ربط الأصناف',
       editMenu: 'تعديل القائمة',
       moveMenuEarlier: 'تقديم القائمة في الترتيب',
       moveMenuLater: 'تأخير القائمة في الترتيب',
       earlierArrow: '→',
       laterArrow: '←',
-      noCategories: 'لا توجد فئات في هذه القائمة بعد.',
-      addItem: '+ صنف',
-      addSubcategory: '+ فئة فرعية',
-      rename: 'إعادة تسمية',
-      moveCategoryUp: 'نقل الفئة للأعلى',
-      moveCategoryDown: 'نقل الفئة للأسفل',
-      deleteCategory: 'حذف الفئة',
-      optionGroups: (n: number) => arCount(n, 'مجموعة إضافات واحدة', 'مجموعتا إضافات', 'مجموعات إضافات', 'مجموعة إضافات'),
-      allergenCount: (n: number) => arCount(n, 'مسبب حساسية واحد', 'مسببا حساسية', 'مسببات حساسية', 'مسبب حساسية'),
-      available: 'متوفر',
-      soldOut: 'نفد',
-      markSoldOut: (name: string) => `تحديد كنافد: ${name}`,
-      markAvailable: (name: string) => `تحديد كمتوفر: ${name}`,
-      moveItemUp: 'نقل الصنف للأعلى',
-      moveItemDown: 'نقل الصنف للأسفل',
-      deleteItem: 'حذف الصنف',
-      noItems: 'لا توجد أصناف بعد.',
-      renameCategory: 'إعادة تسمية الفئة',
-      newSubcategory: 'فئة فرعية جديدة',
-      newCategory: 'فئة جديدة',
+      noLinkedItems: 'لا توجد أصناف في هذه القائمة بعد.',
+      noLinkedItemsHint: 'استخدم "ربط الأصناف" لاختيارها من أصنافك وفئات الأصناف.',
       everyDay: 'كل يوم',
       listSeparator: '، ',
       allDay: (days: string) => `${days}، طوال اليوم`,
       hours: (days: string, start: string, end: string) => `${days}، ${start}–${end}`,
       savedMenu: (name: string) => `تم حفظ القائمة "${name}".`,
-      confirmDeleteMenu: (name: string) => `هل تريد حذف قائمة "${name}" مع جميع فئاتها وأصنافها؟ لا يمكن التراجع عن هذا الإجراء.`,
+      confirmDeleteMenu: (name: string) => `هل تريد حذف قائمة "${name}"؟ ستبقى أصنافها في صفحة الأصناف.`,
       deletedMenu: (name: string) => `تم حذف القائمة "${name}".`,
+      linked: (menu: string, n: number) => `أصبحت قائمة "${menu}" تعرض ${arCount(n, 'صنفاً واحداً', 'صنفين', 'أصناف', 'صنفاً')}.`
+    },
+
+    categoriesPage: {
+      title: 'فئات الأصناف',
+      intro: 'جمّع أصنافك في فئات، مثل المقبلات والأطباق الرئيسية والمشروبات. يمكن أن تحتوي الفئة على مستوى واحد من الفئات الفرعية.',
+      newCategory: 'فئة جديدة',
+      noCategories: 'لا توجد فئات بعد.',
+      noCategoriesHint: 'أضف فئة عبر "فئة جديدة"، مثل "المقبلات" أو "المشروبات".',
+      viewItems: 'عرض الأصناف',
+      addSubcategory: '+ فئة فرعية',
+      rename: 'إعادة تسمية',
+      moveUp: 'نقل الفئة للأعلى',
+      moveDown: 'نقل الفئة للأسفل',
+      delete: 'حذف الفئة',
+      renameCategory: 'إعادة تسمية الفئة',
+      newSubcategory: 'فئة فرعية جديدة',
       savedCategory: (name: string) => `تم حفظ الفئة "${name}".`,
-      confirmDeleteCategory: (name: string, items: number) =>
-        `هل تريد حذف "${name}"${items ? ` مع ${arCount(items, 'الصنف الوحيد فيها', 'الصنفين فيها', 'أصناف فيها', 'صنفاً فيها')}` : ''}؟ لا يمكن التراجع عن هذا الإجراء.`,
-      confirmDeleteItem: (name: string) => `هل تريد حذف "${name}"؟ لا يمكن التراجع عن هذا الإجراء.`,
-      deleted: (name: string) => `تم حذف "${name}".`,
-      saved: (name: string) => `تم حفظ "${name}".`,
-      availabilityChanged: (name: string, available: boolean) =>
-        available ? `"${name}" متوفر مجدداً في القائمة.` : `تم تحديد "${name}" كنافد.`
+      confirmDelete: (name: string, items: number) =>
+        `هل تريد حذف "${name}"${items ? ` مع ${arCount(items, 'الصنف الوحيد فيها', 'الصنفين فيها', 'أصناف فيها', 'صنفاً فيها')}` : ''}؟ ستُزال من جميع القوائم، ولا يمكن التراجع عن هذا الإجراء.`
+    },
+
+    itemsPage: {
+      title: 'الأصناف',
+      intro: 'كل الأطباق والمشروبات بأسعارها وصورها وخياراتها. أضفها إلى قائمة عبر "ربط الأصناف" في صفحة القائمة.',
+      newItem: 'صنف جديد',
+      search: 'البحث في الأصناف',
+      category: 'الفئة',
+      allCategories: 'جميع الفئات',
+      noCategories: 'أضف فئة أولاً.',
+      noCategoriesHint: 'توضع الأصناف في فئات مثل المقبلات أو المشروبات.',
+      goToCategories: 'الانتقال إلى فئات الأصناف',
+      noItems: 'لا توجد أصناف بعد.',
+      noItemsHint: 'أضف صنفاً عبر "صنف جديد".',
+      noMatches: 'لا توجد أصناف مطابقة.',
+      item: 'الصنف',
+      menus: 'القوائم',
+      price: 'السعر',
+      status: 'الحالة',
+      actions: 'الإجراءات',
+      notOnAnyMenu: 'غير موجود في أي قائمة',
+      moveUp: 'نقل الصنف للأعلى',
+      moveDown: 'نقل الصنف للأسفل',
+      delete: 'حذف الصنف',
+      confirmDelete: (name: string) => `هل تريد حذف "${name}"؟ سيُزال من جميع القوائم، ولا يمكن التراجع عن هذا الإجراء.`
+    },
+
+    link: {
+      title: (menu: string) => `ربط الأصناف بقائمة "${menu}"`,
+      intro: 'حدّد الأصناف التي تعرضها هذه القائمة. حدّد فئة لإضافة جميع أصنافها.',
+      search: 'البحث في الأصناف',
+      noItems: 'لا توجد لديك أصناف بعد.',
+      noItemsHint: 'أضفها أولاً من صفحة الأصناف.',
+      noMatches: 'لا توجد أصناف مطابقة.',
+      allIn: (category: string) => `جميع الأصناف في ${category}`,
+      selected: (n: number) => `تم تحديد ${arCount(n, 'صنف واحد', 'صنفين', 'أصناف', 'صنفاً')}`
     },
 
     menu: {

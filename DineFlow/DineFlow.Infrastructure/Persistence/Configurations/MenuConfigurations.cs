@@ -32,10 +32,10 @@ public class MenuCategoryConfiguration : IEntityTypeConfiguration<MenuCategory>
         builder.Property(c => c.NameAr).HasMaxLength(80);
 
         builder.HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Restrict);
-        // Deleting a menu deletes its categories; subcategories are removed by the service first.
-        builder.HasOne<Menu>().WithMany().HasForeignKey(c => c.MenuId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Venue>().WithMany().HasForeignKey(c => c.VenueId).OnDelete(DeleteBehavior.Restrict);
+        // Subcategories are removed by the service before their parent.
         builder.HasOne<MenuCategory>().WithMany().HasForeignKey(c => c.ParentId).OnDelete(DeleteBehavior.NoAction);
-        builder.HasIndex(c => new { c.MenuId, c.SortOrder });
+        builder.HasIndex(c => new { c.VenueId, c.ParentId, c.SortOrder });
     }
 }
 
@@ -60,6 +60,22 @@ public class MenuItemConfiguration : IEntityTypeConfiguration<MenuItem>
         builder.Navigation(i => i.ModifierGroups).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasIndex(i => new { i.CategoryId, i.SortOrder });
         builder.HasIndex(i => i.VenueId);
+    }
+}
+
+public class MenuItemLinkConfiguration : IEntityTypeConfiguration<MenuItemLink>
+{
+    public void Configure(EntityTypeBuilder<MenuItemLink> builder)
+    {
+        builder.ToTable("MenuItemLinks");
+        builder.HasKey(l => l.Id);
+
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Restrict);
+        // Deleting a menu or an item only removes the link; the other side stays.
+        builder.HasOne<Menu>().WithMany().HasForeignKey(l => l.MenuId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<MenuItem>().WithMany().HasForeignKey(l => l.MenuItemId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(l => new { l.MenuId, l.MenuItemId }).IsUnique();
+        builder.HasIndex(l => l.MenuItemId);
     }
 }
 

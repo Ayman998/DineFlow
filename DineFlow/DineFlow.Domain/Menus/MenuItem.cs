@@ -3,8 +3,9 @@ using DineFlow.Domain.Common;
 namespace DineFlow.Domain.Menus;
 
 /// <summary>
-/// A dish or drink (blueprint 3.3): name, description, price, image, allergens, tags,
-/// availability and its modifier groups. Prices are integer minor units in the venue currency.
+/// A dish or drink in the venue's catalog (blueprint 3.3): name, description, price, image, allergens,
+/// tags, availability and its modifier groups. Prices are integer minor units in the venue currency.
+/// Menus show it through a <see cref="MenuItemLink"/>.
 /// </summary>
 public class MenuItem : Entity, ITenantOwned
 {

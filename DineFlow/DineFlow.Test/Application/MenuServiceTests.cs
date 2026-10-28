@@ -25,9 +25,12 @@ public class MenuServiceTests : IDisposable
         await _host.CreateTenantAsync();
         var venue = await _host.CreateVenueAsync();
         var menu = await _host.Menus.CreateMenuAsync(venue.Id, AllDay(), default);
-        var category = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, null, "Mains", "الأطباق"), default);
+        var category = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", "الأطباق"), default);
         return (venue, menu, category);
     }
+
+    private Task LinkAsync(MenuDto menu, params ItemDto[] items) =>
+        _host.Menus.SetMenuItemsAsync(menu.Id, new MenuItemsRequest(items.Select(i => i.Id).ToList()), default);
 
     /// <summary>Starts a guest session at a table of the current venue and switches to guest mode.</summary>
     private async Task<Guid> StartGuestSessionAsync(Guid venueId)
@@ -41,14 +44,15 @@ public class MenuServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Item_with_modifiers_round_trips_through_the_tree()
+    public async Task Item_with_modifiers_round_trips_through_the_menu()
     {
-        var (venue, _, category) = await CreateMenuAsync();
+        var (venue, menu, category) = await CreateMenuAsync();
 
-        await _host.Menus.CreateItemAsync(Burger(category.Id,
+        var burger = await _host.Menus.CreateItemAsync(Burger(category.Id,
             new ModifierGroupRequest(null, "Doneness", null, 1, 1, [
                 new(null, "Medium", null, 0, true), new(null, "Well done", null, 0, false)
             ])), default);
+        await LinkAsync(menu, burger);
 
         var tree = await _host.Menus.GetTreeAsync(venue.Id, default);
         var item = tree.Menus.Single().Categories.Single().Items.Single();
@@ -79,7 +83,7 @@ public class MenuServiceTests : IDisposable
             new ModifierGroupRequest(null, "Extras", null, 0, 1, [new(null, "Cheese", null, 300, false)])), default);
 
         _host.Db.ChangeTracker.Clear();
-        var item = (await _host.Menus.GetTreeAsync(venue.Id, default)).Menus.Single().Categories.Single().Items.Single();
+        var item = (await _host.Menus.GetCatalogAsync(venue.Id, default)).Categories.Single().Items.Single();
 
         Assert.Equal(["Size", "Extras"], item.ModifierGroups.Select(g => g.Name));
         Assert.Equal(size.Id, item.ModifierGroups[0].Id);
@@ -90,29 +94,96 @@ public class MenuServiceTests : IDisposable
     [Fact]
     public async Task Subcategories_nest_one_level_only()
     {
-        var (venue, menu, mains) = await CreateMenuAsync();
-        var grills = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, mains.Id, "Grills", null), default);
+        var (venue, _, mains) = await CreateMenuAsync();
+        var grills = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, mains.Id, "Grills", null), default);
 
         var tooDeep = await Assert.ThrowsAsync<AppException>(() =>
-            _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, grills.Id, "Kebabs", null), default));
-        var tree = await _host.Menus.GetTreeAsync(venue.Id, default);
+            _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, grills.Id, "Kebabs", null), default));
+        var catalog = await _host.Menus.GetCatalogAsync(venue.Id, default);
 
         Assert.Equal("too_deep", tooDeep.Code);
-        Assert.Equal("Grills", tree.Menus.Single().Categories.Single().Subcategories.Single().Name);
+        Assert.Equal("Grills", catalog.Categories.Single().Subcategories.Single().Name);
     }
 
     [Fact]
-    public async Task Deleting_a_menu_removes_its_categories_and_items()
+    public async Task A_menu_shows_only_the_items_it_links_under_their_categories()
+    {
+        var (venue, allDay, mains) = await CreateMenuAsync();
+        var breakfast = await _host.Menus.CreateMenuAsync(venue.Id, AllDay("Breakfast"), default);
+        var grills = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, mains.Id, "Grills", null), default);
+        await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Desserts", null), default);
+        var burger = await _host.Menus.CreateItemAsync(Burger(mains.Id), default);
+        var kebab = await _host.Menus.CreateItemAsync(Burger(grills.Id) with { Name = "Kebab" }, default);
+        var coffee = await _host.Menus.CreateItemAsync(Burger(mains.Id) with { Name = "Coffee" }, default);
+
+        await LinkAsync(allDay, kebab, coffee);
+        await LinkAsync(breakfast, coffee);
+
+        var tree = await _host.Menus.GetTreeAsync(venue.Id, default);
+        var catalog = await _host.Menus.GetCatalogAsync(venue.Id, default);
+
+        // Empty categories (Desserts) and unlinked items (the burger) stay off the menu.
+        var allDayMains = tree.Menus.Single(m => m.Name == "All day").Categories.Single();
+        Assert.Equal(["Coffee"], allDayMains.Items.Select(i => i.Name));
+        Assert.Equal(["Kebab"], allDayMains.Subcategories.Single().Items.Select(i => i.Name));
+        var breakfastMains = tree.Menus.Single(m => m.Name == "Breakfast").Categories.Single();
+        Assert.Equal(["Coffee"], breakfastMains.Items.Select(i => i.Name));
+        Assert.Empty(breakfastMains.Subcategories);
+
+        // The catalog has everything, and which items each menu shows.
+        Assert.Equal(["Mains", "Desserts"], catalog.Categories.Select(c => c.Name));
+        Assert.Equal(3, catalog.Categories[0].Items.Count + catalog.Categories[0].Subcategories.Single().Items.Count);
+        Assert.True(catalog.Menus.Single(m => m.Id == allDay.Id).ItemIds.ToHashSet().SetEquals([kebab.Id, coffee.Id]));
+        Assert.Equal([coffee.Id], catalog.Menus.Single(m => m.Id == breakfast.Id).ItemIds);
+        Assert.DoesNotContain(catalog.Menus, m => m.ItemIds.Contains(burger.Id));
+    }
+
+    [Fact]
+    public async Task Linking_replaces_the_menus_items_and_only_takes_items_of_its_venue()
     {
         var (venue, menu, mains) = await CreateMenuAsync();
-        var grills = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(menu.Id, mains.Id, "Grills", null), default);
-        await _host.Menus.CreateItemAsync(Burger(grills.Id), default);
+        var burger = await _host.Menus.CreateItemAsync(Burger(mains.Id), default);
+        var kebab = await _host.Menus.CreateItemAsync(Burger(mains.Id) with { Name = "Kebab" }, default);
+        var otherVenue = await _host.CreateVenueAsync("Elsewhere");
+        var otherCategory = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(otherVenue.Id, null, "Mains", null), default);
+        var elsewhere = await _host.Menus.CreateItemAsync(Burger(otherCategory.Id), default);
+
+        await LinkAsync(menu, burger);
+        await LinkAsync(menu, kebab, kebab);
+        var wrongVenue = await Assert.ThrowsAsync<AppException>(() => LinkAsync(menu, kebab, elsewhere));
+
+        Assert.Equal("item_not_found", wrongVenue.Code);
+        Assert.Equal([kebab.Id], _host.Db.MenuItemLinks.Select(l => l.MenuItemId));
+    }
+
+    [Fact]
+    public async Task Deleting_a_menu_keeps_its_items_in_the_catalog()
+    {
+        var (venue, menu, mains) = await CreateMenuAsync();
+        var burger = await _host.Menus.CreateItemAsync(Burger(mains.Id), default);
+        await LinkAsync(menu, burger);
 
         await _host.Menus.DeleteMenuAsync(menu.Id, default);
 
         Assert.Empty((await _host.Menus.GetTreeAsync(venue.Id, default)).Menus);
+        Assert.Equal(burger.Id, (await _host.Menus.GetCatalogAsync(venue.Id, default)).Categories.Single().Items.Single().Id);
+        Assert.Empty(_host.Db.MenuItemLinks);
+    }
+
+    [Fact]
+    public async Task Deleting_a_category_removes_its_subcategories_and_items_from_every_menu()
+    {
+        var (venue, menu, mains) = await CreateMenuAsync();
+        var grills = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, mains.Id, "Grills", null), default);
+        var kebab = await _host.Menus.CreateItemAsync(Burger(grills.Id), default);
+        await LinkAsync(menu, kebab);
+
+        await _host.Menus.DeleteCategoryAsync(mains.Id, default);
+
+        Assert.Empty((await _host.Menus.GetTreeAsync(venue.Id, default)).Menus.Single().Categories);
         Assert.Empty(_host.Db.MenuCategories);
         Assert.Empty(_host.Db.MenuItems);
+        Assert.Empty(_host.Db.MenuItemLinks);
     }
 
     [Fact]
@@ -125,7 +196,7 @@ public class MenuServiceTests : IDisposable
 
         await _host.Menus.ReorderAsync(new ReorderRequest("items", [c.Id, a.Id, b.Id]), default);
 
-        var items = (await _host.Menus.GetTreeAsync(venue.Id, default)).Menus.Single().Categories.Single().Items;
+        var items = (await _host.Menus.GetCatalogAsync(venue.Id, default)).Categories.Single().Items;
         Assert.Equal(["C", "A", "B"], items.Select(i => i.Name));
     }
 
@@ -174,7 +245,9 @@ public class MenuServiceTests : IDisposable
         await _host.CreateTenantAsync("Someone else");
 
         Assert.Equal("venue_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.Menus.GetTreeAsync(venue.Id, default))).Code);
+        Assert.Equal("venue_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.Menus.GetCatalogAsync(venue.Id, default))).Code);
         Assert.Equal("menu_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.Menus.UpdateMenuAsync(menu.Id, AllDay("Hacked"), default))).Code);
+        Assert.Equal("menu_not_found", (await Assert.ThrowsAsync<AppException>(() => LinkAsync(menu, item))).Code);
         Assert.Equal("item_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.Menus.SetItemAvailabilityAsync(item.Id, false, default))).Code);
         Assert.Equal("category_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.Menus.CreateItemAsync(Burger(category.Id), default))).Code);
     }

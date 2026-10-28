@@ -6,6 +6,14 @@ namespace DineFlow.Application.Menus;
 /// <summary>A venue's menus as a tree: menu → category → subcategory → item → modifier groups.</summary>
 public record MenuTreeDto(Guid VenueId, string Currency, IReadOnlyList<MenuDto> Menus);
 
+/// <summary>
+/// Every category and item of a venue, whether or not a menu shows it, and which items each menu links.
+/// </summary>
+public record CatalogDto(Guid VenueId, string Currency, IReadOnlyList<CategoryDto> Categories, IReadOnlyList<CatalogMenuDto> Menus);
+
+/// <param name="ItemIds">The items this menu shows.</param>
+public record CatalogMenuDto(Guid Id, string Name, string? NameAr, IReadOnlyList<Guid> ItemIds);
+
 /// <param name="Days">Days the menu runs, e.g. ["Monday", "Tuesday"].</param>
 /// <param name="StartTime">"HH:mm" in venue local time; null with EndTime means all day.</param>
 /// <param name="AvailableNow">Whether guests can order from it at this moment.</param>
@@ -23,7 +31,6 @@ public record MenuDto(
 
 public record CategoryDto(
     Guid Id,
-    Guid MenuId,
     Guid? ParentId,
     string Name,
     string? NameAr,
@@ -61,7 +68,7 @@ public record MenuRequest(
     [RegularExpression(@"^\d{2}:\d{2}$", ErrorMessage = "Use HH:mm, e.g. 11:30.")] string? EndTime);
 
 public record CreateCategoryRequest(
-    [Required] Guid MenuId,
+    [Required] Guid VenueId,
     Guid? ParentId,
     [Required, StringLength(80, MinimumLength = 1)] string Name,
     [StringLength(80)] string? NameAr);
@@ -100,6 +107,9 @@ public record ModifierOptionRequest(
     bool IsAvailable = true);
 
 public record AvailabilityRequest(bool IsAvailable);
+
+/// <param name="ItemIds">Every item the menu should show; items left out are taken off it.</param>
+public record MenuItemsRequest([Required] IReadOnlyList<Guid> ItemIds);
 
 /// <param name="Kind">"menus", "categories" or "items".</param>
 /// <param name="Ids">Every sibling, in the new order.</param>

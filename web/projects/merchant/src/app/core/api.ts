@@ -174,7 +174,6 @@ export interface MenuItemDto {
 
 export interface CategoryDto {
   id: string;
-  menuId: string;
   parentId: string | null;
   name: string;
   nameAr: string | null;
@@ -200,6 +199,15 @@ export interface MenuTreeDto {
   venueId: string;
   currency: string;
   menus: MenuDto[];
+}
+
+/** Every category and item of a venue, whether or not a menu shows it. */
+export interface CatalogDto {
+  venueId: string;
+  currency: string;
+  categories: CategoryDto[];
+  /** Each menu with the items it shows. */
+  menus: { id: string; name: string; nameAr: string | null; itemIds: string[] }[];
 }
 
 export interface MenuRequest {
@@ -241,6 +249,10 @@ export class MenuAdminApi {
     return this.http.get<MenuTreeDto>(`/v1/merchant/venues/${venueId}/menu`);
   }
 
+  catalog(venueId: string) {
+    return this.http.get<CatalogDto>(`/v1/merchant/venues/${venueId}/catalog`);
+  }
+
   createMenu(venueId: string, request: MenuRequest) {
     return this.http.post<MenuDto>(`/v1/merchant/venues/${venueId}/menus`, request);
   }
@@ -253,8 +265,13 @@ export class MenuAdminApi {
     return this.http.delete<void>(`/v1/merchant/menu/menus/${menuId}`);
   }
 
-  createCategory(menuId: string, parentId: string | null, name: string, nameAr: string | null) {
-    return this.http.post<CategoryDto>('/v1/merchant/menu/categories', { menuId, parentId, name, nameAr });
+  /** Makes the menu show exactly these items. */
+  setMenuItems(menuId: string, itemIds: string[]) {
+    return this.http.put<void>(`/v1/merchant/menu/menus/${menuId}/items`, { itemIds });
+  }
+
+  createCategory(venueId: string, parentId: string | null, name: string, nameAr: string | null) {
+    return this.http.post<CategoryDto>('/v1/merchant/menu/categories', { venueId, parentId, name, nameAr });
   }
 
   updateCategory(categoryId: string, name: string, nameAr: string | null) {

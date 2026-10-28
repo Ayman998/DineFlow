@@ -36,6 +36,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+    public DbSet<MenuItemLink> MenuItemLinks => Set<MenuItemLink>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Check> Checks => Set<Check>();
     public DbSet<ItemClaim> ItemClaims => Set<ItemClaim>();

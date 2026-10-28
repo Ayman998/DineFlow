@@ -1,0 +1,76 @@
+@let t = this.t();
+@let manage = auth.canManage();
+
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold">{{ t.categoriesPage.title }}</h1>
+    <p class="mt-1 text-sm text-ink-muted">{{ t.categoriesPage.intro }}</p>
+  </div>
+  @if (manage) {
+    <button type="button" class="btn-primary" (click)="dialog.set({ parentId: null, category: null })">{{ t.categoriesPage.newCategory }}</button>
+  }
+</div>
+
+@if (error()) {
+  <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
+}
+@if (notice()) {
+  <p class="mb-4 rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">{{ notice() }}</p>
+}
+
+@if (loading()) {
+  <div class="h-64 animate-pulse rounded-xl bg-white" aria-busy="true"></div>
+} @else if (!catalog()?.categories?.length) {
+  <div class="card text-center">
+    <p class="font-semibold">{{ t.categoriesPage.noCategories }}</p>
+    @if (manage) { <p class="mt-1 text-sm text-ink-muted">{{ t.categoriesPage.noCategoriesHint }}</p> }
+  </div>
+} @else {
+  @let categories = catalog()!.categories;
+  <div class="card p-0">
+    @for (category of categories; track category.id; let first = $first; let last = $last) {
+      <div class="border-b border-line pb-1 last:border-0">
+        <ng-container *ngTemplateOutlet="row; context: { $implicit: category, siblings: categories, first, last, total: itemTotal(category) }" />
+        @for (sub of category.subcategories; track sub.id; let subFirst = $first; let subLast = $last) {
+          <div class="ms-5 mb-2 border-s-2 border-line">
+            <ng-container *ngTemplateOutlet="row; context: { $implicit: sub, siblings: category.subcategories, first: subFirst, last: subLast, total: sub.items.length }" />
+          </div>
+        }
+      </div>
+    }
+  </div>
+}
+
+<ng-template #row let-category let-siblings="siblings" let-first="first" let-last="last" let-total="total">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+    <div>
+      <div class="font-semibold" [class.text-base]="!category.parentId" [class.text-sm]="category.parentId">
+        {{ category.name }}
+        @if (category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ category.nameAr }}</span> }
+      </div>
+      <div class="mt-0.5 text-xs text-ink-muted">
+        {{ t.itemCount(total) }} ·
+        <a class="link" routerLink="/items" [queryParams]="{ category: category.id }">{{ t.categoriesPage.viewItems }}</a>
+      </div>
+    </div>
+    @if (manage) {
+      <div class="flex flex-wrap items-center gap-1 text-sm">
+        @if (!category.parentId) {
+          <button type="button" class="link" (click)="dialog.set({ parentId: category.id, category: null })">{{ t.categoriesPage.addSubcategory }}</button>
+        }
+        <button type="button" class="link ms-3" (click)="dialog.set({ parentId: category.parentId, category })">{{ t.categoriesPage.rename }}</button>
+        <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="move(category, siblings, -1)" [attr.aria-label]="t.categoriesPage.moveUp">↑</button>
+        <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="move(category, siblings, 1)" [attr.aria-label]="t.categoriesPage.moveDown">↓</button>
+        <button type="button" class="btn-ghost px-2 text-red-700" (click)="delete(category)" [attr.aria-label]="t.categoriesPage.delete">✕</button>
+      </div>
+    }
+  </div>
+</ng-template>
+
+@if (dialog(); as d) {
+  <df-category-editor
+    [title]="d.category ? t.categoriesPage.renameCategory : d.parentId ? t.categoriesPage.newSubcategory : t.categoriesPage.newCategory"
+    [initial]="d.category"
+    (saved)="save($event)"
+    (cancelled)="dialog.set(null)" />
+}

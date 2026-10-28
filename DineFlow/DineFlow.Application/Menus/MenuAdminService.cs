@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 namespace DineFlow.Application.Menus;
 
 /// <summary>
-/// Menu management for the signed-in merchant (blueprint 4.4 "Menu"): menus with schedules,
-/// categories and subcategories, items with prices, allergens, tags, availability and modifiers.
+/// Menu management for the signed-in merchant (blueprint 4.4 "Menu"): the venue's catalog of
+/// categories, subcategories and items (prices, allergens, tags, availability and modifiers), and
+/// menus with schedules that each link the catalog items they show.
 /// Every query is limited to the merchant's tenant by the DbContext filter.
 /// </summary>
 public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvider clock)
@@ -19,12 +20,30 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
         var venue = await FindVenueAsync(venueId, ct);
         var menus = await db.Menus.AsNoTracking().Where(m => m.VenueId == venueId).ToListAsync(ct);
         var categories = await db.MenuCategories.AsNoTracking().Where(c => c.VenueId == venueId).ToListAsync(ct);
-        var items = await db.MenuItems.AsNoTracking()
-            .Where(i => i.VenueId == venueId)
-            .Include(i => i.ModifierGroups).ThenInclude(g => g.Options)
-            .ToListAsync(ct);
+        var items = await LoadItemsAsync(venueId, ct);
+        var menuIds = menus.Select(m => m.Id).ToList();
+        var links = await db.MenuItemLinks.AsNoTracking().Where(l => menuIds.Contains(l.MenuId)).ToListAsync(ct);
 
-        return MenuTree.Build(venue, menus, categories, items, LocalNow(venue));
+        return MenuTree.Build(venue, menus, categories, items, links, LocalNow(venue));
+    }
+
+    /// <summary>Every category and item of the venue, and the items each menu shows.</summary>
+    public async Task<CatalogDto> GetCatalogAsync(Guid venueId, CancellationToken ct)
+    {
+        var venue = await FindVenueAsync(venueId, ct);
+        var categories = await db.MenuCategories.AsNoTracking().Where(c => c.VenueId == venueId).ToListAsync(ct);
+        var items = await LoadItemsAsync(venueId, ct);
+        var menus = await db.Menus.AsNoTracking().Where(m => m.VenueId == venueId)
+            .OrderBy(m => m.SortOrder).ThenBy(m => m.Name).ToListAsync(ct);
+        var menuIds = menus.Select(m => m.Id).ToList();
+        var itemIdsByMenu = (await db.MenuItemLinks.AsNoTracking().Where(l => menuIds.Contains(l.MenuId)).ToListAsync(ct))
+            .ToLookup(l => l.MenuId, l => l.MenuItemId);
+
+        return new CatalogDto(
+            venue.Id,
+            venue.Currency,
+            MenuTree.Categories(categories, items, hideEmpty: false),
+            menus.Select(m => new CatalogMenuDto(m.Id, m.Name, m.NameAr, itemIdsByMenu[m.Id].ToList())).ToList());
     }
 
     // ---- Menus ----
@@ -61,14 +80,30 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
         return MenuTree.ToMenu(menu, LocalNow(venue), []);
     }
 
+    /// <summary>Deletes the menu. Its items stay in the catalog; only their links to this menu go.</summary>
     public async Task DeleteMenuAsync(Guid menuId, CancellationToken ct)
     {
         var menu = await FindMenuAsync(menuId, ct);
-        var categories = await db.MenuCategories.Where(c => c.MenuId == menuId).ToListAsync(ct);
-
-        // Subcategories point at their parent with no cascade, so EF deletes children first.
-        db.MenuCategories.RemoveRange(categories);
         db.Menus.Remove(menu);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Makes the menu show exactly <paramref name="request"/>.ItemIds, all from the menu's venue.</summary>
+    public async Task SetMenuItemsAsync(Guid menuId, MenuItemsRequest request, CancellationToken ct)
+    {
+        var menu = await FindMenuAsync(menuId, ct);
+        var wanted = request.ItemIds.ToHashSet();
+
+        var found = await db.MenuItems.CountAsync(i => wanted.Contains(i.Id) && i.VenueId == menu.VenueId, ct);
+        if (found != wanted.Count)
+            throw AppException.NotFound("item_not_found", "Some of those items no longer exist. Reload and try again.");
+
+        var links = await db.MenuItemLinks.Where(l => l.MenuId == menuId).ToListAsync(ct);
+        db.MenuItemLinks.RemoveRange(links.Where(l => !wanted.Contains(l.MenuItemId)));
+        var linked = links.Select(l => l.MenuItemId).ToHashSet();
+        db.MenuItemLinks.AddRange(wanted.Where(id => !linked.Contains(id))
+            .Select(id => new MenuItemLink(menu.TenantId, menu.Id, id)));
+
         await db.SaveChangesAsync(ct);
     }
 
@@ -76,23 +111,23 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
 
     public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryRequest request, CancellationToken ct)
     {
-        var menu = await FindMenuAsync(request.MenuId, ct);
+        var venue = await FindVenueAsync(request.VenueId, ct);
 
         if (request.ParentId is { } parentId)
         {
             var parent = await db.MenuCategories.SingleOrDefaultAsync(c => c.Id == parentId, ct);
-            if (parent is null || parent.MenuId != menu.Id)
-                throw AppException.BadRequest("parent_not_found", "The parent category isn't in this menu.");
+            if (parent is null || parent.VenueId != venue.Id)
+                throw AppException.BadRequest("parent_not_found", "The parent category isn't in this venue.");
             if (parent.ParentId is not null)
                 throw AppException.BadRequest("too_deep", "Subcategories can't have their own subcategories.");
         }
 
         var nextOrder = await db.MenuCategories
-            .Where(c => c.MenuId == menu.Id && c.ParentId == request.ParentId)
+            .Where(c => c.VenueId == venue.Id && c.ParentId == request.ParentId)
             .Select(c => (int?)c.SortOrder).MaxAsync(ct) ?? -1;
 
         var category = Apply(() => new MenuCategory(
-            tenant.RequireTenantId(), menu.VenueId, menu.Id, request.ParentId, request.Name, request.NameAr, nextOrder + 1));
+            tenant.RequireTenantId(), venue.Id, request.ParentId, request.Name, request.NameAr, nextOrder + 1));
 
         db.MenuCategories.Add(category);
         await db.SaveChangesAsync(ct);
@@ -112,7 +147,7 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
         return MenuTree.ToCategoryShell(category);
     }
 
-    /// <summary>Deletes the category, its subcategories and all their items.</summary>
+    /// <summary>Deletes the category, its subcategories and all their items, from every menu.</summary>
     public async Task DeleteCategoryAsync(Guid categoryId, CancellationToken ct)
     {
         var category = await FindCategoryAsync(categoryId, ct);
@@ -203,7 +238,7 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
                 break;
             case "categories":
                 var categories = await db.MenuCategories.Where(c => ids.Contains(c.Id)).ToListAsync(ct);
-                EnsureSiblings(ids, categories, c => c.Id, c => (c.MenuId, c.ParentId));
+                EnsureSiblings(ids, categories, c => c.Id, c => (c.VenueId, c.ParentId));
                 foreach (var c in categories) c.SetSortOrder(ids.IndexOf(c.Id));
                 break;
             default:
@@ -249,6 +284,12 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
     }
 
     private DateTime LocalNow(Venue venue) => VenueTime.LocalNow(clock, venue.TimeZone);
+
+    private Task<List<MenuItem>> LoadItemsAsync(Guid venueId, CancellationToken ct) =>
+        db.MenuItems.AsNoTracking()
+            .Where(i => i.VenueId == venueId)
+            .Include(i => i.ModifierGroups).ThenInclude(g => g.Options)
+            .ToListAsync(ct);
 
     private static T Apply<T>(Func<T> change)
     {
