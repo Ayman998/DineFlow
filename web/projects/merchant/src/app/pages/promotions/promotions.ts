@@ -4,7 +4,9 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DiscountType, PromoCode, PromoCodeRequest, PromotionsApi } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { formatMoney, parseMajor, toMajorString } from '../../core/money';
+import { PROMOTIONS } from './promotions.i18n';
 
 /**
  * Promotion and voucher codes (blueprint E30, P1-PAY-08): codes guests enter at checkout, and the
@@ -20,6 +22,8 @@ export class Promotions implements OnInit {
   private readonly api = inject(PromotionsApi);
   private readonly venue = inject(CurrentVenue);
   protected readonly auth = inject(Auth);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(PROMOTIONS);
 
   protected readonly codes = signal<PromoCode[] | null>(null);
   protected readonly loadError = signal<string | null>(null);
@@ -50,28 +54,31 @@ export class Promotions implements OnInit {
   }
 
   protected discountText(p: PromoCode): string {
+    const t = this.t();
     if (p.type === 'Percent') {
-      const cap = p.maxDiscountMinor ? `, up to ${formatMoney(p.maxDiscountMinor, this.currency())}` : '';
-      return `${p.value / 100}% off${cap}`;
+      const cap = p.maxDiscountMinor ? t.upTo(formatMoney(p.maxDiscountMinor, this.currency())) : '';
+      return `${t.percentOff(p.value / 100)}${cap}`;
     }
-    return `${formatMoney(p.value, this.currency())} off`;
+    return t.amountOff(formatMoney(p.value, this.currency()));
   }
 
   protected limitsText(p: PromoCode): string {
+    const t = this.t();
     const parts: string[] = [];
-    if (p.minBillMinor) parts.push(`min. ${formatMoney(p.minBillMinor, this.currency())}`);
-    if (p.startsAt) parts.push(`from ${this.date(p.startsAt)}`);
-    if (p.endsAt) parts.push(`until ${this.date(p.endsAt)}`);
-    return parts.join(' · ') || 'No limits';
+    if (p.minBillMinor) parts.push(t.minBillLimit(formatMoney(p.minBillMinor, this.currency())));
+    if (p.startsAt) parts.push(t.from(this.date(p.startsAt)));
+    if (p.endsAt) parts.push(t.until(this.date(p.endsAt)));
+    return parts.join(' · ') || t.noLimits;
   }
 
   protected status(p: PromoCode): { label: string; tone: 'on' | 'off' | 'warn' } {
+    const t = this.t();
     const now = Date.now();
-    if (!p.isActive) return { label: 'Paused', tone: 'off' };
-    if (p.endsAt && new Date(p.endsAt).getTime() <= now) return { label: 'Expired', tone: 'off' };
-    if (p.maxRedemptions && p.redemptionCount >= p.maxRedemptions) return { label: 'Used up', tone: 'off' };
-    if (p.startsAt && new Date(p.startsAt).getTime() > now) return { label: 'Scheduled', tone: 'warn' };
-    return { label: 'Active', tone: 'on' };
+    if (!p.isActive) return { label: t.paused, tone: 'off' };
+    if (p.endsAt && new Date(p.endsAt).getTime() <= now) return { label: t.expired, tone: 'off' };
+    if (p.maxRedemptions && p.redemptionCount >= p.maxRedemptions) return { label: t.usedUp, tone: 'off' };
+    if (p.startsAt && new Date(p.startsAt).getTime() > now) return { label: t.scheduled, tone: 'warn' };
+    return { label: t.active, tone: 'on' };
   }
 
   protected open(code: PromoCode | 'new'): void {
@@ -154,37 +161,38 @@ export class Promotions implements OnInit {
   private toRequest(): PromoCodeRequest | string {
     const v = this.form.getRawValue();
     const currency = this.currency();
+    const t = this.t();
 
     let value: number;
     if (v.type === 'Percent') {
       const percent = Number(v.value);
-      if (!/^\d+(\.\d{1,2})?$/.test(v.value.trim()) || percent <= 0 || percent > 100) return 'Enter a percentage between 0.01 and 100.';
+      if (!/^\d+(\.\d{1,2})?$/.test(v.value.trim()) || percent <= 0 || percent > 100) return t.percentRange;
       value = Math.round(percent * 100);
     } else {
       const amount = parseMajor(v.value, currency);
-      if (!amount) return `Enter the discount in ${currency}, e.g. 20 or 7.50.`;
+      if (!amount) return t.amountInvalid(currency);
       value = amount;
     }
 
-    const optionalMoney = (text: string, label: string): number | null | string => {
+    const optionalMoney = (text: string, invalid: string): number | null | string => {
       if (!text.trim()) return null;
-      return parseMajor(text, currency) ?? `Enter ${label} in ${currency}, e.g. 50.`;
+      return parseMajor(text, currency) ?? invalid;
     };
-    const maxDiscount = v.type === 'Percent' ? optionalMoney(v.maxDiscount, 'the maximum discount') : null;
+    const maxDiscount = v.type === 'Percent' ? optionalMoney(v.maxDiscount, t.maxDiscountInvalid(currency)) : null;
     if (typeof maxDiscount === 'string') return maxDiscount;
-    if (maxDiscount === 0) return 'The maximum discount must be more than zero.';
-    const minBill = optionalMoney(v.minBill, 'the minimum bill');
+    if (maxDiscount === 0) return t.maxDiscountZero;
+    const minBill = optionalMoney(v.minBill, t.minBillInvalid(currency));
     if (typeof minBill === 'string') return minBill;
 
     let maxRedemptions: number | null = null;
     if (v.maxRedemptions.trim()) {
       maxRedemptions = Number(v.maxRedemptions);
-      if (!Number.isInteger(maxRedemptions) || maxRedemptions < 1) return 'The redemption limit must be a whole number of at least 1.';
+      if (!Number.isInteger(maxRedemptions) || maxRedemptions < 1) return t.redemptionLimitInvalid;
     }
 
     const startsAt = v.startsAt ? new Date(v.startsAt).toISOString() : null;
     const endsAt = v.endsAt ? new Date(v.endsAt).toISOString() : null;
-    if (startsAt && endsAt && endsAt <= startsAt) return 'The end date must be after the start date.';
+    if (startsAt && endsAt && endsAt <= startsAt) return t.endBeforeStart;
 
     return {
       code: v.code.trim().toUpperCase(),
@@ -202,7 +210,7 @@ export class Promotions implements OnInit {
   }
 
   private date(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(iso).toLocaleDateString(this.i18n.locale(), { day: '2-digit', month: 'short', year: 'numeric' });
   }
 }
 

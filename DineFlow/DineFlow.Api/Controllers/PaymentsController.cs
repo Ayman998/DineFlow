@@ -76,7 +76,7 @@ public class PaymentsController(BillService bills, PromotionService promotions, 
     [EnableRateLimiting(Policies.PublicRateLimit)]
     public async Task<IActionResult> Receipt(Guid paymentId, ReceiptRequest request, CancellationToken ct)
     {
-        await payments.SendReceiptAsync(SessionId(), paymentId, request.Email, ct);
+        await payments.SendReceiptAsync(SessionId(), paymentId, request.Email, ArabicErrors.RequestedLanguage(Request), ct);
         return NoContent();
     }
 

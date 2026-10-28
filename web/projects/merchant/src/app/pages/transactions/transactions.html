@@ -1,24 +1,25 @@
+@let t = this.t();
 @let d = data();
 
 <div class="mx-auto flex max-w-6xl flex-col gap-6">
   <div>
-    <h1 class="text-2xl font-bold">Transactions</h1>
-    <p class="text-sm text-ink-muted">Every payment guests made, with refunds and the full timeline</p>
+    <h1 class="text-2xl font-bold">{{ t.title }}</h1>
+    <p class="text-sm text-ink-muted">{{ t.intro }}</p>
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
-    <label class="sr-only" for="tx-range">Period</label>
+    <label class="sr-only" for="tx-range">{{ t.period }}</label>
     <select id="tx-range" class="field w-auto" [value]="'' + days()" (change)="setRange(+$any($event.target).value)">
-      @for (r of ranges; track r) { <option [value]="'' + r">{{ r === 1 ? 'Last 24 hours' : 'Last ' + r + ' days' }}</option> }
+      @for (r of ranges; track r) { <option [value]="'' + r">{{ t.range(r) }}</option> }
     </select>
-    <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" aria-label="Status">
+    <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" [attr.aria-label]="t.status">
       @for (s of filters; track s) {
         <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="status() === s"
-                [class]="status() === s ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setStatus(s)">{{ s === 'Succeeded' ? 'Paid' : s }}</button>
+                [class]="status() === s ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setStatus(s)">{{ t.filters[s] }}</button>
       }
     </div>
-    <label class="sr-only" for="tx-search">Search</label>
-    <input id="tx-search" class="field w-64" type="search" placeholder="Reference, link, table or amount" [value]="search()" (input)="setSearch($any($event.target).value)" />
+    <label class="sr-only" for="tx-search">{{ i18n.t().search }}</label>
+    <input id="tx-search" class="field w-64" type="search" [placeholder]="t.searchPlaceholder" [value]="search()" (input)="setSearch($any($event.target).value)" />
   </div>
 
   @if (error()) {
@@ -28,50 +29,50 @@
   @if (d) {
     @let cur = d.items[0]?.currency ?? 'AED';
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="card py-4"><p class="text-sm text-ink-muted">Paid ({{ d.totals.count }})</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.grossMinor, cur) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">Of which tips</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.tipsMinor, cur) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">Refunded</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.refundsMinor, cur) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">Net</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.netMinor, cur) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paidCount(d.totals.count) }}</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.grossMinor, cur) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.ofWhichTips }}</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.tipsMinor, cur) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.refunded }}</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.refundsMinor, cur) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.net }}</p><p class="mt-1 text-xl font-semibold">{{ money(d.totals.netMinor, cur) }}</p></div>
     </div>
 
     <section class="card p-0 transition-opacity" [class.opacity-60]="loading()">
       @if (!d.items.length) {
-        <p class="px-5 py-10 text-center text-sm text-ink-muted">No payments match.</p>
+        <p class="px-5 py-10 text-center text-sm text-ink-muted">{{ t.noMatch }}</p>
       } @else {
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="border-b border-line text-xs text-ink-muted uppercase">
               <tr>
-                <th scope="col" class="px-5 py-2.5 text-start font-semibold">Date &amp; time</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Reference</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Table</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Method</th>
-                <th scope="col" class="px-3 py-2.5 text-end font-semibold">Amount</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Status</th>
-                <th scope="col" class="px-5 py-2.5"><span class="sr-only">Actions</span></th>
+                <th scope="col" class="px-5 py-2.5 text-start font-semibold">{{ t.dateTime }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.reference }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.table }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.method }}</th>
+                <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.amount }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.status }}</th>
+                <th scope="col" class="px-5 py-2.5"><span class="sr-only">{{ t.actions }}</span></th>
               </tr>
             </thead>
             <tbody>
-              @for (t of d.items; track t.id) {
+              @for (row of d.items; track row.id) {
                 <tr class="border-b border-line last:border-0">
-                  <td class="px-5 py-3 whitespace-nowrap text-ink-muted">{{ when(t.createdAt) }}</td>
-                  <td class="px-3 py-3 font-mono text-xs">{{ t.reference }}</td>
-                  <td class="px-3 py-3 whitespace-nowrap">{{ place(t) }}</td>
-                  <td class="px-3 py-3 whitespace-nowrap">{{ t.cardBrand ?? t.method }}@if (t.cardLast4) { · {{ t.cardLast4 }} }</td>
+                  <td class="px-5 py-3 whitespace-nowrap text-ink-muted">{{ when(row.createdAt) }}</td>
+                  <td class="px-3 py-3 font-mono text-xs">{{ row.reference }}</td>
+                  <td class="px-3 py-3 whitespace-nowrap">{{ place(row) }}</td>
+                  <td class="px-3 py-3 whitespace-nowrap">{{ row.cardBrand ?? method(row.method) }}@if (row.cardLast4) { · {{ row.cardLast4 }} }</td>
                   <td class="px-3 py-3 text-end whitespace-nowrap tabular-nums">
-                    {{ money(t.amountMinor, t.currency) }}
-                    @if (t.refundedMinor) { <span class="block text-xs text-ink-muted">−{{ money(t.refundedMinor, t.currency) }} refunded</span> }
+                    {{ money(row.amountMinor, row.currency) }}
+                    @if (row.refundedMinor) { <span class="block text-xs text-ink-muted">{{ t.amountRefunded(money(row.refundedMinor, row.currency)) }}</span> }
                   </td>
                   <td class="px-3 py-3 whitespace-nowrap">
-                    <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="stateClass(t.state)">{{ stateLabel(t.state) }}</span>
-                    @if (t.refundPending) { <span class="ms-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">Refund pending</span> }
-                    @if (t.posStatus && t.posStatus !== 'Posted') {
-                      <span class="ms-1 rounded-full px-2 py-0.5 text-xs font-semibold" [class]="t.posStatus === 'Failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'">
-                        {{ t.posStatus === 'Failed' ? 'POS refused' : 'Not in POS yet' }}
+                    <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="stateClass(row.state)">{{ stateLabel(row.state) }}</span>
+                    @if (row.refundPending) { <span class="ms-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">{{ t.refundPending }}</span> }
+                    @if (row.posStatus && row.posStatus !== 'Posted') {
+                      <span class="ms-1 rounded-full px-2 py-0.5 text-xs font-semibold" [class]="row.posStatus === 'Failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'">
+                        {{ row.posStatus === 'Failed' ? t.posRefused : t.notInPosYet }}
                       </span>
                     }
                   </td>
-                  <td class="px-5 py-3 text-end"><button type="button" class="link" (click)="open(t.id)">Details</button></td>
+                  <td class="px-5 py-3 text-end"><button type="button" class="link" (click)="open(row.id)">{{ t.details }}</button></td>
                 </tr>
               }
             </tbody>
@@ -79,102 +80,102 @@
         </div>
       }
       <div class="flex items-center justify-end gap-4 border-t border-line px-5 py-3 text-sm text-ink-muted">
-        <span>{{ d.total ? (d.page - 1) * d.pageSize + 1 : 0 }}–{{ lastRow(d) }} of {{ d.total }}</span>
+        <span>{{ t.pageRange(d.total ? (d.page - 1) * d.pageSize + 1 : 0, lastRow(d), d.total) }}</span>
         <span class="flex gap-1">
-          <button type="button" class="btn-ghost px-2 py-1" aria-label="Previous page" [disabled]="d.page <= 1" (click)="goTo(d.page - 1)">‹</button>
-          <button type="button" class="btn-ghost px-2 py-1" aria-label="Next page" [disabled]="lastRow(d) >= d.total" (click)="goTo(d.page + 1)">›</button>
+          <button type="button" class="btn-ghost px-2 py-1" [attr.aria-label]="t.previousPage" [disabled]="d.page <= 1" (click)="goTo(d.page - 1)">‹</button>
+          <button type="button" class="btn-ghost px-2 py-1" [attr.aria-label]="t.nextPage" [disabled]="lastRow(d) >= d.total" (click)="goTo(d.page + 1)">›</button>
         </span>
       </div>
     </section>
   } @else if (!error()) {
-    <p class="text-sm text-ink-muted">Loading…</p>
+    <p class="text-sm text-ink-muted">{{ i18n.t().loading }}</p>
   }
 </div>
 
-@if (detail(); as t) {
-  @let s = t.summary;
+@if (detail(); as tx) {
+  @let s = tx.summary;
   <div class="modal-backdrop" (click)="close()"></div>
   <div class="drawer max-w-xl overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="tx-title">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h2 id="tx-title" class="text-lg font-bold">{{ money(s.amountMinor, s.currency) }} · {{ place(s) }}@if (t.areaName) { · {{ t.areaName }} }@if (t.paymentLinkReference) { · {{ t.paymentLinkReference }} }</h2>
-        <p class="text-sm text-ink-muted">Ref <span class="font-mono">{{ s.reference }}</span> · {{ when(s.createdAt) }}</p>
+        <h2 id="tx-title" class="text-lg font-bold">{{ money(s.amountMinor, s.currency) }} · {{ place(s) }}@if (tx.areaName) { · {{ tx.areaName }} }@if (tx.paymentLinkReference) { · {{ tx.paymentLinkReference }} }</h2>
+        <p class="text-sm text-ink-muted">{{ t.ref }} <span class="font-mono">{{ s.reference }}</span> · {{ when(s.createdAt) }}</p>
       </div>
-      <button type="button" class="btn-ghost px-2" aria-label="Close" (click)="close()">✕</button>
+      <button type="button" class="btn-ghost px-2" [attr.aria-label]="i18n.t().close" (click)="close()">✕</button>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
       <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="stateClass(s.state)">{{ stateLabel(s.state) }}</span>
-      @if (s.refundPending) { <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Refund waiting for the provider</span> }
+      @if (s.refundPending) { <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{{ t.refundWaiting }}</span> }
       @if (s.posStatus) {
         <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
               [class]="s.posStatus === 'Posted' ? 'bg-emerald-50 text-emerald-700' : s.posStatus === 'Failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'">
-          {{ s.posStatus === 'Posted' ? 'In the POS' : s.posStatus === 'Failed' ? 'POS refused it' : 'Waiting for the POS' }}
+          {{ s.posStatus === 'Posted' ? t.inPos : s.posStatus === 'Failed' ? t.posRefusedIt : t.waitingForPos }}
         </span>
       }
-      @if (modeText(t); as m) { <span class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-muted">{{ m }}</span> }
-      @if (t.reviewRating) { <span class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-muted">Rated {{ t.reviewRating }} / 5</span> }
+      @if (modeText(tx); as m) { <span class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-muted">{{ m }}</span> }
+      @if (tx.reviewRating) { <span class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-muted">{{ t.rated(tx.reviewRating) }}</span> }
     </div>
-    @if (t.failureReason) { <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ t.failureReason }}</p> }
+    @if (tx.failureReason) { <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ tx.failureReason }}</p> }
 
-    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Payment</p>
+    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.payment }}</p>
     <dl class="mt-1 grid grid-cols-[160px_1fr] gap-y-1 text-sm">
-      <dt class="text-ink-muted">{{ s.paymentLinkCode ? 'Towards the link' : 'Towards the bill' }}</dt><dd>{{ money(t.billAmountMinor, s.currency) }}</dd>
-      @if (t.discountMinor) { <dt class="text-ink-muted">Promotion {{ t.promoCode }}</dt><dd>−{{ money(t.discountMinor, s.currency) }}</dd> }
-      <dt class="text-ink-muted">Tip</dt><dd>{{ money(t.tipMinor, s.currency) }}</dd>
-      <dt class="text-ink-muted">Charged</dt><dd class="font-semibold">{{ money(t.amountMinor, s.currency) }}</dd>
-      <dt class="text-ink-muted">Method</dt><dd>{{ s.cardBrand ?? s.method }}@if (s.cardLast4) { · {{ s.cardLast4 }} }</dd>
-      @if (s.refundedMinor) { <dt class="text-ink-muted">Refunded</dt><dd>−{{ money(s.refundedMinor, s.currency) }}</dd> }
+      <dt class="text-ink-muted">{{ s.paymentLinkCode ? t.towardsLink : t.towardsBill }}</dt><dd>{{ money(tx.billAmountMinor, s.currency) }}</dd>
+      @if (tx.discountMinor) { <dt class="text-ink-muted">{{ t.promotion }} {{ tx.promoCode }}</dt><dd>−{{ money(tx.discountMinor, s.currency) }}</dd> }
+      <dt class="text-ink-muted">{{ t.tip }}</dt><dd>{{ money(tx.tipMinor, s.currency) }}</dd>
+      <dt class="text-ink-muted">{{ t.charged }}</dt><dd class="font-semibold">{{ money(tx.amountMinor, s.currency) }}</dd>
+      <dt class="text-ink-muted">{{ t.method }}</dt><dd>{{ s.cardBrand ?? method(s.method) }}@if (s.cardLast4) { · {{ s.cardLast4 }} }</dd>
+      @if (s.refundedMinor) { <dt class="text-ink-muted">{{ t.refunded }}</dt><dd>−{{ money(s.refundedMinor, s.currency) }}</dd> }
     </dl>
 
-    @if (t.refunds.length) {
-      <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Refunds</p>
+    @if (tx.refunds.length) {
+      <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.refunds }}</p>
       <ul class="mt-1 flex flex-col gap-2 text-sm">
-        @for (r of t.refunds; track r.id) {
+        @for (r of tx.refunds; track r.id) {
           <li class="rounded-lg border border-line px-3 py-2">
             <div class="flex justify-between gap-3">
               <span class="font-semibold">{{ money(r.amountMinor, s.currency) }}</span>
               <span class="rounded-full px-2 py-0.5 text-xs font-semibold"
                     [class]="r.status === 'Succeeded' ? 'bg-emerald-50 text-emerald-700' : r.status === 'Failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'">
-                {{ r.status === 'Succeeded' ? 'Refunded' : r.status === 'Failed' ? 'Declined' : 'Pending' }}
+                {{ t.refundStates[r.status] }}
               </span>
             </div>
-            <p class="text-ink-muted">{{ r.reason }}@if (r.requestedBy) { · by {{ r.requestedBy }} } · {{ when(r.createdAt) }}</p>
+            <p class="text-ink-muted">{{ r.reason }}@if (r.requestedBy) { · {{ t.by(r.requestedBy) }} } · {{ when(r.createdAt) }}</p>
             @if (r.failureReason) { <p class="text-red-800">{{ r.failureReason }}</p> }
           </li>
         }
       </ul>
     }
 
-    @if (auth.canManage() && t.refundableMinor > 0) {
+    @if (auth.canManage() && tx.refundableMinor > 0) {
       @if (refundOpen()) {
         <form class="mt-4 rounded-lg border border-line p-4" (submit)="$event.preventDefault(); submitRefund()">
-          <p class="font-semibold">Refund</p>
-          <p class="text-sm text-ink-muted">Up to {{ money(t.refundableMinor, s.currency) }}. The money goes back to the guest's {{ s.cardBrand ?? s.method }}.</p>
+          <p class="font-semibold">{{ t.refund }}</p>
+          <p class="text-sm text-ink-muted">{{ t.refundHint(money(tx.refundableMinor, s.currency), s.cardBrand ?? method(s.method)) }}</p>
           <div class="mt-3 grid gap-3 sm:grid-cols-[140px_1fr]">
-            <label><span class="field-label">Amount ({{ s.currency }})</span>
+            <label><span class="field-label">{{ t.amountIn(s.currency) }}</span>
               <input class="field" inputmode="decimal" [value]="refundAmount()" (input)="refundAmount.set($any($event.target).value)" /></label>
-            <label><span class="field-label">Reason</span>
-              <input class="field" maxlength="200" placeholder="e.g. Item was unavailable" [value]="refundReason()" (input)="refundReason.set($any($event.target).value)" /></label>
+            <label><span class="field-label">{{ t.reason }}</span>
+              <input class="field" maxlength="200" [placeholder]="t.reasonPlaceholder" [value]="refundReason()" (input)="refundReason.set($any($event.target).value)" /></label>
           </div>
           @if (refundError()) { <p class="mt-2 text-sm text-red-700" role="alert">{{ refundError() }}</p> }
           <div class="mt-3 flex justify-end gap-2">
-            <button type="button" class="btn-ghost" (click)="refundOpen.set(false)">Cancel</button>
-            <button type="submit" class="btn-primary" [disabled]="refunding()">{{ refunding() ? 'Refunding…' : 'Refund' }}</button>
+            <button type="button" class="btn-ghost" (click)="refundOpen.set(false)">{{ i18n.t().cancel }}</button>
+            <button type="submit" class="btn-primary" [disabled]="refunding()">{{ refunding() ? t.refunding : t.refund }}</button>
           </div>
         </form>
       } @else {
-        <button type="button" class="btn-secondary mt-4" (click)="startRefund()">Refund…</button>
+        <button type="button" class="btn-secondary mt-4" (click)="startRefund()">{{ t.refundMenu }}</button>
       }
     }
 
-    @if (t.orders.length) {
-    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Items</p>
+    @if (tx.orders.length) {
+    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.items }}</p>
     <table class="mt-1 w-full text-sm">
       <tbody>
-        @for (o of t.orders; track o.id) {
+        @for (o of tx.orders; track o.id) {
           @for (l of o.lines; track $index) {
             <tr class="border-t border-line" [class.text-ink-muted]="o.status === 'Rejected'">
-              <td class="py-1.5">{{ l.quantity }} × {{ l.name }} <span class="text-xs text-ink-muted">#{{ o.number }}@if (o.status === 'Rejected') { · rejected }</span></td>
+              <td class="py-1.5">{{ l.quantity }} × {{ l.name }} <span class="text-xs text-ink-muted">#{{ o.number }}@if (o.status === 'Rejected') { · {{ t.rejected }} }</span></td>
               <td class="py-1.5 text-end">{{ money(l.lineTotalMinor, s.currency) }}</td>
             </tr>
           }
@@ -183,13 +184,13 @@
     </table>
     }
 
-    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">Timeline</p>
+    <p class="mt-5 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.timeline }}</p>
     <ol class="mt-2 border-s border-line ps-4">
-      @for (e of t.timeline; track $index) {
+      @for (e of tx.timeline; track $index) {
         <li class="relative pb-3 text-sm">
           <span class="absolute -start-[21px] top-1.5 size-2.5 rounded-full border-2 border-white"
                 [class]="e.kind === 'refund' ? 'bg-amber-500' : e.kind === 'provider' ? 'bg-brand' : e.kind === 'pos' ? 'bg-[#3538CD]' : 'bg-[#98A2B3]'"></span>
-          <span class="block">{{ e.text }}</span>
+          <span class="block">{{ step(e, s.currency) }}</span>
           <span class="text-xs text-ink-muted">{{ when(e.at) }}</span>
         </li>
       }

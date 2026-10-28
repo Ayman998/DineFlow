@@ -3,7 +3,9 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { PosApi, PosCommandPage, PosCommandStatus, PosSettings, PosSimulator, SimulatorMode } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
+import { POS_SETTINGS } from './settings.i18n';
 
 /**
  * Settings → POS (blueprint E3, E9): which POS the venue uses and its credentials, a connection
@@ -19,6 +21,8 @@ export class PosSettingsPanel implements OnInit {
   private readonly venue = inject(CurrentVenue);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
+  private readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(POS_SETTINGS);
 
   protected readonly settings = signal<PosSettings | null>(null);
   protected readonly commands = signal<PosCommandPage | null>(null);
@@ -40,12 +44,7 @@ export class PosSettingsPanel implements OnInit {
   protected readonly productRefs = signal<Record<string, string | undefined>>({});
   protected readonly showProducts = signal(false);
 
-  protected readonly modes: { value: SimulatorMode; label: string }[] = [
-    { value: 'Online', label: 'Online' },
-    { value: 'Offline', label: 'Offline (nothing gets through)' },
-    { value: 'TimeoutAfterApplying', label: 'Time out after applying (once)' },
-    { value: 'Refuse', label: 'Refuse everything' }
-  ];
+  protected readonly modes: SimulatorMode[] = ['Online', 'Offline', 'TimeoutAfterApplying', 'Refuse'];
 
   protected readonly chosen = computed(() => this.settings()?.providers.find(p => p.provider === this.provider()) ?? null);
   protected readonly unmapped = computed(() => this.settings()?.tables.filter(t => !t.externalRef).length ?? 0);
@@ -67,14 +66,14 @@ export class PosSettingsPanel implements OnInit {
       accessToken: token ? token : null,
       isActive: this.active(),
       autoClose: this.autoClose()
-    }), 'Saved.');
+    }), this.t().saved);
   }
 
   protected removeToken(): void {
     const venueId = this.venue.venue()?.id;
     const c = this.settings()?.connection;
     if (!venueId || !c) return;
-    this.run(this.api.save(venueId, { provider: c.provider, branchRef: c.branchRef, accessToken: '', isActive: false, autoClose: c.autoClose }), 'Token removed and the connection paused.');
+    this.run(this.api.save(venueId, { provider: c.provider, branchRef: c.branchRef, accessToken: '', isActive: false, autoClose: c.autoClose }), this.t().tokenRemoved);
   }
 
   protected check(): void {
@@ -86,14 +85,14 @@ export class PosSettingsPanel implements OnInit {
     const venueId = this.venue.venue()?.id;
     const edits = this.tableRefs();
     if (!venueId) return;
-    this.run(this.api.map(venueId, Object.entries(edits).map(([locationId, ref]) => ({ locationId, externalRef: ref?.trim() || null })), null), 'Tables saved.');
+    this.run(this.api.map(venueId, Object.entries(edits).map(([locationId, ref]) => ({ locationId, externalRef: ref?.trim() || null })), null), this.t().tablesSaved);
   }
 
   protected saveProducts(): void {
     const venueId = this.venue.venue()?.id;
     const edits = this.productRefs();
     if (!venueId) return;
-    this.run(this.api.map(venueId, null, Object.entries(edits).map(([itemId, ref]) => ({ itemId, posProductRef: ref?.trim() || null }))), 'Products saved.');
+    this.run(this.api.map(venueId, null, Object.entries(edits).map(([itemId, ref]) => ({ itemId, posProductRef: ref?.trim() || null }))), this.t().productsSaved);
   }
 
   protected setTableRef(id: string, value: string): void {
@@ -112,7 +111,7 @@ export class PosSettingsPanel implements OnInit {
   protected retry(id: string): void {
     this.api.retry(id).subscribe({
       next: () => {
-        this.notice.set('Queued again; it goes out within a few seconds.');
+        this.notice.set(this.t().requeued);
         setTimeout(() => this.loadCommands(), 6_000);
         this.loadCommands();
       },
@@ -132,7 +131,12 @@ export class PosSettingsPanel implements OnInit {
   }
 
   protected kindLabel(kind: string): string {
-    return { SendOrder: 'Order', PostPayment: 'Payment', CloseCheck: 'Close' }[kind] ?? kind;
+    return this.t().kinds[kind] ?? kind;
+  }
+
+  /** The POS's name: translated where the lexicon has it, otherwise the connector's own (brand) name. */
+  protected providerName(provider: { provider: string; displayName: string }): string {
+    return this.t().providers[provider.provider] ?? provider.displayName;
   }
 
   protected money(minor: number): string {
@@ -140,7 +144,7 @@ export class PosSettingsPanel implements OnInit {
   }
 
   protected when(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–';
+    return iso ? new Date(iso).toLocaleString(this.i18n.locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–';
   }
 
   private load(): void {

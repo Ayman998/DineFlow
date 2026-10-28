@@ -38,7 +38,7 @@ export class Landing implements OnInit {
     if (!ctx) return '';
     const type = this.i18n.t().locationTypes[ctx.location.type] ?? '';
     const name = `${type} ${ctx.location.label}`.trim();
-    return ctx.location.areaName ? `${name} · ${ctx.location.areaName}` : name;
+    return ctx.location.areaName ? `${name} · ${this.i18n.localize(ctx.location.areaName, ctx.location.areaNameAr)}` : name;
   });
 
   protected readonly initials = computed(() =>

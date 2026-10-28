@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Application.Dashboard;
@@ -167,6 +168,7 @@ public class ReconciliationTests : IDisposable
         Assert.Equal((1, 0), (waiting.AwaitingSettlement, waiting.OpenDiscrepancies));
         Assert.Equal((DiscrepancyKind.NotSettled, p.Reference, 12_500L, 0L), (missing.Kind, missing.Reference, missing.ExpectedMinor, missing.ActualMinor));
         Assert.Equal($"{p.Reference} (JOD 12.500) was paid on 10 Mar but isn't in any settlement from the acquirer.", missing.Details);
+        Assert.Equal(("not_settled", (object?)null), (missing.DetailsCode, missing.DetailsParams));
         Assert.Equal(DiscrepancyStatus.Cleared, cleared.Status);
         Assert.Equal(0, (await QueueAsync(f)).Open);
     }
@@ -235,6 +237,8 @@ public class ReconciliationTests : IDisposable
 
         Assert.Equal(DiscrepancyKind.NotInPos, notInPos.Kind);
         Assert.StartsWith($"{p.Reference} was refused by the POS: Table 4 isn't mapped", notInPos.Details);
+        Assert.Equal("pos_refused", notInPos.DetailsCode);
+        Assert.StartsWith("Table 4 isn't mapped", JsonSerializer.SerializeToElement(notInPos.DetailsParams).GetProperty("error").GetString());
     }
 
     // ---- Sandbox payouts, overview and export ----
@@ -267,7 +271,7 @@ public class ReconciliationTests : IDisposable
         var overview = await _host.Overview.GetAsync(f.Venue.Id, OverviewPeriod.Today, null, default);
 
         var item = Assert.Single(overview.Attention, a => a.Kind == "reconciliation");
-        Assert.Equal("1 reconciliation difference", item.Title);
+        Assert.Equal(("1 reconciliation difference", "reconciliation", 1), (item.Title, item.Code, item.Count));
     }
 
     [Fact]

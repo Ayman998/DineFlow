@@ -128,13 +128,18 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
         if (failures.Count > 0)
         {
             var last = failures[0];
-            var label = last.PaymentLinkId is { } linkId
-                ? "Payment link " + await db.PaymentLinks.AsNoTracking().Where(l => l.Id == linkId).Select(l => l.Code).SingleAsync(ct)
+            var linkCode = last.PaymentLinkId is { } linkId
+                ? await db.PaymentLinks.AsNoTracking().Where(l => l.Id == linkId).Select(l => l.Code).SingleAsync(ct)
+                : null;
+            var location = linkCode is not null ? null
                 : await db.Checks.AsNoTracking().Where(c => c.Id == last.CheckId)
-                    .Join(db.ServiceLocations.AsNoTracking(), c => c.ServiceLocationId, l => l.Id, (c, l) => l.DisplayName)
+                    .Join(db.ServiceLocations.AsNoTracking(), c => c.ServiceLocationId, l => l.Id, (c, l) => l)
                     .SingleOrDefaultAsync(ct);
+            var label = linkCode is not null ? "Payment link " + linkCode : location?.DisplayName;
+            var time = TimeZoneInfo.ConvertTime(last.UpdatedAt, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
             items.Add(new("payment", failures.Count == 1 ? "1 payment failure today" : $"{failures.Count} payment failures today",
-                $"Last: {label} · {TimeZoneInfo.ConvertTime(last.UpdatedAt, zone):HH:mm}", failures.Count));
+                $"Last: {label} · {time}", failures.Count,
+                "payment_failures", new { linkCode, locationType = location?.Type.ToString(), label = location?.Label, time }));
         }
 
         // Payments the POS hasn't got yet after a while (blueprint "POS offline for an extended period"), or that it refused.
@@ -146,41 +151,45 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
         {
             var refused = stuck.Where(s => s.Key == PosCommandStatus.Failed).Sum(s => s.Count);
             items.Add(new("pos", stuckCount == 1 ? "1 item not in the POS yet" : $"{stuckCount} items not in the POS yet",
-                refused > 0 ? $"{refused} refused by the POS: fix and retry under Settings → POS" : "Waiting for the POS to come back; nobody is charged again", stuckCount));
+                refused > 0 ? $"{refused} refused by the POS: fix and retry under Settings → POS" : "Waiting for the POS to come back; nobody is charged again", stuckCount,
+                "pos_stuck", new { refused }));
         }
 
         // Reconciliation: money that doesn't add up between DineFlow, the acquirer and the POS.
         var discrepancies = await db.Discrepancies.AsNoTracking().CountAsync(d => d.VenueId == venueId && d.Status == DiscrepancyStatus.Open, ct);
         if (discrepancies > 0)
             items.Add(new("reconciliation", discrepancies == 1 ? "1 reconciliation difference" : $"{discrepancies} reconciliation differences",
-                "Between DineFlow, the acquirer's settlements and the POS", discrepancies));
+                "Between DineFlow, the acquirer's settlements and the POS", discrepancies, "reconciliation"));
 
         var waiting = await db.Orders.AsNoTracking().CountAsync(o => o.VenueId == venueId && o.Status == OrderStatus.Submitted
             && o.CreatedAt <= now - TimeSpan.FromMinutes(5), ct);
         if (waiting > 0)
             items.Add(new("orders", waiting == 1 ? "1 order waiting to be accepted" : $"{waiting} orders waiting to be accepted",
-                "Placed more than 5 minutes ago", waiting));
+                "Placed more than 5 minutes ago", waiting, "orders_waiting", new { minutes = 5 }));
 
         var tableList = await tables.ListAsync(venueId, ct);
         var partial = tableList.Where(t => t.State == TableState.PartiallyPaid).ToList();
         if (partial.Count > 0)
             items.Add(new("tables", partial.Count == 1 ? "1 table partially paid" : $"{partial.Count} tables partially paid",
-                $"Open balance {Money(partial.Sum(t => t.RemainingMinor))}", partial.Count));
+                $"Open balance {Money(partial.Sum(t => t.RemainingMinor))}", partial.Count,
+                "tables_partially_paid", new { openMinor = partial.Sum(t => t.RemainingMinor) }));
         var unpaid = tableList.Where(t => t.State is TableState.Unpaid or TableState.Attention).ToList();
         if (unpaid.Count > 0)
             items.Add(new("tables", unpaid.Count == 1 ? "1 table with an unpaid bill" : $"{unpaid.Count} tables with unpaid bills",
-                $"Open balance {Money(unpaid.Sum(t => t.RemainingMinor))}", unpaid.Count));
+                $"Open balance {Money(unpaid.Sum(t => t.RemainingMinor))}", unpaid.Count,
+                "tables_unpaid", new { openMinor = unpaid.Sum(t => t.RemainingMinor) }));
 
         var weekAgo = now - TimeSpan.FromDays(7);
         var unhappy = await db.Reviews.AsNoTracking().CountAsync(r => r.VenueId == venueId && r.Rating <= 3
             && r.FollowedUpAt == null && r.CreatedAt >= weekAgo, ct);
         if (unhappy > 0)
-            items.Add(new("review", unhappy == 1 ? "1 new 1–3 star feedback" : $"{unhappy} new 1–3 star feedbacks", "Follow up with guests", unhappy));
+            items.Add(new("review", unhappy == 1 ? "1 new 1–3 star feedback" : $"{unhappy} new 1–3 star feedbacks", "Follow up with guests", unhappy,
+                "unhappy_feedback"));
 
         var refunds = await db.Refunds.AsNoTracking().CountAsync(r => r.VenueId == venueId && r.Status == RefundStatus.Pending, ct);
         if (refunds > 0)
             items.Add(new("refund", refunds == 1 ? "1 refund waiting for the provider" : $"{refunds} refunds waiting for the provider",
-                "They complete when the provider confirms", refunds));
+                "They complete when the provider confirms", refunds, "refunds_pending"));
 
         return items;
     }

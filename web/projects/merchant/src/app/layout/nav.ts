@@ -1,13 +1,13 @@
-/** Merchant navigation from the blueprint (section 4.4), with the sprint that builds each area. */
+/** Merchant navigation from the blueprint (section 4.4), with the sprint that builds each area. Titles are in I18n's "nav". */
 export const NAV_ITEMS = [
-  { path: 'overview', title: 'Overview', sprint: 7 },
-  { path: 'orders', title: 'Orders', sprint: 3 },
-  { path: 'tables', title: 'Tables', sprint: 1 },
-  { path: 'transactions', title: 'Transactions', sprint: 7 },
-  { path: 'menu', title: 'Menu', sprint: 2 },
-  { path: 'promotions', title: 'Promotions', sprint: 4 },
-  { path: 'payment-links', title: 'Payment Links', sprint: 8 },
-  { path: 'reviews', title: 'Reviews', sprint: 6 },
-  { path: 'reports', title: 'Reports', sprint: 9 },
-  { path: 'settings', title: 'Settings', sprint: 1 }
+  { path: 'overview', sprint: 7 },
+  { path: 'orders', sprint: 3 },
+  { path: 'tables', sprint: 1 },
+  { path: 'transactions', sprint: 7 },
+  { path: 'menu', sprint: 2 },
+  { path: 'promotions', sprint: 4 },
+  { path: 'payment-links', sprint: 8 },
+  { path: 'reviews', sprint: 6 },
+  { path: 'reports', sprint: 9 },
+  { path: 'settings', sprint: 1 }
 ] as const;

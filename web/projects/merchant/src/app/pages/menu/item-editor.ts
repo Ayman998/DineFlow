@@ -3,7 +3,9 @@ import { FormsModule } from '@angular/forms';
 
 import { ALLERGENS, Allergen, ItemRequest, MenuAdminApi, MenuItemDto } from '../../core/api';
 import { errorMessage } from '../../core/auth';
+import { I18n } from '../../core/i18n';
 import { parseMajor, toMajorString } from '../../core/money';
+import { MENU } from './menu.i18n';
 
 interface OptionModel {
   id: string | null;
@@ -39,6 +41,8 @@ export interface CategoryChoice {
 })
 export class ItemEditor implements OnInit {
   private readonly api = inject(MenuAdminApi);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(MENU);
 
   readonly item = input<MenuItemDto | null>(null);
   readonly categoryId = input.required<string>();
@@ -103,7 +107,7 @@ export class ItemEditor implements OnInit {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return this.error.set('Images must be 5 MB or smaller.');
+    if (file.size > 5 * 1024 * 1024) return this.error.set(this.t().item.imageTooLarge);
 
     this.uploading.set(true);
     this.error.set(null);
@@ -146,31 +150,32 @@ export class ItemEditor implements OnInit {
     const currency = this.currency();
     const m = this.model;
     const fail = (message: string) => this.error.set(message);
+    const t = this.t().item;
 
-    if (!m.name.trim()) return fail('Enter the item name.');
+    if (!m.name.trim()) return fail(t.enterItemName);
     const priceMinor = parseMajor(m.price, currency);
-    if (priceMinor === null) return fail(`Enter a valid price in ${currency}, e.g. 25.00.`);
+    if (priceMinor === null) return fail(t.invalidPrice(currency));
 
-    const tags = m.tags.split(',').map(t => t.trim()).filter(Boolean);
-    if (tags.length > 8) return fail('Use at most 8 tags.');
-    if (tags.some(t => t.length > 24)) return fail('Tags must be 24 characters or fewer.');
+    const tags = m.tags.split(/[,،]/).map(t => t.trim()).filter(Boolean);
+    if (tags.length > 8) return fail(t.tooManyTags);
+    if (tags.some(t => t.length > 24)) return fail(t.tagTooLong);
 
     const groups: ItemRequest['modifierGroups'] = [];
     for (const g of m.groups) {
-      const label = g.name.trim() || 'A modifier group';
-      if (!g.name.trim()) return fail('Every modifier group needs a name.');
-      if (!g.options.length) return fail(`"${label}" needs at least one option.`);
+      const label = g.name.trim() || t.aGroup;
+      if (!g.name.trim()) return fail(t.groupNeedsName);
+      if (!g.options.length) return fail(t.groupNeedsOption(label));
       if (g.minSelect < 0 || g.maxSelect < 1 || g.minSelect > g.maxSelect)
-        return fail(`"${label}": minimum picks must be between 0 and the maximum, and the maximum at least 1.`);
-      if (g.maxSelect > g.options.length) return fail(`"${label}": maximum picks can't be more than the number of options.`);
+        return fail(t.pickRange(label));
+      if (g.maxSelect > g.options.length) return fail(t.maxOverOptions(label));
       if (g.options.filter(o => o.isDefault).length > g.maxSelect)
-        return fail(`"${label}": more options are pre-selected than guests may pick.`);
+        return fail(t.tooManyDefaults(label));
 
       const options: ItemRequest['modifierGroups'][number]['options'] = [];
       for (const o of g.options) {
-        if (!o.name.trim()) return fail(`Every option in "${label}" needs a name.`);
+        if (!o.name.trim()) return fail(t.optionNeedsName(label));
         const delta = parseMajor(o.price || '0', currency);
-        if (delta === null) return fail(`"${o.name}" has an invalid price.`);
+        if (delta === null) return fail(t.optionInvalidPrice(o.name));
         options.push({ id: o.id, name: o.name.trim(), nameAr: o.nameAr.trim() || null, priceDeltaMinor: delta, isDefault: o.isDefault, isAvailable: o.isAvailable });
       }
       groups.push({ id: g.id, name: g.name.trim(), nameAr: g.nameAr.trim() || null, minSelect: g.minSelect, maxSelect: g.maxSelect, options });

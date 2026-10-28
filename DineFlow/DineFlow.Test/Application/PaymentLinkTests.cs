@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Application.Dashboard;
@@ -156,7 +157,9 @@ public class PaymentLinkTests : IDisposable
         Assert.Equal((PaymentLinkStatus.Paid, 5000L, 0L), (after.Status, after.PaidMinor, after.RemainingMinor));
         Assert.Equal((409, "link_paid"), (again.StatusCode, again.Code));
         Assert.Equal((PaymentLinkStatus.Paid, Noon, 1), (detail.Summary.Status, detail.Summary.PaidAt, detail.Summary.PaymentCount));
-        Assert.Contains(detail.Timeline, e => e.Text == "Paid in full; the link closed");
+        Assert.Contains(detail.Timeline, e => e.Text == "Paid in full; the link closed" && e.Code == "link_paid");
+        var paidStep = JsonSerializer.SerializeToElement(Assert.Single(detail.Timeline, e => e.Code == "payment_paid").Params);
+        Assert.Equal((payment.Reference, 5000L), (paidStep.GetProperty("reference").GetString(), paidStep.GetProperty("amountMinor").GetInt64()));
 
         var ledger = await _host.Db.LedgerEntries.SingleAsync();
         Assert.Equal((LedgerEntryType.BillPayment, 5000L, (Guid?)null), (ledger.Type, ledger.AmountMinor, ledger.CheckId));
@@ -431,9 +434,9 @@ public class PaymentLinkTests : IDisposable
         var started = await StartAsync(token, Pay(PaymentMode.Custom, 3000, amount: 3000));
 
         var early = await Assert.ThrowsAsync<AppException>(() =>
-            AsCustomer(async () => { await _host.LinkCheckout.SendReceiptAsync(token, started.Id, "omar@example.com", default); return true; }));
+            AsCustomer(async () => { await _host.LinkCheckout.SendReceiptAsync(token, started.Id, "omar@example.com", null, default); return true; }));
         await WebhookAsync(new ProviderWebhookEvent($"evt_{Guid.NewGuid():N}", $"sbx_{started.Id:N}", PaymentStatus.Succeeded, "Visa", "4242", null));
-        await AsCustomer(async () => { await _host.LinkCheckout.SendReceiptAsync(token, started.Id, "omar@example.com", default); return true; });
+        await AsCustomer(async () => { await _host.LinkCheckout.SendReceiptAsync(token, started.Id, "omar@example.com", null, default); return true; });
 
         var receipt = Assert.Single(_host.Emails.Sent);
         Assert.Equal("not_paid", early.Code);

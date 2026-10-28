@@ -49,6 +49,7 @@ public record PaymentDto(
     string LocationType,
     string LocationLabel,
     string? AreaName,
+    string? AreaNameAr,
     DateTimeOffset CreatedAt,
     DateTimeOffset? SucceededAt,
     /// <summary>What's still owed on the bill after this payment (known once it succeeded).</summary>

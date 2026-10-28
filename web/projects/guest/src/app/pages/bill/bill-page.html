@@ -11,7 +11,7 @@
       <h1 class="text-lg font-extrabold">{{ t.checkout }}</h1>
       @if (ctx) {
         <p class="truncate text-[13px] text-ink-muted">
-          {{ t.locationTypes[ctx.location.type] }} {{ ctx.location.label }}@if (ctx.location.areaName) { · {{ ctx.location.areaName }} }
+          {{ t.locationTypes[ctx.location.type] }} {{ ctx.location.label }}@if (ctx.location.areaName) { · {{ i18n.localize(ctx.location.areaName, ctx.location.areaNameAr) }} }
         </p>
       }
     </div>

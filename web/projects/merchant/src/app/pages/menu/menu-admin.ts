@@ -5,10 +5,12 @@ import { Observable } from 'rxjs';
 import { CategoryDto, ItemRequest, MenuAdminApi, MenuDto, MenuItemDto, MenuRequest, MenuTreeDto } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
 import { CategoryEditor, CategoryNames } from './category-editor';
 import { CategoryChoice, ItemEditor } from './item-editor';
 import { MenuEditor } from './menu-editor';
+import { MENU } from './menu.i18n';
 
 type CategoryDialog = { menuId: string; parentId: string | null; category: CategoryDto | null };
 type ItemDialog = { categoryId: string; item: MenuItemDto | null };
@@ -26,6 +28,8 @@ export class MenuAdmin implements OnInit {
   private readonly api = inject(MenuAdminApi);
   private readonly currentVenue = inject(CurrentVenue);
   protected readonly auth = inject(Auth);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(MENU);
 
   protected readonly tree = signal<MenuTreeDto | null>(null);
   protected readonly menuId = signal<string | null>(null);
@@ -57,7 +61,7 @@ export class MenuAdmin implements OnInit {
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe({
-      next: venue => (venue ? this.refresh() : this.fail('This account has no venue yet.')),
+      next: venue => (venue ? this.refresh() : this.fail(this.i18n.t().noVenue)),
       error: error => this.fail(errorMessage(error))
     });
   }
@@ -67,8 +71,9 @@ export class MenuAdmin implements OnInit {
   }
 
   protected schedule(menu: MenuDto): string {
-    const days = menu.days.length === 7 ? 'Every day' : menu.days.map(d => d.slice(0, 3)).join(', ');
-    return menu.startTime ? `${days}, ${menu.startTime}–${menu.endTime}` : `${days}, all day`;
+    const t = this.t();
+    const days = menu.days.length === 7 ? t.admin.everyDay : menu.days.map(d => t.days[d] ?? d.slice(0, 3)).join(t.admin.listSeparator);
+    return menu.startTime ? t.admin.hours(days, menu.startTime, menu.endTime ?? '') : t.admin.allDay(days);
   }
 
   // ---- Menus ----
@@ -82,15 +87,15 @@ export class MenuAdmin implements OnInit {
     this.submit(call, saved => {
       this.menuDialog.set(null);
       this.menuId.set(saved.id);
-      this.notice.set(`Saved menu "${saved.name}".`);
+      this.notice.set(this.t().admin.savedMenu(saved.name));
     }, message => this.menuEditor()?.showError(message));
   }
 
   protected deleteMenu(menu: MenuDto): void {
-    if (!confirm(`Delete the "${menu.name}" menu with all its categories and items? This can't be undone.`)) return;
+    if (!confirm(this.t().admin.confirmDeleteMenu(menu.name))) return;
     this.submit(this.api.deleteMenu(menu.id), () => {
       this.menuId.set(null);
-      this.notice.set(`Deleted menu "${menu.name}".`);
+      this.notice.set(this.t().admin.deletedMenu(menu.name));
     });
   }
 
@@ -109,14 +114,14 @@ export class MenuAdmin implements OnInit {
       : this.api.createCategory(dialog.menuId, dialog.parentId, names.name, names.nameAr);
     this.submit(call, saved => {
       this.categoryDialog.set(null);
-      this.notice.set(`Saved category "${saved.name}".`);
+      this.notice.set(this.t().admin.savedCategory(saved.name));
     }, message => this.categoryEditor()?.showError(message));
   }
 
   protected deleteCategory(category: CategoryDto): void {
     const count = category.items.length + category.subcategories.reduce((n, s) => n + s.items.length, 0);
-    if (!confirm(`Delete "${category.name}"${count ? ` and its ${count} item${count === 1 ? '' : 's'}` : ''}? This can't be undone.`)) return;
-    this.submit(this.api.deleteCategory(category.id), () => this.notice.set(`Deleted "${category.name}".`));
+    if (!confirm(this.t().admin.confirmDeleteCategory(category.name, count))) return;
+    this.submit(this.api.deleteCategory(category.id), () => this.notice.set(this.t().admin.deleted(category.name)));
   }
 
   protected moveCategory(category: CategoryDto, siblings: CategoryDto[], step: -1 | 1): void {
@@ -130,18 +135,18 @@ export class MenuAdmin implements OnInit {
     const call = editing ? this.api.updateItem(editing.id, request) : this.api.createItem(request);
     this.submit(call, saved => {
       this.itemDialog.set(null);
-      this.notice.set(`Saved "${saved.name}".`);
+      this.notice.set(this.t().admin.saved(saved.name));
     }, message => this.itemEditor()?.showError(message));
   }
 
   protected toggleAvailability(item: MenuItemDto): void {
     this.submit(this.api.setAvailability(item.id, !item.isAvailable), saved =>
-      this.notice.set(`"${saved.name}" is ${saved.isAvailable ? 'back on the menu' : 'marked sold out'}.`));
+      this.notice.set(this.t().admin.availabilityChanged(saved.name, saved.isAvailable)));
   }
 
   protected deleteItem(item: MenuItemDto): void {
-    if (!confirm(`Delete "${item.name}"? This can't be undone.`)) return;
-    this.submit(this.api.deleteItem(item.id), () => this.notice.set(`Deleted "${item.name}".`));
+    if (!confirm(this.t().admin.confirmDeleteItem(item.name))) return;
+    this.submit(this.api.deleteItem(item.id), () => this.notice.set(this.t().admin.deleted(item.name)));
   }
 
   protected moveItem(item: MenuItemDto, siblings: MenuItemDto[], step: -1 | 1): void {

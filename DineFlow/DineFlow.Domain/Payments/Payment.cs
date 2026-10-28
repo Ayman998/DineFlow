@@ -1,4 +1,5 @@
 using DineFlow.Domain.Common;
+using DineFlow.Domain.Venues;
 
 namespace DineFlow.Domain.Payments;
 
@@ -97,7 +98,7 @@ public class Payment : Entity, ITenantOwned
             throw new DomainException("An equal-split payment needs its shares and the number of people.");
         if (discountMinor < 0 || discountMinor > billAmountMinor) throw new DomainException("The discount can't be more than the bill.");
         if (tipMinor < 0) throw new DomainException("The tip can't be negative.");
-        if (tipMinor > billAmountMinor) throw new DomainException("The tip can't be more than the bill.");
+        if (tipMinor > Venue.MaxTipMinor(billAmountMinor)) throw new DomainException("The tip can't be more than 20% of the bill.");
 
         TenantId = tenantId;
         VenueId = venueId;

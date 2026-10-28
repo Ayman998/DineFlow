@@ -92,7 +92,7 @@ export class LinkPage implements OnInit {
     }
   });
 
-  protected readonly customTip = computed<CustomTip>(() => parseTip(this.customTipText(), this.share(), this.currency()));
+  protected readonly customTip = computed<CustomTip>(() => parseTip(this.customTipText(), this.share(), this.currency(), this.link()?.tips.maxBasisPoints));
   protected readonly tipMinor = computed(() => {
     const choice = this.tipChoice();
     if (!this.link()?.tips.enabled) return 0;
@@ -159,8 +159,7 @@ export class LinkPage implements OnInit {
   }
 
   protected when(iso: string): string {
-    const locale = this.i18n.lang() === 'ar' ? 'ar-u-nu-latn' : 'en-GB';
-    return new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+    return new Intl.DateTimeFormat(this.i18n.locale(), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
       .format(new Date(iso));
   }
 
@@ -221,6 +220,7 @@ export class LinkPage implements OnInit {
         if (code === 'amount_changed') this.payError.set(t.link.amountChanged);
         else if (code === 'payment_in_progress') this.payError.set(t.link.someonePayingRest);
         else if (code === 'amount_too_high') this.payError.set(t.link.amountTooHigh(this.money(details?.availableMinor ?? 0)));
+        else if (code === 'tip_too_high') this.payError.set(t.customTipTooHigh);
         else if (code === 'link_paid' || code === 'link_expired' || code === 'link_cancelled') this.load();
         else this.payError.set(t.payFailed);
       }

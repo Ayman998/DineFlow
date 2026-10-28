@@ -10,7 +10,7 @@ namespace DineFlow.Api.Common;
 /// Turns expected failures into ProblemDetails with a stable "code" extension, e.g.
 /// <c>{ "status": 404, "title": "This QR code isn't active…", "code": "qr_invalid" }</c>.
 /// Handling them inside MVC keeps them out of the error logs; anything else still reaches
-/// the global exception handler as a 500.
+/// the global exception handler as a 500. The title is Arabic when the request prefers Arabic (see <see cref="ArabicErrors"/>).
 /// </summary>
 public class AppExceptionFilter(ProblemDetailsFactory problemDetails) : IExceptionFilter
 {
@@ -24,7 +24,12 @@ public class AppExceptionFilter(ProblemDetailsFactory problemDetails) : IExcepti
         };
         if (status == 0) return;
 
-        var details = problemDetails.CreateProblemDetails(context.HttpContext, status, title: context.Exception.Message);
+        // Arabic when the caller asked for it (Accept-Language: ar) and we have a translation; otherwise the English.
+        var title = context.Exception.Message;
+        if (ArabicErrors.PrefersArabic(context.HttpContext.Request) && ArabicErrors.Translate(code, title) is { } arabic)
+            title = arabic;
+
+        var details = problemDetails.CreateProblemDetails(context.HttpContext, status, title: title);
         details.Extensions["code"] = code;
         if (context.Exception is AppException { Details: { } extra }) details.Extensions["details"] = extra;
 

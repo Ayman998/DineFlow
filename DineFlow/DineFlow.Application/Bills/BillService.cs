@@ -207,14 +207,14 @@ public class BillService(
                 _ => open ? BillUnitStatus.Open : BillUnitStatus.Paid
             };
             return new BillUnitDto(u.Unit.OrderLineId, u.Unit.UnitIndex, u.Order.Number, u.Line.Name, u.Line.NameAr,
-                u.Line.Modifiers.Select(m => m.Name).ToList(), u.Unit.AmountMinor, unitStatus, claim?.GuestSessionId == sessionId);
+                u.Line.Modifiers.Select(m => m.Name).ToList(), u.Line.Modifiers.Select(m => m.NameAr).ToList(), u.Unit.AmountMinor, unitStatus, claim?.GuestSessionId == sessionId);
         }).ToList();
 
         var split = new SplitDto(check.SplitPeople, state.SharesTaken, state.SharesLeft,
             open && state.CanSplitEquallyFor(sessionId), open && state.CanSplitByItem,
             state.HeldBy(sessionId).Sum(c => c.AmountMinor));
 
-        return new BillDto(check.Id, status, check.Currency, location.Type.ToString(), location.Label, location.DiningArea?.Name,
+        return new BillDto(check.Id, status, check.Currency, location.Type.ToString(), location.Label, location.DiningArea?.Name, location.DiningArea?.NameAr,
             state.Orders.Select(o => new BillOrderDto(o.Id, o.Number, o.Status, o.ToDto().Lines, o.TotalMinor)).ToList(),
             state.Orders.Sum(o => o.SubtotalMinor), state.Orders.Sum(o => o.ServiceChargeMinor), state.Orders.Sum(o => o.TaxMinor),
             state.Orders.Count == 0 || state.Orders.All(o => o.TaxIncluded), state.TotalMinor, state.PaidMinor, state.OpenMinor,
@@ -223,12 +223,11 @@ public class BillService(
     }
 
     private BillDto Empty(Venue venue, ServiceLocation location) =>
-        new(null, BillStatus.NoOrders, venue.Currency, location.Type.ToString(), location.Label, location.DiningArea?.Name,
+        new(null, BillStatus.NoOrders, venue.Currency, location.Type.ToString(), location.Label, location.DiningArea?.Name, location.DiningArea?.NameAr,
             [], 0, 0, 0, venue.PricesIncludeTax, 0, 0, 0, 0, 0, false, new SplitDto(null, 0, null, false, false, 0), [],
             Tips(venue), provider.SupportedMethods, paymentOptions.Value.TermsVersion, paymentOptions.Value.TermsUrl);
 
-    private static TipSettingsDto Tips(Venue venue) =>
-        new(venue.TipsEnabled, venue.TipPresetsBasisPoints, venue.MostCommonTipBasisPoints);
+    private static TipSettingsDto Tips(Venue venue) => TipSettingsDto.For(venue);
 
     private async Task<long> PaidAsync(Guid checkId, CancellationToken ct) =>
         await db.LedgerEntries.IgnoreQueryFilters()

@@ -7,6 +7,7 @@ using DineFlow.Domain.Audit;
 using DineFlow.Domain.Common;
 using DineFlow.Domain.Finance;
 using DineFlow.Domain.Payments;
+using DineFlow.Domain.Pos;
 using DineFlow.Domain.Venues;
 using Microsoft.EntityFrameworkCore;
 
@@ -175,8 +176,9 @@ public class FinanceService(IAppDbContext db, ITenantContext tenant, Reconciler 
             .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToListAsync(ct);
         var staffIds = page.Where(d => d.ResolvedByStaffId != null).Select(d => d.ResolvedByStaffId!.Value).Distinct().ToList();
         var staff = await db.StaffUsers.AsNoTracking().Where(s => staffIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.DisplayName, ct);
+        var details = await DetailsAsync(page, ct);
 
-        return new DiscrepancyPageDto(page.Select(d => ToDto(d, d.ResolvedByStaffId is { } by ? staff.GetValueOrDefault(by) : null)).ToList(),
+        return new DiscrepancyPageDto(page.Select(d => ToDto(d, d.ResolvedByStaffId is { } by ? staff.GetValueOrDefault(by) : null, details[d.Id])).ToList(),
             total, query.Page, query.PageSize, await all.CountAsync(d => d.Status == DiscrepancyStatus.Open, ct));
     }
 
@@ -195,7 +197,7 @@ public class FinanceService(IAppDbContext db, ITenantContext tenant, Reconciler 
         if (run is not null) await reconciler.ReconcileAsync(discrepancy.VenueId, discrepancy.BusinessDate, ct); // refresh the day's count
 
         var by = await db.StaffUsers.AsNoTracking().Where(s => s.Id == staffUserId).Select(s => s.DisplayName).SingleOrDefaultAsync(ct);
-        return ToDto(discrepancy, by);
+        return ToDto(discrepancy, by, (await DetailsAsync([discrepancy], ct))[discrepancy.Id]);
     }
 
     /// <summary>Open discrepancies, for the overview's "Needs attention".</summary>
@@ -266,8 +268,46 @@ public class FinanceService(IAppDbContext db, ITenantContext tenant, Reconciler 
     private static SettlementDto ToDto(Settlement s, int lines) => new(s.Id, s.BatchRef, s.Provider, s.PayoutDate, s.Status, s.Source, s.FileName,
         s.Currency, lines, s.GrossMinor, s.RefundsMinor, s.FeesMinor, s.NetMinor, s.CreatedAt);
 
-    private static DiscrepancyDto ToDto(Discrepancy d, string? resolvedBy) => new(d.Id, d.BusinessDate, d.Kind, d.Reference, d.ExpectedMinor,
-        d.ActualMinor, d.DifferenceMinor, d.Details, d.Status, d.PaymentId, d.CreatedAt, d.ResolvedAt, resolvedBy, d.Note);
+    private static DiscrepancyDto ToDto(Discrepancy d, string? resolvedBy, (string? Code, object? Params) details) => new(d.Id, d.BusinessDate,
+        d.Kind, d.Reference, d.ExpectedMinor, d.ActualMinor, d.DifferenceMinor, d.Details, d.Status, d.PaymentId, d.CreatedAt, d.ResolvedAt,
+        resolvedBy, d.Note, details.Code, details.Params);
+
+    /// <summary>
+    /// What each discrepancy's Details say, as a code and values the portal words in the reader's
+    /// language. The code follows the reconciler's key ("NotSettled:{paymentId}" → "not_settled"); the
+    /// few values a discrepancy doesn't keep itself (how often it was settled, the POS's error) are looked up.
+    /// </summary>
+    private async Task<Dictionary<Guid, (string? Code, object? Params)>> DetailsAsync(IReadOnlyList<Discrepancy> items, CancellationToken ct)
+    {
+        var twice = items.Where(d => d.Kind == DiscrepancyKind.SettledTwice && d.PaymentId != null).Select(d => d.PaymentId!.Value).ToList();
+        var settledCounts = await db.SettlementLines.AsNoTracking()
+            .Where(l => l.Kind == SettlementLineKind.Payment && l.PaymentId != null && twice.Contains(l.PaymentId.Value))
+            .GroupBy(l => l.PaymentId!.Value).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, ct);
+        var notInPos = items.Where(d => d.Kind == DiscrepancyKind.NotInPos && d.PaymentId != null).Select(d => d.PaymentId!.Value).ToList();
+        var postings = await db.PosCommands.AsNoTracking()
+            .Where(c => c.Kind == PosCommandKind.PostPayment && c.PaymentId != null && notInPos.Contains(c.PaymentId.Value))
+            .ToDictionaryAsync(c => c.PaymentId!.Value, ct);
+
+        (string? Code, object? Params) Of(Discrepancy d)
+        {
+            var paymentId = d.PaymentId ?? Guid.Empty;
+            var posting = postings.GetValueOrDefault(paymentId);
+            return d.Key.Split(':')[0] switch
+            {
+                "NotSettled" => ("not_settled", null),
+                "Twice" => ("settled_twice", new { count = settledCounts.GetValueOrDefault(paymentId) }),
+                "Amount" => ("amount_mismatch", null),
+                "Unknown" => ("unknown_to_dineflow", null),
+                "RefundMissing" => ("refund_missing", null),
+                "RefundAmount" => ("refund_amount", null),
+                "RefundUnknown" => ("refund_unknown", null),
+                "Pos" when posting is { Status: PosCommandStatus.Failed } => ("pos_refused", new { error = posting.LastError }),
+                "Pos" => ("pos_waiting", new { attempts = posting?.Attempts ?? 0, error = posting?.LastError }),
+                _ => (null, null)
+            };
+        }
+        return items.ToDictionary(d => d.Id, Of);
+    }
 
     private async Task<Venue> VenueAsync(Guid venueId, CancellationToken ct)
     {

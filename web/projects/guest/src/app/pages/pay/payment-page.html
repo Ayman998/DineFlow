@@ -19,7 +19,7 @@
         </div>
         <h1 class="mt-3 text-2xl font-extrabold">{{ t.paymentSuccessful }}</h1>
         <p class="mt-1 text-sm text-ink-muted">
-          {{ t.locationTypes[p.locationType] }} {{ p.locationLabel }}@if (p.areaName) { · {{ p.areaName }} }
+          {{ t.locationTypes[p.locationType] }} {{ p.locationLabel }}@if (p.areaName) { · {{ i18n.localize(p.areaName, p.areaNameAr) }} }
         </p>
       </div>
 
@@ -103,7 +103,7 @@
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </div>
       <h1 class="text-xl font-extrabold">{{ p.status === 'Failed' ? t.failedTitle : t.cancelledTitle }}</h1>
-      @if (p.status === 'Failed' && p.failureReason) { <p class="font-semibold">{{ p.failureReason }}</p> }
+      @if (p.status === 'Failed' && t.failureReason(p.failureReason); as reason) { <p class="font-semibold">{{ reason }}</p> }
       <p class="text-ink-muted">{{ p.status === 'Failed' ? t.failedBody : t.cancelledBody }}</p>
       <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-brand px-6 font-bold text-white">
         {{ p.status === 'Failed' ? t.tryAgain : t.backToBill }}

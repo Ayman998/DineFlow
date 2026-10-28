@@ -144,7 +144,7 @@ public class ReportService(
     private async Task QueueAsync(ReportSchedule schedule, Venue venue, DateTime start, DateTime end, string dedupeKey, DateTimeOffset now, CancellationToken ct)
     {
         var report = await builder.BuildAsync(venue, schedule.Frequency, start, end, ct);
-        var (subject, text, html) = ReportBuilder.Render(report);
+        var (subject, text, html) = ReportBuilder.Render(report, arabic: Languages.IsArabic(venue.DefaultLocale));
         foreach (var to in schedule.Recipients)
             db.NotificationDeliveries.Add(new NotificationDelivery(schedule.TenantId, schedule.VenueId, NotificationChannel.Email, NotificationKind.Report,
                 to, dedupeKey, schedule.Id, subject, text, html, null, now));

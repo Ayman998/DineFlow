@@ -2,12 +2,15 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 
-import { PaymentLinkDetail, PaymentLinkFilter, PaymentLinkPage, PaymentLinkRow, PaymentLinkStatus, PaymentLinksApi, ValidityUnit } from '../../core/api';
+import { PaymentLinkDetail, PaymentLinkFilter, PaymentLinkPage, PaymentLinkRow, PaymentLinkStatus, PaymentLinksApi, TimelineEvent, ValidityUnit } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney, parseMajor } from '../../core/money';
 import { QrCode, qrDataUrl } from '../../shared/qr-code';
+import { TIMELINE, timelineText } from '../../shared/timeline.i18n';
+import { PAYMENT_LINKS } from './payment-links.i18n';
 
 const HOUR = 60 * 60 * 1000;
 /** The longest a link can stay active (90 days), as the API enforces. */
@@ -28,6 +31,9 @@ export class PaymentLinks implements OnInit {
   private readonly venue = inject(CurrentVenue);
   private readonly live = inject(LiveOrders);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(PAYMENT_LINKS);
+  private readonly steps = this.i18n.use(TIMELINE);
 
   protected readonly filters: PaymentLinkFilter[] = ['All', 'Active', 'Paid', 'Expired', 'Cancelled'];
   protected readonly status = signal<PaymentLinkFilter>('All');
@@ -160,10 +166,10 @@ export class PaymentLinks implements OnInit {
     if (!venueId || this.creating()) return;
 
     const amountMinor = parseMajor(this.amount(), this.currency());
-    if (!amountMinor) return this.createError.set(`Enter the amount in ${this.currency()}, e.g. 150.00.`);
-    if (this.validHours() === null) return this.createError.set('A link can be active for 1 hour up to 90 days.');
+    if (!amountMinor) return this.createError.set(this.t().amountInvalid(this.currency()));
+    if (this.validHours() === null) return this.createError.set(this.t().validityInvalid);
     const email = this.email().trim();
-    if (this.notifyCustomer() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return this.createError.set("Enter the customer's e-mail address.");
+    if (this.notifyCustomer() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return this.createError.set(this.t().emailInvalid);
 
     this.creating.set(true);
     this.createError.set(null);
@@ -183,7 +189,7 @@ export class PaymentLinks implements OnInit {
         this.createOpen.set(false);
         this.showDetail(link, true);
         if (this.notifyCustomer() && !link.customerNotifiedAt)
-          this.detailError.set("The link was created, but the e-mail couldn't be sent. Try again below, or share it another way.");
+          this.detailError.set(this.t().emailNotSent);
         this.load();
       },
       error: error => {
@@ -211,7 +217,7 @@ export class PaymentLinks implements OnInit {
     navigator.clipboard?.writeText(link.url).then(() => {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2_000);
-    }).catch(() => this.detailError.set("Couldn't copy. Select the link and copy it yourself."));
+    }).catch(() => this.detailError.set(this.t().copyFailed));
   }
 
   protected async downloadQr(link: PaymentLinkRow): Promise<void> {
@@ -222,7 +228,7 @@ export class PaymentLinks implements OnInit {
   }
 
   protected share(link: PaymentLinkRow): void {
-    navigator.share?.({ title: `Payment ${link.code}`, text: this.message(link, false), url: link.url }).catch(() => undefined);
+    navigator.share?.({ title: this.t().shareTitle(link.code), text: this.message(link, false), url: link.url }).catch(() => undefined);
   }
 
   protected whatsAppUrl(link: PaymentLinkRow): string {
@@ -230,7 +236,7 @@ export class PaymentLinks implements OnInit {
   }
 
   protected mailtoUrl(link: PaymentLinkRow): string {
-    const subject = `Payment request from ${this.venue.venue()?.name ?? 'us'} (${link.code})`;
+    const subject = this.t().mailSubject(this.venue.venue()?.name ?? null, link.code);
     return `mailto:${encodeURIComponent(link.customerEmail ?? '')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(this.message(link, true))}`;
   }
 
@@ -238,7 +244,7 @@ export class PaymentLinks implements OnInit {
     const link = this.detail();
     const to = this.sendTo().trim();
     if (!link || this.sending()) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return this.detailError.set("Enter the customer's e-mail address.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return this.detailError.set(this.t().emailInvalid);
 
     this.sending.set(true);
     this.detailError.set(null);
@@ -246,7 +252,7 @@ export class PaymentLinks implements OnInit {
       next: updated => {
         this.sending.set(false);
         this.showDetail(updated, this.justCreated());
-        this.detailNotice.set(`Sent to ${to}.`);
+        this.detailNotice.set(this.t().sentTo(to));
         this.load();
       },
       error: error => {
@@ -259,7 +265,7 @@ export class PaymentLinks implements OnInit {
   protected deactivate(): void {
     const link = this.detail();
     if (!link || this.working()) return;
-    if (!confirm(`Deactivate ${link.summary.code}? Nobody will be able to pay it, and this can't be undone.`)) return;
+    if (!confirm(this.t().confirmDeactivate(link.summary.code))) return;
 
     this.working.set(true);
     this.detailError.set(null);
@@ -278,8 +284,8 @@ export class PaymentLinks implements OnInit {
 
   // ---- Display ----
 
-  protected statusLabel(status: PaymentLinkStatus): string {
-    return { Active: 'Active', Paid: 'Paid', Expired: 'Expired', Cancelled: 'Deactivated' }[status];
+  protected statusLabel(status: PaymentLinkFilter): string {
+    return this.t().statuses[status] ?? status;
   }
 
   protected statusClass(status: PaymentLinkStatus): string {
@@ -292,7 +298,16 @@ export class PaymentLinks implements OnInit {
   }
 
   protected paymentState(state: string): string {
-    return { Pending: 'Pending', Succeeded: 'Paid', PartiallyRefunded: 'Partly refunded', Refunded: 'Refunded', Failed: 'Declined', Cancelled: 'Abandoned' }[state] ?? state;
+    return this.t().paymentStates[state] ?? state;
+  }
+
+  protected method(method: string): string {
+    return this.t().methods[method] ?? method;
+  }
+
+  /** A timeline step in the portal's language. */
+  protected step(event: TimelineEvent, currency: string): string {
+    return timelineText(event, this.steps(), currency);
   }
 
   protected money(minor: number, currency = this.currency()): string {
@@ -300,7 +315,7 @@ export class PaymentLinks implements OnInit {
   }
 
   protected dateTime(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+    return iso ? new Date(iso).toLocaleString(this.i18n.locale(), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
   }
 
   protected lastRow(d: PaymentLinkPage): number {
@@ -319,9 +334,7 @@ export class PaymentLinks implements OnInit {
 
   /** What goes with the link when it's shared, e.g. on WhatsApp. */
   private message(link: PaymentLinkRow, withUrl: boolean): string {
-    const venue = this.venue.venue()?.name ?? 'We';
-    const what = link.reference ? ` for ${link.reference}` : '';
-    return `${venue} has sent you a payment request of ${this.money(link.amountMinor, link.currency)}${what}.${withUrl ? ` Pay securely here: ${link.url}` : ''}`;
+    return this.t().message(this.venue.venue()?.name ?? null, this.money(link.amountMinor, link.currency), link.reference, withUrl ? link.url : null);
   }
 
   private load(): void {

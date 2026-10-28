@@ -235,6 +235,19 @@ public class PaymentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Tips_are_capped_at_20_percent_of_the_amount_paid()
+    {
+        var f = await CreateAsync();
+
+        var ex = await Assert.ThrowsAsync<AppException>(() => StartPaymentAsync(f.SessionId, 10_000, tip: 2_001));
+        var payment = await StartPaymentAsync(f.SessionId, 10_000, tip: 2_000);
+
+        Assert.Equal((400, "tip_too_high"), (ex.StatusCode, ex.Code));
+        Assert.Equal(2_000, payment.TipMinor);
+        Assert.Equal(2_000, (await BillAsync(f.SessionId)).Tips.MaxBasisPoints);
+    }
+
+    [Fact]
     public async Task Only_one_guest_at_a_table_can_be_paying_at_a_time()
     {
         var f = await CreateAsync();
@@ -431,9 +444,9 @@ public class PaymentServiceTests : IDisposable
         var f = await CreateAsync();
         var payment = await StartPaymentAsync(f.SessionId, 10_000, tip: 1_000);
 
-        var early = await Assert.ThrowsAsync<AppException>(() => _host.Payments.SendReceiptAsync(f.SessionId, payment.Id, "guest@example.com", default));
+        var early = await Assert.ThrowsAsync<AppException>(() => _host.Payments.SendReceiptAsync(f.SessionId, payment.Id, "guest@example.com", null, default));
         await WebhookAsync(payment, PaymentStatus.Succeeded);
-        await _host.Payments.SendReceiptAsync(f.SessionId, payment.Id, "guest@example.com", default);
+        await _host.Payments.SendReceiptAsync(f.SessionId, payment.Id, "guest@example.com", null, default);
 
         Assert.Equal("not_paid", early.Code);
         var mail = Assert.Single(_host.Emails.Sent);
@@ -441,6 +454,34 @@ public class PaymentServiceTests : IDisposable
         Assert.Contains(payment.Reference, mail.Subject);
         Assert.Contains("2 × Burger", mail.TextBody);
         Assert.Contains("AED 110.00", mail.TextBody);
+    }
+
+    [Fact]
+    public async Task The_receipt_follows_the_language_the_guest_reads()
+    {
+        var f = await CreateAsync();
+        _host.CurrentTenant = null;
+        var arabicGuest = (await _host.Guests.ResolveQrAsync(f.QrToken, "ar", default)).Context.SessionId;
+        _host.CurrentTenant = f.TenantId;
+        var payment = await StartPaymentAsync(arabicGuest, 10_000, tip: 1_000);
+        await WebhookAsync(payment, PaymentStatus.Succeeded);
+        await _host.Venues.UpdateSettingsAsync(f.Venue.Id,
+            new VenueSettingsRequest("Marina", "AED", "Asia/Dubai", "en", null, "#0B3B38", true, true, NameAr: "المارينا"), default);
+
+        await _host.Payments.SendReceiptAsync(arabicGuest, payment.Id, "guest@example.com", null, default); // the session's language
+        await _host.Payments.SendReceiptAsync(arabicGuest, payment.Id, "guest@example.com", "en", default); // switched to English since
+
+        var (arabic, english) = (_host.Emails.Sent[0], _host.Emails.Sent[1]);
+        Assert.Equal($"إيصالك من Test Bistro ({payment.Reference})", arabic.Subject);
+        Assert.StartsWith("Test Bistro · المارينا", arabic.TextBody);
+        Assert.Contains("طاولة 7", arabic.TextBody);
+        Assert.Contains("2 × Burger", arabic.TextBody);
+        Assert.Contains("الإكرامية", arabic.TextBody);
+        Assert.Contains("تم الدفع عبر Visa •••• 4242", arabic.TextBody);
+        Assert.Contains("dir=\"rtl\"", arabic.HtmlBody);
+        Assert.StartsWith("Your receipt from", english.Subject);
+        Assert.StartsWith("Test Bistro · Marina", english.TextBody);
+        Assert.Contains("Table 7", english.TextBody);
     }
 
     [Fact]

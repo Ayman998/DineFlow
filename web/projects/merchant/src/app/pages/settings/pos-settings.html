@@ -2,6 +2,7 @@
 @let c = s?.connection;
 @let q = commands();
 @let manage = auth.canManage();
+@let t = this.t();
 
 <div class="grid max-w-5xl gap-6">
   @if (error()) { <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p> }
@@ -12,53 +13,53 @@
     <section class="card flex flex-col gap-4">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 class="font-semibold">POS connection</h2>
-          <p class="text-sm text-ink-muted">Accepted orders go to the POS, and every payment at a table is posted to it. If the POS is down, nothing is lost: it's sent when the POS is back, and nobody is charged again.</p>
+          <h2 class="font-semibold">{{ t.heading }}</h2>
+          <p class="text-sm text-ink-muted">{{ t.intro }}</p>
         </div>
         @if (c) {
           <span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
                 [class]="!c.isActive ? 'bg-surface text-ink-muted' : c.lastCheckHealthy === false ? 'bg-red-50 text-red-800' : 'bg-emerald-50 text-emerald-700'">
-            {{ !c.isActive ? 'Paused' : c.lastCheckHealthy === false ? 'Unreachable' : 'Active' }}
+            {{ !c.isActive ? t.paused : c.lastCheckHealthy === false ? t.unreachable : t.active }}
           </span>
         }
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2">
-        <label><span class="field-label">POS</span>
+        <label><span class="field-label">{{ t.pos }}</span>
           <select class="field" [disabled]="!manage" [value]="provider()" (change)="provider.set($any($event.target).value)">
-            @for (p of s?.providers ?? []; track p.provider) { <option [value]="p.provider">{{ p.displayName }}</option> }
+            @for (p of s?.providers ?? []; track p.provider) { <option [value]="p.provider">{{ providerName(p) }}</option> }
           </select>
         </label>
-        <label><span class="field-label">Branch id in the POS</span>
-          <input class="field" maxlength="100" [disabled]="!manage" [placeholder]="provider() === 'simulator' ? 'Not needed' : 'e.g. 9a1b2c3d-…'"
+        <label><span class="field-label">{{ t.branchRef }}</span>
+          <input class="field" maxlength="100" [disabled]="!manage" [placeholder]="provider() === 'simulator' ? t.notNeeded : t.branchRefPlaceholder"
                  [value]="branchRef()" (input)="branchRef.set($any($event.target).value)" />
         </label>
       </div>
       @if (chosen()?.requiresAccessToken) {
-        <label><span class="field-label">Access token</span>
+        <label><span class="field-label">{{ t.accessToken }}</span>
           <input class="field font-mono" type="password" autocomplete="off" [disabled]="!manage"
-                 [placeholder]="c?.hasAccessToken && c?.provider === provider() ? 'Saved. Leave blank to keep it' : 'Paste the token from ' + chosen()!.displayName"
+                 [placeholder]="c?.hasAccessToken && c?.provider === provider() ? t.tokenSaved : t.pasteToken(providerName(chosen()!))"
                  [value]="accessToken()" (input)="accessToken.set($any($event.target).value)" />
-          <span class="mt-1 block text-xs text-ink-muted">Stored encrypted. It's never shown again.</span>
+          <span class="mt-1 block text-xs text-ink-muted">{{ t.tokenHint }}</span>
         </label>
       }
       <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <label class="flex items-center gap-2"><input type="checkbox" class="toggle" [disabled]="!manage" [checked]="active()" (change)="active.set($any($event.target).checked)" /> Send to the POS</label>
-        <label class="flex items-center gap-2"><input type="checkbox" class="toggle" [disabled]="!manage" [checked]="autoClose()" (change)="autoClose.set($any($event.target).checked)" /> Close the POS check when the bill is paid</label>
+        <label class="flex items-center gap-2"><input type="checkbox" class="toggle" [disabled]="!manage" [checked]="active()" (change)="active.set($any($event.target).checked)" /> {{ t.sendToPos }}</label>
+        <label class="flex items-center gap-2"><input type="checkbox" class="toggle" [disabled]="!manage" [checked]="autoClose()" (change)="autoClose.set($any($event.target).checked)" /> {{ t.autoClose }}</label>
       </div>
       @if (chosen(); as p) {
         <div class="flex flex-wrap gap-1.5">
-          @for (cap of p.capabilities; track cap) { <span class="rounded-full bg-surface px-2 py-0.5 text-xs text-ink-muted">{{ cap }}</span> }
+          @for (cap of p.capabilities; track cap) { <span class="rounded-full bg-surface px-2 py-0.5 text-xs text-ink-muted">{{ t.capabilities[cap] ?? cap }}</span> }
         </div>
       }
       @if (manage) {
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="btn-primary" [disabled]="busy()" (click)="save()">{{ c ? 'Save' : 'Connect' }}</button>
-          @if (c) { <button type="button" class="btn-secondary" [disabled]="busy()" (click)="check()">Check connection</button> }
-          @if (c?.hasAccessToken) { <button type="button" class="btn-ghost text-red-700" [disabled]="busy()" (click)="removeToken()">Remove token</button> }
+          <button type="button" class="btn-primary" [disabled]="busy()" (click)="save()">{{ c ? t.save : t.connect }}</button>
+          @if (c) { <button type="button" class="btn-secondary" [disabled]="busy()" (click)="check()">{{ t.checkConnection }}</button> }
+          @if (c?.hasAccessToken) { <button type="button" class="btn-ghost text-red-700" [disabled]="busy()" (click)="removeToken()">{{ t.removeToken }}</button> }
         </div>
       } @else {
-        <p class="text-sm text-ink-muted">Only owners and managers can change the POS connection.</p>
+        <p class="text-sm text-ink-muted">{{ t.readOnly }}</p>
       }
       @if (c?.lastCheckedAt) {
         <p class="text-sm" [class]="c!.lastCheckHealthy ? 'text-emerald-700' : 'text-red-700'">
@@ -70,20 +71,20 @@
     <!-- What's been sent -->
     <section class="card flex min-w-0 flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="font-semibold">Sent to the POS
-          @if (q?.waiting) { <span class="ms-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800">{{ q!.waiting }} need attention</span> }
+        <h2 class="font-semibold">{{ t.sentHeading }}
+          @if (q?.waiting) { <span class="ms-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800">{{ t.needAttention(q!.waiting) }}</span> }
         </h2>
-        <div class="flex gap-1 rounded-lg bg-surface p-1 text-xs" role="group" aria-label="Show">
+        <div class="flex gap-1 rounded-lg bg-surface p-1 text-xs" role="group" [attr.aria-label]="t.show">
           @for (f of [null, 'Pending', 'Failed']; track f) {
             <button type="button" class="rounded-md px-2.5 py-1 font-semibold" [attr.aria-pressed]="filter() === f"
                     [class]="filter() === f ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setFilter($any(f))">
-              {{ f === null ? 'All' : f === 'Pending' ? 'Waiting' : 'Refused' }}
+              {{ f === null ? t.all : f === 'Pending' ? t.waiting : t.refused }}
             </button>
           }
         </div>
       </div>
       @if (q && !q.items.length) {
-        <p class="text-sm text-ink-muted">Nothing yet. Accepted orders and table payments show up here.</p>
+        <p class="text-sm text-ink-muted">{{ t.empty }}</p>
       }
       <ul class="flex flex-col divide-y divide-line">
         @for (cmd of q?.items ?? []; track cmd.id) {
@@ -91,18 +92,18 @@
             <span class="min-w-0">
               <span class="block font-medium"><span class="text-ink-muted">{{ kindLabel(cmd.kind) }} ·</span> {{ cmd.description }}</span>
               <span class="block text-xs text-ink-muted">
-                {{ when(cmd.completedAt ?? cmd.createdAt) }}@if (cmd.attempts > 1) { · {{ cmd.attempts }} attempts }
-                @if (cmd.status === 'Pending' && cmd.attempts) { · next try {{ when(cmd.nextAttemptAt) }} }
-                @if (cmd.resultRef) { · POS ref {{ cmd.resultRef }} }
+                {{ when(cmd.completedAt ?? cmd.createdAt) }}@if (cmd.attempts > 1) { · {{ t.attempts(cmd.attempts) }} }
+                @if (cmd.status === 'Pending' && cmd.attempts) { · {{ t.nextTry(when(cmd.nextAttemptAt)) }} }
+                @if (cmd.resultRef) { · {{ t.posRef(cmd.resultRef) }} }
               </span>
               @if (cmd.lastError && cmd.status !== 'Done') { <span class="block text-xs" [class]="cmd.status === 'Failed' ? 'text-red-700' : 'text-amber-800'">{{ cmd.lastError }}</span> }
             </span>
             <span class="flex shrink-0 items-center gap-2">
               <span class="rounded-full px-2 py-0.5 text-xs font-semibold"
                     [class]="cmd.status === 'Done' ? 'bg-emerald-50 text-emerald-700' : cmd.status === 'Failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'">
-                {{ cmd.status === 'Done' ? 'In POS' : cmd.status === 'Failed' ? 'Refused' : 'Waiting' }}
+                {{ cmd.status === 'Done' ? t.inPos : cmd.status === 'Failed' ? t.refused : t.waiting }}
               </span>
-              @if (manage && cmd.status !== 'Done') { <button type="button" class="link text-xs" (click)="retry(cmd.id)">Retry</button> }
+              @if (manage && cmd.status !== 'Done') { <button type="button" class="link text-xs" (click)="retry(cmd.id)">{{ t.retry }}</button> }
             </span>
           </li>
         }
@@ -115,27 +116,27 @@
     <section class="card flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="font-semibold">Simulated POS</h2>
-          <p class="text-sm text-ink-muted">For testing. Switch how it behaves to see what DineFlow does when a POS is down or slow. Resets when the API restarts.</p>
+          <h2 class="font-semibold">{{ t.simulatedHeading }}</h2>
+          <p class="text-sm text-ink-muted">{{ t.simulatedIntro }}</p>
         </div>
-        <label class="flex items-center gap-2 text-sm">Behaviour
+        <label class="flex items-center gap-2 text-sm">{{ t.behaviour }}
           <select class="field w-auto py-1" [value]="sim.mode" (change)="setMode($any($event.target).value)">
-            @for (m of modes; track m.value) { <option [value]="m.value">{{ m.label }}</option> }
+            @for (m of modes; track m) { <option [value]="m">{{ t.modes[m] ?? m }}</option> }
           </select>
         </label>
       </div>
-      @if (!sim.checks.length) { <p class="text-sm text-ink-muted">No checks yet.</p> }
+      @if (!sim.checks.length) { <p class="text-sm text-ink-muted">{{ t.noChecks }}</p> }
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         @for (chk of sim.checks; track chk.checkRef) {
           <div class="rounded-lg border border-line p-3 text-sm">
             <div class="flex justify-between gap-2">
               <span class="font-mono font-semibold">{{ chk.checkRef }}</span>
-              <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="chk.isOpen ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'">{{ chk.isOpen ? 'Open' : 'Closed' }}</span>
+              <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="chk.isOpen ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'">{{ chk.isOpen ? t.open : t.closed }}</span>
             </div>
-            <p class="text-xs text-ink-muted">Table {{ chk.tableRef }} · {{ money(chk.paidMinor) }} of {{ money(chk.totalMinor) }} paid</p>
+            <p class="text-xs text-ink-muted">{{ t.checkSummary(chk.tableRef, money(chk.paidMinor), money(chk.totalMinor)) }}</p>
             <ul class="mt-1 text-xs">
               @for (l of chk.lines; track $index) { <li>{{ l.quantity }} × {{ l.name }}</li> }
-              @for (p of chk.payments; track p.postingRef) { <li class="text-emerald-700">Tender {{ money(p.amountMinor) }}@if (p.tipMinor) { + tip {{ money(p.tipMinor) }} }</li> }
+              @for (p of chk.payments; track p.postingRef) { <li class="text-emerald-700">{{ t.tender(money(p.amountMinor)) }}@if (p.tipMinor) { + {{ t.tip(money(p.tipMinor)) }} }</li> }
             </ul>
           </div>
         }
@@ -148,42 +149,42 @@
     <section class="card flex flex-col gap-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="font-semibold">Tables</h2>
-          <p class="text-sm text-ink-muted">Match each DineFlow location to its table id in the POS. Orders and payments for unmapped tables are held until they're mapped.</p>
+          <h2 class="font-semibold">{{ t.tables }}</h2>
+          <p class="text-sm text-ink-muted">{{ t.tablesIntro }}</p>
         </div>
-        @if (unmapped()) { <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{{ unmapped() }} not mapped</span> }
+        @if (unmapped()) { <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{{ t.notMapped(unmapped()) }}</span> }
       </div>
       <div class="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-        @for (t of s.tables; track t.locationId) {
+        @for (table of s.tables; track table.locationId) {
           <label class="flex items-center gap-3 text-sm">
-            <span class="w-28 shrink-0 truncate">{{ t.displayName }}@if (t.areaName) { <span class="block text-xs text-ink-muted">{{ t.areaName }}</span> }</span>
-            <input class="field py-1.5 font-mono" maxlength="100" [disabled]="!manage" placeholder="POS table id"
-                   [value]="tableRefs()[t.locationId] ?? t.externalRef ?? ''" (input)="setTableRef(t.locationId, $any($event.target).value)" />
+            <span class="w-28 shrink-0 truncate">{{ table.displayName }}@if (table.areaName) { <span class="block text-xs text-ink-muted">{{ table.areaName }}</span> }</span>
+            <input class="field py-1.5 font-mono" maxlength="100" [disabled]="!manage" [placeholder]="t.posTableId"
+                   [value]="tableRefs()[table.locationId] ?? table.externalRef ?? ''" (input)="setTableRef(table.locationId, $any($event.target).value)" />
           </label>
         }
       </div>
-      @if (manage) { <div><button type="button" class="btn-secondary" [disabled]="busy()" (click)="saveTables()">Save tables</button></div> }
+      @if (manage) { <div><button type="button" class="btn-secondary" [disabled]="busy()" (click)="saveTables()">{{ t.saveTables }}</button></div> }
     </section>
 
     <section class="card flex flex-col gap-3">
       <button type="button" class="flex items-center justify-between text-start" [attr.aria-expanded]="showProducts()" (click)="showProducts.set(!showProducts())">
         <span>
-          <span class="block font-semibold">Menu items</span>
-          <span class="block text-sm text-ink-muted">Match items to the POS's products. Needed by POSes that only take their own items, such as Foodics.</span>
+          <span class="block font-semibold">{{ t.menuItems }}</span>
+          <span class="block text-sm text-ink-muted">{{ t.menuItemsIntro }}</span>
         </span>
-        <span class="text-sm text-brand">{{ showProducts() ? 'Hide' : 'Show' }}</span>
+        <span class="text-sm text-brand">{{ showProducts() ? t.hide : t.showProducts }}</span>
       </button>
       @if (showProducts()) {
         <div class="grid gap-x-6 gap-y-2 sm:grid-cols-2">
           @for (p of s.products; track p.itemId) {
             <label class="flex items-center gap-3 text-sm">
               <span class="w-40 shrink-0 truncate">{{ p.name }} <span class="block text-xs text-ink-muted">{{ p.category }}</span></span>
-              <input class="field py-1.5 font-mono" maxlength="100" [disabled]="!manage" placeholder="POS product id"
+              <input class="field py-1.5 font-mono" maxlength="100" [disabled]="!manage" [placeholder]="t.posProductId"
                      [value]="productRefs()[p.itemId] ?? p.posProductRef ?? ''" (input)="setProductRef(p.itemId, $any($event.target).value)" />
             </label>
           }
         </div>
-        @if (manage) { <div><button type="button" class="btn-secondary" [disabled]="busy()" (click)="saveProducts()">Save menu items</button></div> }
+        @if (manage) { <div><button type="button" class="btn-secondary" [disabled]="busy()" (click)="saveProducts()">{{ t.saveMenuItems }}</button></div> }
       }
     </section>
   }

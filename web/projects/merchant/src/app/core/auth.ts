@@ -3,6 +3,8 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { Observable, catchError, tap, throwError } from 'rxjs';
 
+import { commonStrings } from './i18n';
+
 export interface StaffProfile {
   id: string;
   email: string;
@@ -82,16 +84,20 @@ export const authGuard: CanActivateFn = () => {
   return auth.token() ? true : inject(Router).createUrlTree(['/login']);
 };
 
-/** The API's validation or ProblemDetails message, or a generic one when there was no usable response. */
+/**
+ * The API's validation or ProblemDetails message, or a generic one when there was no usable
+ * response. The API answers in the portal's language (see languageInterceptor).
+ */
 export function errorMessage(error: unknown): string {
+  const t = commonStrings();
   if (error instanceof HttpErrorResponse) {
-    if (error.status === 0) return "Can't reach the DineFlow API. Is it running?";
-    if (error.status === 403) return "Your role can't make this change. Ask an owner or manager.";
+    if (error.status === 0) return t.apiUnreachable;
+    if (error.status === 403) return t.forbidden;
     const body = error.error as { title?: string; errors?: Record<string, string[]> } | null;
     const firstFieldError = body?.errors ? Object.values(body.errors)[0]?.[0] : undefined;
-    return firstFieldError ?? body?.title ?? `Request failed (${error.status}).`;
+    return firstFieldError ?? body?.title ?? t.requestFailed(error.status);
   }
-  return 'Something went wrong.';
+  return t.somethingWrong;
 }
 
 function readSession(): LoginResult | null {

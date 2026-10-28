@@ -5,9 +5,11 @@ import { MerchantApi, ReviewPlatform, Venue, VenueSettings } from '../../core/ap
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { Features } from '../../core/features';
+import { I18n } from '../../core/i18n';
 import { AlertSettingsPanel } from './alert-settings';
 import { AuditLog } from './audit-log';
 import { PosSettingsPanel } from './pos-settings';
+import { SETTINGS } from './settings.i18n';
 
 // Jordan first: DineFlow's venues are in Amman.
 const CURRENCIES = ['JOD', 'AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'EGP', 'USD', 'EUR', 'GBP'];
@@ -27,14 +29,19 @@ export class Settings implements OnInit {
   private readonly currentVenue = inject(CurrentVenue);
   protected readonly auth = inject(Auth);
   private readonly features = inject(Features);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(SETTINGS);
 
   protected readonly view = signal<'venue' | 'pos' | 'notifications' | 'activity'>('venue');
-  protected readonly tabs = computed(() => [
-    { value: 'venue' as const, label: 'Venue' },
-    { value: 'pos' as const, label: 'POS' },
-    ...(this.features.current().whatsAppAlerts ? [{ value: 'notifications' as const, label: 'Notifications' }] : []),
-    ...(this.auth.canManage() ? [{ value: 'activity' as const, label: 'Activity' }] : [])
-  ]);
+  protected readonly tabs = computed(() => {
+    const labels = this.t().tabs;
+    return [
+      { value: 'venue' as const, label: labels.venue },
+      { value: 'pos' as const, label: labels.pos },
+      ...(this.features.current().whatsAppAlerts ? [{ value: 'notifications' as const, label: labels.notifications }] : []),
+      ...(this.auth.canManage() ? [{ value: 'activity' as const, label: labels.activity }] : [])
+    ];
+  });
 
   protected readonly currencies = CURRENCIES;
   protected readonly timeZones = TIME_ZONES;
@@ -45,6 +52,7 @@ export class Settings implements OnInit {
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
+    nameAr: ['', Validators.maxLength(120)],
     currency: ['', [Validators.required, Validators.pattern(/^[A-Za-z]{3}$/)]],
     timeZone: ['', [Validators.required, Validators.maxLength(64)]],
     defaultLocale: ['en' as 'en' | 'ar', Validators.required],
@@ -78,7 +86,7 @@ export class Settings implements OnInit {
     this.currentVenue.load().subscribe({
       next: venue => {
         if (!venue) {
-          this.error.set('This account has no venue yet.');
+          this.error.set(this.i18n.t().noVenue);
           return;
         }
         this.venue.set(venue);
@@ -99,19 +107,20 @@ export class Settings implements OnInit {
 
     const value = this.form.getRawValue();
     if (!value.menuEnabled && !value.payAtTableEnabled) {
-      this.error.set('Turn on the menu, Pay at Table, or both, so guests have something to do when they scan.');
+      this.error.set(this.t().menuOrPayRequired);
       return;
     }
 
-    const { serviceChargePercent, taxPercent, tipPresets, mostCommonTip, reviewPlatform, reviewUrl, feedbackTitle, ...rest } = value;
+    const { serviceChargePercent, taxPercent, tipPresets, mostCommonTip, reviewPlatform, reviewUrl, feedbackTitle, nameAr, ...rest } = value;
     if (reviewPlatform && !reviewUrl.trim()) {
-      this.error.set('Add the link to your review page, or choose no public review platform.');
+      this.error.set(this.t().reviewUrlRequired);
       return;
     }
     const presets = (parsePercents(tipPresets) ?? []).map(p => Math.round(p * 100));
     const mostCommon = mostCommonTip === '' ? null : Math.round(Number(mostCommonTip) * 100);
     const settings: VenueSettings = {
       ...rest,
+      nameAr: nameAr.trim() || null,
       currency: value.currency.toUpperCase(),
       logoUrl: value.logoUrl.trim() || null,
       serviceChargeBasisPoints: Math.round(serviceChargePercent * 100),
@@ -152,6 +161,7 @@ export class Settings implements OnInit {
 function toForm(venue: Venue) {
   return {
     ...venue,
+    nameAr: venue.nameAr ?? '',
     logoUrl: venue.logoUrl ?? '',
     serviceChargePercent: venue.serviceChargeBasisPoints / 100,
     taxPercent: venue.taxBasisPoints / 100,
@@ -163,12 +173,12 @@ function toForm(venue: Venue) {
   };
 }
 
-/** "5, 10, 15" → [5, 10, 15], sorted and without repeats; null when it isn't 1–4 percentages of 0.01–30. */
+/** "5, 10, 15" → [5, 10, 15], sorted and without repeats; null when it isn't 1–4 percentages of 0.01–20. */
 function parsePercents(text: string): number[] | null {
-  const parts = text.split(/[,\s]+/).map(p => p.replace('%', '')).filter(Boolean);
+  const parts = text.split(/[,،\s]+/).map(p => p.replace(/[%٪]/, '')).filter(Boolean);
   if (!parts.length || parts.some(p => !/^\d+(\.\d{1,2})?$/.test(p))) return null;
   const values = [...new Set(parts.map(Number))].sort((a, b) => a - b);
-  return values.length <= 4 && values.every(v => v >= 0.01 && v <= 30) ? values : null;
+  return values.length <= 4 && values.every(v => v >= 0.01 && v <= 20) ? values : null;
 }
 
 function tipPresetsValidator(control: AbstractControl<string>): ValidationErrors | null {

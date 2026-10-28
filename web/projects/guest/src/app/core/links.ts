@@ -11,7 +11,7 @@ export interface PaymentLink {
   code: string;
   reference: string | null;
   status: PaymentLinkStatus;
-  venue: { brandName: string; branchName: string; logoUrl: string | null; brandColor: string; defaultLocale: string };
+  venue: { brandName: string; branchName: string; branchNameAr: string | null; logoUrl: string | null; brandColor: string; defaultLocale: string };
   currency: string;
   amountMinor: number;
   paidMinor: number;
@@ -20,7 +20,7 @@ export interface PaymentLink {
   availableMinor: number;
   paymentInProgress: boolean;
   allowSplit: boolean;
-  tips: { enabled: boolean; presetsBasisPoints: number[]; mostCommonBasisPoints: number | null };
+  tips: { enabled: boolean; presetsBasisPoints: number[]; mostCommonBasisPoints: number | null; maxBasisPoints: number };
   methods: PaymentMethod[];
   termsVersion: string;
   termsUrl: string;

@@ -80,6 +80,10 @@ public class NotificationTests : IDisposable
         finally { _host.CurrentTenant = tenant; }
     }
 
+    /// <summary>The venue's default language becomes Arabic, which staff alerts and report e-mails follow.</summary>
+    private Task ArabicAsync(Fixture f) =>
+        _host.Venues.UpdateSettingsAsync(f.Venue.Id, new VenueSettingsRequest("Marina", "AED", "Asia/Dubai", "ar", null, "#0B3B38", true, true), default);
+
     private Task<DeliveryPageDto> DeliveriesAsync(Fixture f, NotificationChannel? channel = null) =>
         _host.AlertSettings.DeliveriesAsync(new DeliveryQuery(f.Venue.Id, channel), default);
 
@@ -139,6 +143,41 @@ public class NotificationTests : IDisposable
     }
 
     [Fact]
+    public async Task Alerts_are_in_arabic_with_the_arabic_template_when_the_venue_reads_arabic()
+    {
+        var f = await CreateAsync();
+        await ArabicAsync(f);
+        await AlertsOnAsync(f, "+971501234567");
+
+        var payment = await OrderAndPayAsync(f, tip: 500);
+        await _host.AlertSettings.SendTestAsync(f.Venue.Id, default);
+        await _host.Dispatcher.DispatchDueAsync(default);
+
+        var alert = Assert.Single(_host.WhatsApp.Sent, m => m.Parameters[1].StartsWith("AED 55.00"));
+        var test = Assert.Single(_host.WhatsApp.Sent, m => m != alert);
+        Assert.Equal(["Test Bistro · طاولة 7", "AED 55.00 (إكرامية AED 5.00)", "تم دفع الفاتورة بالكامل"], alert.Parameters.Take(3));
+        Assert.Equal($"الطلبات #1001 · {payment.Reference} · 12:00", alert.Parameters[3]);
+        Assert.StartsWith("Test Bistro · طاولة 7\nتم دفع AED 55.00", alert.Text);
+        Assert.Equal(("ar", "ar"), (alert.Language, test.Language));
+        Assert.Equal("تنبيهات الدفع تعمل", test.Parameters[2]);
+    }
+
+    [Fact]
+    public async Task Messages_queued_before_alerts_had_a_language_still_go_out_in_english()
+    {
+        var f = await CreateAsync();
+        _host.Db.NotificationDeliveries.Add(new NotificationDelivery(f.TenantId, f.Venue.Id, NotificationChannel.WhatsApp, NotificationKind.Test,
+            "+971501234567", "test:old", null, null, "Test Bistro · Marina\nAn old test",
+            null, """["Test Bistro · Marina","Test","Payment alerts are working","No money moved"]""", Noon));
+        await _host.Db.SaveChangesAsync();
+
+        await _host.Dispatcher.DispatchDueAsync(default);
+
+        var message = Assert.Single(_host.WhatsApp.Sent);
+        Assert.Equal(("en", "Payment alerts are working"), (message.Language, message.Parameters[2]));
+    }
+
+    [Fact]
     public async Task No_alerts_go_out_when_they_are_off_or_the_feature_is_disabled()
     {
         var f = await CreateAsync();
@@ -161,7 +200,9 @@ public class NotificationTests : IDisposable
         await OrderAndPayAsync(f);
         var payment = await _host.Db.Payments.SingleAsync();
 
-        await _host.Alerts.QueueTableAsync(payment, "Table 7", 0, default); // e.g. the event handled again
+        var table = await _host.Db.ServiceLocations.Include(l => l.DiningArea).SingleAsync(l => l.Label == "7");
+
+        await _host.Alerts.QueueTableAsync(payment, table, 0, default); // e.g. the event handled again
 
         Assert.Single((await DeliveriesAsync(f)).Items);
     }
@@ -264,6 +305,25 @@ public class NotificationTests : IDisposable
 
         Assert.Equal(DateTimeOffset.Parse(nextRun), schedule.NextRunAt);
         Assert.Equal((DateTime.Parse(periodStart), DateTime.Parse(periodEnd)), period);
+    }
+
+    [Fact]
+    public async Task The_report_email_is_in_arabic_when_the_venue_reads_arabic()
+    {
+        var f = await CreateAsync();
+        await ArabicAsync(f);
+        await OrderAndPayAsync(f, burgers: 2, tip: 500);
+        await _host.Reports.CreateAsync(new ReportScheduleRequest(f.Venue.Id, ReportFrequency.Daily, 8, ["owner@demo.test"]), f.Manager.Id, default);
+
+        _host.Clock.SetUtcNow(new DateTimeOffset(2027, 3, 11, 4, 0, 0, TimeSpan.Zero));
+        await _host.Reports.RunDueAsync(default);
+        await _host.Dispatcher.DispatchDueAsync(default);
+
+        var email = Assert.Single(_host.Emails.Sent);
+        Assert.Equal("Test Bistro · Marina: التقرير اليومي عن الأربعاء 10 آذار 2027", email.Subject);
+        Assert.Contains("الإيرادات", email.TextBody);
+        Assert.Contains("AED 100.00", email.TextBody);
+        Assert.Contains("dir=\"rtl\"", email.HtmlBody);
     }
 
     [Fact]

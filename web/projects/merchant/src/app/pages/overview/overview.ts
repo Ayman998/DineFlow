@@ -6,11 +6,13 @@ import { merge } from 'rxjs';
 import { FinanceApi, Overview as OverviewData, OverviewPeriod, TrendGranularity } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
 import { TrendChart, TrendValue } from '../../shared/trend-chart';
+import { OVERVIEW } from './overview.i18n';
 
-const PERIOD_NAMES: Record<OverviewPeriod, string> = { Today: 'today', Week: 'last 7 days', Month: 'this month', Quarter: 'this quarter' };
+type AttentionItem = OverviewData['attention'][number];
 
 /**
  * The merchant overview (blueprint 4.4, P1-MER-08/09, mockup "Merchant overview"): the chosen
@@ -27,6 +29,8 @@ export class Overview implements OnInit {
   private readonly venue = inject(CurrentVenue);
   private readonly live = inject(LiveOrders);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(OVERVIEW);
 
   protected readonly periods: OverviewPeriod[] = ['Today', 'Week', 'Month', 'Quarter'];
   protected readonly granularities: TrendGranularity[] = ['Hourly', 'Daily', 'Weekly', 'Monthly'];
@@ -37,7 +41,7 @@ export class Overview implements OnInit {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly periodName = computed(() => PERIOD_NAMES[this.period()]);
+  protected readonly periodName = computed(() => this.t().periodNames[this.period()]);
   protected readonly trend = computed<TrendValue[]>(() =>
     (this.data()?.trend ?? []).map(p => ({ start: p.start, valueMinor: this.series() === 'revenue' ? p.revenueMinor : p.tipsMinor })));
 
@@ -59,6 +63,23 @@ export class Overview implements OnInit {
     this.load();
   }
 
+  /** An item's title and detail in the portal's language; an item the portal doesn't know keeps the API's English. */
+  protected attention(a: AttentionItem): { title: string; detail: string } {
+    const word = a.code ? this.t().attention[a.code] : undefined;
+    if (!word) return { title: a.title, detail: a.detail };
+    const p = a.params ?? {};
+    const type = String(p['locationType'] ?? '');
+    return word({
+      count: a.count,
+      place: `${this.i18n.t().locationTypes[type] ?? type} ${p['label'] ?? ''}`.trim(),
+      linkCode: typeof p['linkCode'] === 'string' ? p['linkCode'] : null,
+      time: String(p['time'] ?? ''),
+      refused: Number(p['refused'] ?? 0),
+      open: this.money(Number(p['openMinor'] ?? 0)),
+      minutes: Number(p['minutes'] ?? 0)
+    });
+  }
+
   protected money(minor: number): string {
     return formatMoney(minor, this.data()?.currency ?? this.venue.venue()?.currency ?? 'AED');
   }
@@ -67,12 +88,12 @@ export class Overview implements OnInit {
   protected revenueChange(d: OverviewData): string | null {
     const change = d.week.revenueChange;
     if (change === null) return null;
-    return `${change > 0 ? '▲' : change < 0 ? '▼' : '='} ${Math.abs(change * 100).toFixed(2)}% vs last week`;
+    return this.t().vsLastWeek(`${change > 0 ? '▲' : change < 0 ? '▼' : '='} ${Math.abs(change * 100).toFixed(2)}%`);
   }
 
   protected ordersChange(d: OverviewData): string {
     const diff = d.week.orders - d.week.previousOrders;
-    return `${diff > 0 ? '▲' : diff < 0 ? '▼' : '='} ${Math.abs(diff)} vs last week`;
+    return this.t().vsLastWeek(`${diff > 0 ? '▲' : diff < 0 ? '▼' : '='} ${Math.abs(diff)}`);
   }
 
   protected link(kind: string): string {

@@ -8,8 +8,10 @@ export interface GuestContext {
   sessionId: string;
   expiresAt: string;
   locale: string;
-  venue: { brandName: string; branchName: string; logoUrl: string | null; brandColor: string; currency: string };
-  location: { type: string; label: string; displayName: string; areaName: string | null };
+  /** branchNameAr is missing from contexts saved before branches had Arabic names. */
+  venue: { brandName: string; branchName: string; branchNameAr?: string | null; logoUrl: string | null; brandColor: string; currency: string };
+  /** areaNameAr is missing from contexts saved before areas had Arabic names. */
+  location: { type: string; label: string; displayName: string; areaName: string | null; areaNameAr?: string | null };
   features: { menu: boolean; payAtTable: boolean };
 }
 

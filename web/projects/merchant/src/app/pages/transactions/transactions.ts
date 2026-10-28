@@ -2,11 +2,14 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { merge } from 'rxjs';
 
-import { FinanceApi, TransactionDetail, TransactionFilter, TransactionPage, TransactionRow, TransactionState } from '../../core/api';
+import { FinanceApi, TimelineEvent, TransactionDetail, TransactionFilter, TransactionPage, TransactionRow, TransactionState } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney, parseMajor, toMajorString } from '../../core/money';
+import { TIMELINE, timelineText } from '../../shared/timeline.i18n';
+import { TRANSACTIONS } from './transactions.i18n';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -25,6 +28,9 @@ export class Transactions implements OnInit {
   private readonly live = inject(LiveOrders);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(TRANSACTIONS);
+  private readonly steps = this.i18n.use(TIMELINE);
 
   protected readonly ranges = [1, 7, 30, 90];
   protected readonly filters: TransactionFilter[] = ['All', 'Succeeded', 'Refunded', 'Pending', 'Failed'];
@@ -99,9 +105,9 @@ export class Transactions implements OnInit {
     const d = this.detail();
     if (!d || this.refunding()) return;
     const amount = parseMajor(this.refundAmount(), d.summary.currency);
-    if (!amount) return this.refundError.set(`Enter an amount in ${d.summary.currency}, e.g. 12.50.`);
-    if (amount > d.refundableMinor) return this.refundError.set(`You can refund up to ${this.money(d.refundableMinor, d.summary.currency)}.`);
-    if (!this.refundReason().trim()) return this.refundError.set('Add a reason; it goes in the audit log.');
+    if (!amount) return this.refundError.set(this.t().enterAmount(d.summary.currency));
+    if (amount > d.refundableMinor) return this.refundError.set(this.t().refundUpTo(this.money(d.refundableMinor, d.summary.currency)));
+    if (!this.refundReason().trim()) return this.refundError.set(this.t().addReason);
 
     this.refunding.set(true);
     this.refundError.set(null);
@@ -120,7 +126,7 @@ export class Transactions implements OnInit {
   }
 
   protected stateLabel(state: TransactionState): string {
-    return { Pending: 'Pending', Succeeded: 'Paid', PartiallyRefunded: 'Partly refunded', Refunded: 'Refunded', Failed: 'Failed', Cancelled: 'Cancelled' }[state];
+    return this.t().states[state];
   }
 
   protected stateClass(state: TransactionState): string {
@@ -136,16 +142,27 @@ export class Transactions implements OnInit {
 
   protected modeText(d: TransactionDetail): string | null {
     switch (d.summary.mode) {
-      case 'Equal': return `${d.shares} of ${d.splitPeople} shares`;
-      case 'Items': return d.itemCount === 1 ? 'By item · 1 item' : `By item · ${d.itemCount} items`;
-      case 'Custom': return 'Custom amount';
+      case 'Equal': return this.i18n.t().sharesOf(d.shares ?? 0, d.splitPeople ?? 0);
+      case 'Items': return this.t().byItem(d.itemCount);
+      case 'Custom': return this.i18n.t().customAmount;
       default: return null;
     }
   }
 
   /** Where it was paid: the table, or the payment link. */
   protected place(row: TransactionRow): string {
-    return row.paymentLinkCode ? `Link ${row.paymentLinkCode}` : `${row.locationType} ${row.locationLabel}`;
+    if (row.paymentLinkCode) return this.t().link(row.paymentLinkCode);
+    return `${this.i18n.t().locationTypes[row.locationType] ?? row.locationType} ${row.locationLabel}`;
+  }
+
+  /** Card, Apple Pay…; a method the lexicon doesn't know is shown as the API names it. */
+  protected method(method: string): string {
+    return this.t().methods[method] ?? method;
+  }
+
+  /** A timeline step in the portal's language. */
+  protected step(event: TimelineEvent, currency: string): string {
+    return timelineText(event, this.steps(), currency);
   }
 
   protected money(minor: number, currency: string): string {
@@ -153,7 +170,7 @@ export class Transactions implements OnInit {
   }
 
   protected when(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–';
+    return iso ? new Date(iso).toLocaleString(this.i18n.locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–';
   }
 
   protected lastRow(d: TransactionPage): number {

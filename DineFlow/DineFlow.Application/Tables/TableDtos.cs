@@ -10,7 +10,9 @@ public record FloorPlanDto(
     IReadOnlyList<AreaDto> Areas,
     IReadOnlyList<LocationDto> Unassigned);
 
-public record AreaDto(Guid Id, string Name, int SortOrder, IReadOnlyList<LocationDto> Locations);
+/// <param name="NameAr">What Arabic-reading guests see instead of the name; null shows the name.</param>
+/// <param name="IsActive">False while the area is closed: its QR codes don't open and its tables take no new orders.</param>
+public record AreaDto(Guid Id, string Name, string? NameAr, int SortOrder, bool IsActive, IReadOnlyList<LocationDto> Locations);
 
 public record LocationDto(
     Guid Id,
@@ -24,7 +26,13 @@ public record LocationDto(
 /// <summary>The location's current QR code. <see cref="Url"/> is what gets printed.</summary>
 public record QrDto(Guid Id, int Version, string Status, string Url);
 
-public record CreateAreaRequest([Required, StringLength(80, MinimumLength = 1)] string Name);
+public record CreateAreaRequest(
+    [Required, StringLength(80, MinimumLength = 1)] string Name,
+    [StringLength(80)] string? NameAr = null);
+
+public record UpdateAreaRequest(
+    [Required, StringLength(80, MinimumLength = 1)] string Name,
+    [StringLength(80)] string? NameAr);
 
 public record CreateLocationRequest(
     [Required] Guid VenueId,

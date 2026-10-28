@@ -4,13 +4,14 @@ import { TitleStrategy, provideRouter, withComponentInputBinding } from '@angula
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth';
+import { languageInterceptor } from './core/i18n';
 import { OrdersTitleStrategy } from './core/orders-title';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([languageInterceptor, authInterceptor])),
     { provide: TitleStrategy, useClass: OrdersTitleStrategy }
   ]
 };

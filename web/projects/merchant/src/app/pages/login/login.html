@@ -1,4 +1,7 @@
-<main class="flex min-h-full items-center justify-center bg-surface px-4">
+@let t = this.t();
+<main class="relative flex min-h-full items-center justify-center bg-surface px-4">
+  <button type="button" class="absolute end-6 top-6 text-sm font-medium text-brand hover:underline" [attr.aria-label]="i18n.t().changeLanguage"
+          [attr.lang]="i18n.lang() === 'en' ? 'ar' : 'en'" (click)="i18n.toggle()">{{ i18n.t().otherLanguage }}</button>
   <form
     class="w-full max-w-sm rounded-2xl border border-line bg-white p-8 shadow-sm"
     [formGroup]="form"
@@ -6,31 +9,31 @@
     novalidate>
     <div class="mb-6">
       <div class="text-xl font-bold text-brand">DineFlow</div>
-      <h1 class="mt-4 text-2xl font-bold">Sign in</h1>
-      <p class="mt-1 text-sm text-ink-muted">Manage your venue, tables and QR codes.</p>
+      <h1 class="mt-4 text-2xl font-bold">{{ t.signIn }}</h1>
+      <p class="mt-1 text-sm text-ink-muted">{{ t.intro }}</p>
     </div>
 
     <label class="mb-4 block">
-      <span class="mb-1 block text-sm font-medium">Email</span>
+      <span class="mb-1 block text-sm font-medium">{{ t.email }}</span>
       <input
         type="email"
         formControlName="email"
         autocomplete="username"
         class="w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
       @if (form.controls.email.touched && form.controls.email.invalid) {
-        <span class="mt-1 block text-sm text-red-700">Enter a valid email address.</span>
+        <span class="mt-1 block text-sm text-red-700">{{ t.emailInvalid }}</span>
       }
     </label>
 
     <label class="mb-6 block">
-      <span class="mb-1 block text-sm font-medium">Password</span>
+      <span class="mb-1 block text-sm font-medium">{{ t.password }}</span>
       <input
         type="password"
         formControlName="password"
         autocomplete="current-password"
         class="w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
       @if (form.controls.password.touched && form.controls.password.invalid) {
-        <span class="mt-1 block text-sm text-red-700">Enter your password.</span>
+        <span class="mt-1 block text-sm text-red-700">{{ t.passwordRequired }}</span>
       }
     </label>
 
@@ -42,7 +45,7 @@
       type="submit"
       class="w-full rounded-lg bg-brand py-2.5 font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
       [disabled]="busy()">
-      {{ busy() ? 'Signing in…' : 'Sign in' }}
+      {{ busy() ? t.signingIn : t.signIn }}
     </button>
   </form>
 </main>

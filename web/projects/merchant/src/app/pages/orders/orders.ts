@@ -6,37 +6,28 @@ import { FormsModule } from '@angular/forms';
 import { OrderDto, OrderFilter, OrderStatus, OrdersAdminApi } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
+import { ORDERS } from './orders.i18n';
 
-interface Column {
-  status: OrderStatus;
-  title: string;
-}
+/** The kanban columns; their titles are in the lexicon. */
+const COLUMNS: OrderStatus[] = ['Submitted', 'Accepted', 'Preparing', 'Ready'];
 
+/** Where an order can go next; each button is labelled by the status it moves the order to. */
 interface Action {
   status: OrderStatus;
-  label: string;
   primary: boolean;
 }
 
-const COLUMNS: Column[] = [
-  { status: 'Submitted', title: 'New' },
-  { status: 'Accepted', title: 'Accepted' },
-  { status: 'Preparing', title: 'Preparing' },
-  { status: 'Ready', title: 'Ready' }
-];
-
 const ACTIONS: Record<OrderStatus, Action[]> = {
-  Submitted: [{ status: 'Accepted', label: 'Accept', primary: true }],
-  Accepted: [{ status: 'Preparing', label: 'Start preparing', primary: true }, { status: 'Ready', label: 'Mark ready', primary: false }],
-  Preparing: [{ status: 'Ready', label: 'Mark ready', primary: true }],
-  Ready: [{ status: 'Completed', label: 'Mark served', primary: true }],
+  Submitted: [{ status: 'Accepted', primary: true }],
+  Accepted: [{ status: 'Preparing', primary: true }, { status: 'Ready', primary: false }],
+  Preparing: [{ status: 'Ready', primary: true }],
+  Ready: [{ status: 'Completed', primary: true }],
   Completed: [],
   Rejected: []
 };
-
-export const REJECT_REASONS = ['An item is sold out', 'The kitchen is closing', 'Duplicate order', 'Please order at the counter'];
 
 /**
  * The live order queue (blueprint 4.4 "Orders", P1-ORD-03/04): new orders arrive in real time
@@ -53,9 +44,11 @@ export class Orders implements OnInit {
   private readonly venue = inject(CurrentVenue);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly live = inject(LiveOrders);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(ORDERS);
 
   protected readonly columns = COLUMNS;
-  protected readonly reasons = REJECT_REASONS;
+  protected readonly filters: OrderFilter[] = ['Active', 'New', 'Completed', 'Rejected'];
   protected readonly filter = signal<OrderFilter>('Active');
   protected readonly orders = signal<OrderDto[] | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -117,7 +110,7 @@ export class Orders implements OnInit {
   }
 
   protected openReject(order: OrderDto): void {
-    this.rejectReason = REJECT_REASONS[0]!;
+    this.rejectReason = this.t().rejectReasons[0]!;
     this.rejecting.set(order);
   }
 
@@ -126,15 +119,20 @@ export class Orders implements OnInit {
     if (order && this.rejectReason.trim()) this.move(order, 'Rejected', this.rejectReason.trim());
   }
 
+  /** Table, Room…; a type the portal doesn't know is shown as the API names it. */
+  protected locationType(order: OrderDto): string {
+    return this.i18n.t().locationTypes[order.locationType] ?? order.locationType;
+  }
+
   protected money(order: OrderDto, minor: number): string {
     return formatMoney(minor, order.currency);
   }
 
   protected age(order: OrderDto): string {
     const minutes = Math.max(0, Math.floor((this.now() - new Date(order.createdAt).getTime()) / 60_000));
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes} min ago`;
-    return new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (minutes < 1) return this.t().justNow;
+    if (minutes < 60) return this.t().minutesAgo(minutes);
+    return new Date(order.createdAt).toLocaleTimeString(this.i18n.locale(), { hour: '2-digit', minute: '2-digit' });
   }
 
   /** Orders waiting more than 10 minutes in New are flagged. */
@@ -169,7 +167,7 @@ export class Orders implements OnInit {
 
   private fitsFilter(order: OrderDto): boolean {
     switch (this.filter()) {
-      case 'Active': return COLUMNS.some(c => c.status === order.status);
+      case 'Active': return COLUMNS.includes(order.status);
       case 'New': return order.status === 'Submitted';
       case 'Completed': return order.status === 'Completed';
       default: return order.status === 'Rejected';

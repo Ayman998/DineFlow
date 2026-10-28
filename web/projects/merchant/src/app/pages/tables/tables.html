@@ -1,44 +1,52 @@
-<div class="mb-5 flex gap-1 rounded-lg bg-surface p-1 w-fit print:hidden" role="tablist" aria-label="Tables view">
+@let t = this.t();
+<div class="mb-5 flex gap-1 rounded-lg bg-surface p-1 w-fit print:hidden" role="tablist" [attr.aria-label]="t.viewLabel">
   <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === 'live'"
-          [class]="view() === 'live' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set('live')">Live status</button>
+          [class]="view() === 'live' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set('live')">{{ t.liveStatus }}</button>
   <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === 'qr'"
-          [class]="view() === 'qr' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set('qr')">Tables &amp; QR codes</button>
+          [class]="view() === 'qr' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set('qr')">{{ t.tablesAndQr }}</button>
 </div>
 
 @if (view() === 'live') {
-  <h1 class="mb-4 text-2xl font-bold">Tables</h1>
+  <h1 class="mb-4 text-2xl font-bold">{{ t.tables }}</h1>
   <df-live-tables />
 } @else {
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4 print:hidden">
   <div>
-    <h1 class="text-2xl font-bold">Tables & QR codes</h1>
+    <h1 class="text-2xl font-bold">{{ t.tablesAndQr }}</h1>
     @if (plan(); as p) {
-      <p class="mt-1 text-sm text-ink-muted">
-        {{ p.venueName }} · {{ totals().locations }} locations · {{ totals().active }} active QR codes
-      </p>
+      <p class="mt-1 text-sm text-ink-muted">{{ t.summary(p.venueName, totals().locations, totals().active) }}</p>
     }
   </div>
   <div class="flex flex-wrap gap-2">
     @if (auth.canManage()) {
       <button type="button" class="btn-secondary" [attr.aria-expanded]="panel() === 'area'" (click)="togglePanel('area')">
-        Add area
+        {{ t.addArea }}
       </button>
       <button type="button" class="btn-secondary" [attr.aria-expanded]="panel() === 'tables'" (click)="togglePanel('tables')">
-        Add tables
+        {{ t.addTables }}
       </button>
     }
-    <button type="button" class="btn-primary" [disabled]="!totals().locations" (click)="print()">Print QR codes</button>
+    <button type="button" class="btn-primary" [disabled]="!totals().locations" (click)="print()">{{ t.printQr }}</button>
   </div>
 </div>
 
 @if (panel() === 'area') {
-  <form class="card mb-6 flex flex-wrap items-end gap-3 print:hidden" [formGroup]="areaForm" (ngSubmit)="addArea()">
-    <label class="min-w-56 flex-1">
-      <span class="field-label">Area name</span>
-      <input class="field" formControlName="name" placeholder="e.g. Terrace" />
-    </label>
-    <button type="submit" class="btn-primary">Add area</button>
-    <button type="button" class="btn-ghost" (click)="togglePanel('none')">Cancel</button>
+  @let editing = editingArea();
+  <form class="card mb-6 print:hidden" [formGroup]="areaForm" (ngSubmit)="saveArea()">
+    @if (editing) { <h2 class="mb-3 font-semibold">{{ t.renameAreaTitle(editing.title) }}</h2> }
+    <div class="flex flex-wrap items-end gap-3">
+      <label class="min-w-56 flex-1">
+        <span class="field-label">{{ t.areaName }}</span>
+        <input class="field" formControlName="name" maxlength="80" [placeholder]="t.areaPlaceholder" />
+      </label>
+      <label class="min-w-56 flex-1">
+        <span class="field-label">{{ t.areaNameAr }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
+        <input class="field" formControlName="nameAr" dir="rtl" maxlength="80" [placeholder]="t.areaNameArPlaceholder" />
+      </label>
+      <button type="submit" class="btn-primary">{{ editing ? i18n.t().save : t.addArea }}</button>
+      <button type="button" class="btn-ghost" (click)="togglePanel('none')">{{ i18n.t().cancel }}</button>
+    </div>
+    <p class="mt-3 text-sm text-ink-muted">{{ t.areaNameArHint }}</p>
   </form>
 }
 
@@ -47,17 +55,17 @@
   <form class="card mb-6 print:hidden" [formGroup]="tablesForm" (ngSubmit)="addTables()">
     <div class="mb-4 flex gap-4 text-sm">
       <label class="flex items-center gap-2">
-        <input type="radio" formControlName="mode" value="range" /> Numbered tables
+        <input type="radio" formControlName="mode" value="range" /> {{ t.numberedTables }}
       </label>
       <label class="flex items-center gap-2">
-        <input type="radio" formControlName="mode" value="single" /> One location (counter, room, pool…)
+        <input type="radio" formControlName="mode" value="single" /> {{ t.oneLocation }}
       </label>
     </div>
     <div class="flex flex-wrap items-end gap-3">
       <label class="min-w-48">
-        <span class="field-label">Area</span>
+        <span class="field-label">{{ t.area }}</span>
         <select class="field" formControlName="areaId">
-          <option value="">No area</option>
+          <option value="">{{ i18n.t().noArea }}</option>
           @for (area of plan()?.areas ?? []; track area.id) {
             <option [value]="area.id">{{ area.name }}</option>
           }
@@ -65,31 +73,31 @@
       </label>
       @if (mode === 'range') {
         <label class="w-28">
-          <span class="field-label">From</span>
+          <span class="field-label">{{ t.from }}</span>
           <input class="field" type="number" min="1" max="999" formControlName="from" />
         </label>
         <label class="w-28">
-          <span class="field-label">To</span>
+          <span class="field-label">{{ t.to }}</span>
           <input class="field" type="number" min="1" max="999" formControlName="to" />
         </label>
       } @else {
         <label class="min-w-40">
-          <span class="field-label">Type</span>
+          <span class="field-label">{{ t.type }}</span>
           <select class="field" formControlName="type">
-            @for (type of types; track type.value) {
-              <option [value]="type.value">{{ type.label }}</option>
+            @for (type of types; track type) {
+              <option [value]="type">{{ t.locationTypes[type] }}</option>
             }
           </select>
         </label>
         <label class="w-36">
-          <span class="field-label">Label</span>
-          <input class="field" formControlName="label" placeholder="e.g. 204" />
+          <span class="field-label">{{ t.label }}</span>
+          <input class="field" formControlName="label" [placeholder]="t.labelPlaceholder" />
         </label>
       }
-      <button type="submit" class="btn-primary">{{ mode === 'range' ? 'Add tables' : 'Add location' }}</button>
-      <button type="button" class="btn-ghost" (click)="togglePanel('none')">Cancel</button>
+      <button type="submit" class="btn-primary">{{ mode === 'range' ? t.addTables : t.addLocation }}</button>
+      <button type="button" class="btn-ghost" (click)="togglePanel('none')">{{ i18n.t().cancel }}</button>
     </div>
-    <p class="mt-3 text-sm text-ink-muted">Each new location gets its own QR code straight away.</p>
+    <p class="mt-3 text-sm text-ink-muted">{{ t.eachGetsQr }}</p>
   </form>
 }
 
@@ -108,54 +116,72 @@
   </div>
 } @else if (plan() && !totals().locations) {
   <div class="card text-center text-ink-muted">
-    No tables yet. Use <strong>Add tables</strong> to create them; each one gets a QR code.
+    {{ t.noTablesBefore }} <strong>{{ t.addTables }}</strong> {{ t.noTablesAfter }}
   </div>
 } @else {
   @for (section of sections(); track section.id) {
     <section class="mb-8">
-      <h2 class="mb-3 text-sm font-semibold tracking-wide text-ink-muted uppercase print:hidden">
-        {{ section.title }} · {{ section.locations.length }}
-      </h2>
+      <div class="mb-3 flex flex-wrap items-center gap-3 print:hidden">
+        <h2 class="text-sm font-semibold tracking-wide text-ink-muted uppercase">
+          {{ section.title }}@if (section.titleAr) { · <span dir="rtl">{{ section.titleAr }}</span> } · {{ section.locations.length }}
+        </h2>
+        @if (section.id) {
+          <span class="rounded-full px-2 py-0.5 text-xs font-medium"
+                [class]="section.active ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'">
+            {{ section.active ? '● ' + t.open : '◐ ' + t.closed }}
+          </span>
+          @if (auth.canManage()) {
+            <button type="button" class="link text-sm" [disabled]="isAreaBusy(section)" (click)="setAreaActive(section, !section.active)">
+              {{ section.active ? t.closeArea : t.openArea }}
+            </button>
+            <button type="button" class="link text-sm" (click)="renameArea(section)">{{ t.renameArea }}</button>
+          }
+        }
+      </div>
+      @if (!section.active) {
+        <p class="mb-3 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-900 print:hidden">{{ t.areaClosedNote }}</p>
+      }
       <div class="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 print:grid-cols-3 print:gap-6">
         @for (location of section.locations; track location.id) {
           @let qr = location.qr;
+          @let name = place(location);
           <article
             class="flex flex-col rounded-xl border border-line bg-white p-4 break-inside-avoid"
-            [class.opacity-60]="qr?.status === 'Disabled'">
+            [class.opacity-60]="qr?.status === 'Disabled' || !section.active">
             <div class="hidden text-center print:block">
               <div class="text-sm font-semibold">{{ brandName() }}</div>
             </div>
 
             <div class="flex items-start justify-between gap-2 print:justify-center">
-              <div class="font-bold print:text-center print:text-lg">{{ location.displayName }}</div>
+              <div class="font-bold print:text-center print:text-lg">{{ name }}</div>
               @if (qr) {
                 <span
                   class="rounded-full px-2 py-0.5 text-xs font-medium print:hidden"
                   [class]="qr.status === 'Active' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'">
-                  {{ qr.status === 'Active' ? '● Active' : '◐ Disabled' }}
+                  {{ qr.status === 'Active' ? '● ' + t.active : '◐ ' + t.disabled }}
                 </span>
               }
             </div>
 
             @if (qr) {
-              <df-qr-code class="mx-auto my-3 aspect-square w-full max-w-44" [url]="qr.url" [alt]="'QR code for ' + location.displayName" />
-              <div class="text-center text-xs text-ink-muted print:hidden">Version {{ qr.version }}</div>
-              <div class="hidden text-center text-xs print:block">Scan to view the menu and pay</div>
+              <df-qr-code class="mx-auto my-3 aspect-square w-full max-w-44" [url]="qr.url" [alt]="t.qrFor(name)" />
+              <div class="text-center text-xs text-ink-muted print:hidden">{{ t.version(qr.version) }}</div>
+              <div class="hidden text-center text-xs print:block">{{ t.scanToPay }}</div>
 
               <div class="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm print:hidden">
-                <a class="link" [href]="qr.url" target="_blank" rel="noopener">Open</a>
-                <button type="button" class="link" (click)="download(location)">Download</button>
+                <a class="link" [href]="qr.url" target="_blank" rel="noopener">{{ t.openLink }}</a>
+                <button type="button" class="link" (click)="download(location)">{{ t.download }}</button>
                 @if (auth.canManage()) {
                   @if (qr.status === 'Active') {
-                    <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, false)">Disable</button>
+                    <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, false)">{{ t.disable }}</button>
                   } @else {
-                    <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, true)">Enable</button>
+                    <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, true)">{{ t.enable }}</button>
                   }
-                  <button type="button" class="link" [disabled]="isBusy(location)" (click)="rotate(location)">Rotate</button>
+                  <button type="button" class="link" [disabled]="isBusy(location)" (click)="rotate(location)">{{ t.rotate }}</button>
                 }
               </div>
             } @else {
-              <p class="my-6 text-center text-sm text-ink-muted">No QR code</p>
+              <p class="my-6 text-center text-sm text-ink-muted">{{ t.noQr }}</p>
             }
           </article>
         }

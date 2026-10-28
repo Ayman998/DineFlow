@@ -1,5 +1,6 @@
 using DineFlow.Application.Common;
 using DineFlow.Application.Tables;
+using DineFlow.Application.Venues;
 using DineFlow.Domain.Sessions;
 using DineFlow.Domain.Venues;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,25 @@ public class GuestServiceTests : IDisposable
         Assert.Equal("ar", result.Context.Locale);
         Assert.True(result.Context.Features.Menu && result.Context.Features.PayAtTable);
         Assert.Equal(1, await _host.Db.Set<GuestSession>().IgnoreQueryFilters().CountAsync());
+    }
+
+    [Fact]
+    public async Task Guests_reading_arabic_get_the_branchs_arabic_name()
+    {
+        var tenant = await _host.CreateTenantAsync("Demo Bistro");
+        var venue = await _host.Venues.CreateAsync(new VenueSettingsRequest("Abdoun", "JOD", "Asia/Amman", "ar", null, "#0B3B38", true, true,
+            NameAr: " عبدون "), default);
+        var table = await _host.Tables.CreateLocationAsync(new CreateLocationRequest(venue.Id, null, ServiceLocationType.Table, "4"), default);
+        _host.CurrentTenant = null;
+
+        var guest = await _host.Guests.ResolveQrAsync(TestHost.TokenFromUrl(table.Qr!.Url), null, default);
+        _host.CurrentTenant = tenant.Id;
+        var cleared = await _host.Venues.UpdateSettingsAsync(venue.Id,
+            new VenueSettingsRequest("Abdoun", "JOD", "Asia/Amman", "ar", null, "#0B3B38", true, true, NameAr: ""), default);
+
+        Assert.Equal(("Abdoun", "عبدون"), (venue.Name, venue.NameAr));
+        Assert.Equal(("Abdoun", "عبدون"), (guest.Context.Venue.BranchName, guest.Context.Venue.BranchNameAr));
+        Assert.Null(cleared.NameAr);
     }
 
     [Fact]

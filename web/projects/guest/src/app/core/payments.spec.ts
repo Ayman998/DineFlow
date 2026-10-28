@@ -19,11 +19,15 @@ describe('parseTip', () => {
     expect(parseTip('١٥٪', 10_000, 'AED')).toEqual({ minor: 1_500 });
   });
 
-  it('refuses text that is not a tip, and tips above the bill', () => {
+  it('refuses text that is not a tip, and tips above 20% of the bill', () => {
     expect(parseTip('', 10_000, 'AED')).toBeNull();
     expect(parseTip('ten', 10_000, 'AED')).toEqual({ error: 'invalid' });
     expect(parseTip('-5', 10_000, 'AED')).toEqual({ error: 'invalid' });
     expect(parseTip('150', 10_000, 'AED')).toEqual({ error: 'tooHigh' });
+    expect(parseTip('21%', 10_000, 'AED')).toEqual({ error: 'tooHigh' });
+    expect(parseTip('20.01', 10_000, 'AED')).toEqual({ error: 'tooHigh' });
+    expect(parseTip('20%', 10_000, 'AED')).toEqual({ minor: 2_000 });
+    expect(parseTip('20', 10_000, 'AED')).toEqual({ minor: 2_000 });
   });
 });
 

@@ -40,8 +40,7 @@ public class TableService(
         return new FloorPlanDto(
             venue.Id,
             venue.Name,
-            areas.Select(a => new AreaDto(a.Id, a.Name, a.SortOrder,
-                dtos.Where(l => l.DiningAreaId == a.Id).ToList())).ToList(),
+            areas.Select(a => ToDto(a, dtos.Where(l => l.DiningAreaId == a.Id).ToList())).ToList(),
             dtos.Where(l => l.DiningAreaId is null).ToList());
     }
 
@@ -52,11 +51,46 @@ public class TableService(
         var nextOrder = await db.DiningAreas.Where(a => a.VenueId == venueId)
             .Select(a => (int?)a.SortOrder).MaxAsync(ct) ?? -1;
 
-        var area = new DiningArea(tenant.RequireTenantId(), venueId, request.Name, nextOrder + 1);
+        var area = new DiningArea(tenant.RequireTenantId(), venueId, request.Name, nextOrder + 1, request.NameAr);
         db.DiningAreas.Add(area);
         await db.SaveChangesAsync(ct);
 
-        return new AreaDto(area.Id, area.Name, area.SortOrder, []);
+        return ToDto(area, []);
+    }
+
+    /// <summary>Renames an area, e.g. to give it the Arabic name guests reading Arabic see.</summary>
+    public async Task<AreaDto> UpdateAreaAsync(Guid venueId, Guid areaId, UpdateAreaRequest request, CancellationToken ct)
+    {
+        var area = await db.DiningAreas.SingleOrDefaultAsync(a => a.Id == areaId && a.VenueId == venueId, ct)
+            ?? throw AppException.NotFound("area_not_found", "Area not found.");
+
+        area.Rename(request.Name, request.NameAr);
+        await db.SaveChangesAsync(ct);
+        return await AreaWithLocationsAsync(area, ct);
+    }
+
+    /// <summary>
+    /// Closes or reopens a whole area, such as the terrace, in one go. Each table keeps its own QR
+    /// setting, so tables disabled one by one stay disabled when the area reopens.
+    /// </summary>
+    public async Task<AreaDto> SetAreaActiveAsync(Guid venueId, Guid areaId, bool active, CancellationToken ct)
+    {
+        var area = await db.DiningAreas.SingleOrDefaultAsync(a => a.Id == areaId && a.VenueId == venueId, ct)
+            ?? throw AppException.NotFound("area_not_found", "Area not found.");
+
+        area.SetActive(active);
+        await db.SaveChangesAsync(ct);
+        return await AreaWithLocationsAsync(area, ct);
+    }
+
+    private async Task<AreaDto> AreaWithLocationsAsync(DiningArea area, CancellationToken ct)
+    {
+        var locations = await db.ServiceLocations.Where(l => l.DiningAreaId == area.Id).ToListAsync(ct);
+        var currentQr = await CurrentQrByLocationAsync(locations.Select(l => l.Id).ToList(), ct);
+        return ToDto(area, locations
+            .OrderBy(l => l.Type).ThenBy(l => l.Label.Length).ThenBy(l => l.Label)
+            .Select(l => ToDto(l, currentQr.GetValueOrDefault(l.Id)))
+            .ToList());
     }
 
     /// <summary>Creates a location and issues its first QR code.</summary>
@@ -189,6 +223,9 @@ public class TableService(
     private async Task<ServiceLocation> FindLocationAsync(Guid locationId, CancellationToken ct) =>
         await db.ServiceLocations.SingleOrDefaultAsync(l => l.Id == locationId, ct)
         ?? throw AppException.NotFound("location_not_found", "Location not found.");
+
+    private static AreaDto ToDto(DiningArea a, IReadOnlyList<LocationDto> locations) =>
+        new(a.Id, a.Name, a.NameAr, a.SortOrder, a.IsActive, locations);
 
     private LocationDto ToDto(ServiceLocation l, QrToken? qr) => new(
         l.Id, l.DiningAreaId, l.Type.ToString(), l.Label, l.DisplayName, l.IsActive,

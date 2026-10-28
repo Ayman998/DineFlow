@@ -1,8 +1,26 @@
+import { HttpInterceptorFn } from '@angular/common/http';
 import { DOCUMENT, Injectable, computed, effect, inject, signal } from '@angular/core';
 
 import { readJson, writeJson } from './storage';
 
 export type Lang = 'en' | 'ar';
+
+/** The API's default heading for private feedback (GuestReviewService.DefaultFeedbackTitle). */
+const DEFAULT_FEEDBACK_TITLE = 'Sorry we missed the mark';
+
+/** Payment failure reasons from the API's providers (MastercardGatewayProvider, SandboxPaymentProvider). */
+const FAILURE_REASONS_AR: Record<string, string> = {
+  'The payment was declined.': 'تم رفض عملية الدفع.',
+  'The card was declined.': 'تم رفض البطاقة.',
+  'Your card was declined.': 'تم رفض بطاقتك.',
+  'Insufficient funds.': 'الرصيد غير كافٍ.',
+  'The card has expired.': 'انتهت صلاحية البطاقة.',
+  "The card details didn't match.": 'بيانات البطاقة غير مطابقة.',
+  "The payment wasn't authenticated by the card's bank.": 'لم يتحقق البنك المُصدر للبطاقة من عملية الدفع.',
+  "The bank didn't answer in time.": 'لم يستجب البنك في الوقت المحدد.',
+  'The payment was cancelled.': 'تم إلغاء عملية الدفع.',
+  "The payment didn't go through.": 'لم تتم عملية الدفع.'
+};
 
 const EN = {
   languageName: 'English',
@@ -132,9 +150,9 @@ const EN = {
   customTip: 'Custom tip (amount or %)',
   customTipLabel: 'Tip amount or percentage',
   customTipPlaceholder: 'e.g. 10 or 12%',
-  customTipHint: 'Enter an amount, or a percentage of the bill such as 12%.',
+  customTipHint: 'Enter an amount, or a percentage of the bill such as 12% (up to 20%).',
   customTipInvalid: 'Enter an amount like 10 or a percentage like 12%.',
-  customTipTooHigh: "A tip can't be more than the bill.",
+  customTipTooHigh: "A tip can be at most 20% of the bill.",
   tipThanks: "Thank you, that's generous!",
   tip: 'Tip',
   promoAdd: 'Have a promo code?',
@@ -300,6 +318,10 @@ const EN = {
   reviewThanks: 'Thanks for your rating!',
   feedbackThanks: 'Thanks, the team will read your feedback.',
   rateVisit: 'Rate your visit',
+  /** The private feedback heading: the venue's own, or ours when it didn't set one. */
+  feedbackTitle: (title: string | null) => title || DEFAULT_FEEDBACK_TITLE,
+  /** Why the provider declined a payment, as the API words it in English; null when there's nothing to add. */
+  failureReason: (reason: string | null): string | null => reason,
   link: {
     title: 'Payment request',
     loading: 'Opening the payment link…',
@@ -476,9 +498,9 @@ const AR: Strings = {
   customTip: 'إكرامية مخصصة (مبلغ أو نسبة)',
   customTipLabel: 'مبلغ الإكرامية أو نسبتها',
   customTipPlaceholder: 'مثال: 10 أو 12%',
-  customTipHint: 'أدخل مبلغاً، أو نسبة من الفاتورة مثل 12%.',
+  customTipHint: 'أدخل مبلغاً، أو نسبة من الفاتورة مثل 12% (حتى 20%).',
   customTipInvalid: 'أدخل مبلغاً مثل 10 أو نسبة مثل 12%.',
-  customTipTooHigh: 'لا يمكن أن تتجاوز الإكرامية قيمة الفاتورة.',
+  customTipTooHigh: 'لا يمكن أن تتجاوز الإكرامية 20% من قيمة الفاتورة.',
   tipThanks: 'شكراً لك، هذا كرم منك!',
   tip: 'الإكرامية',
   promoAdd: 'لديك رمز ترويجي؟',
@@ -644,6 +666,14 @@ const AR: Strings = {
   reviewThanks: 'شكراً لتقييمك!',
   feedbackThanks: 'شكراً، سيطّلع الفريق على ملاحظاتك.',
   rateVisit: 'قيّم زيارتك',
+  feedbackTitle: (title: string | null) => (!title || title === DEFAULT_FEEDBACK_TITLE ? 'نأسف لأن تجربتك لم تكن كما توقّعت' : title),
+  failureReason: (reason: string | null) => {
+    if (!reason) return null;
+    const known = FAILURE_REASONS_AR[reason];
+    if (known) return known;
+    const code = /^The payment didn't go through \((.+)\)\.$/.exec(reason)?.[1];
+    return code ? `لم تتم عملية الدفع (${code}).` : null;
+  },
   link: {
     title: 'طلب دفع',
     loading: 'جارٍ فتح رابط الدفع…',
@@ -725,8 +755,15 @@ export class I18n {
     return this.lang() === 'ar' && ar ? ar : en;
   }
 
+  /** For Intl formatting: Arabic keeps Latin digits, as prices and references do. */
+  readonly locale = computed(() => (this.lang() === 'ar' ? 'ar-u-nu-latn' : 'en-GB'));
+
   /** Applies the venue's default language unless the guest already chose one. */
   useDefault(lang: string): void {
     if (!this.hasPreference() && (lang === 'en' || lang === 'ar')) this.lang.set(lang);
   }
 }
+
+/** Asks the API to word its messages (ProblemDetails titles) in the guest's language. */
+export const languageInterceptor: HttpInterceptorFn = (req, next) =>
+  next(req.url.startsWith('/v1/') ? req.clone({ setHeaders: { 'Accept-Language': inject(I18n).lang() } }) : req);

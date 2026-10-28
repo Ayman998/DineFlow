@@ -1837,8 +1837,15 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("NameAr")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
@@ -1995,6 +2002,10 @@ namespace DineFlow.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("NameAr")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 

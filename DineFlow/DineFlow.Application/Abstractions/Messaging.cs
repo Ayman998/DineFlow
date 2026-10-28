@@ -17,4 +17,5 @@ public interface IWhatsAppSender
 /// <param name="To">E.164 number, e.g. +971501234567.</param>
 /// <param name="Parameters">The template's body parameters, in order.</param>
 /// <param name="Text">The message as it reads once the template is filled in.</param>
-public record WhatsAppMessage(string To, IReadOnlyList<string> Parameters, string Text);
+/// <param name="Language">"en" or "ar": which of the template's translations the parameters are written for.</param>
+public record WhatsAppMessage(string To, IReadOnlyList<string> Parameters, string Text, string Language = "en");

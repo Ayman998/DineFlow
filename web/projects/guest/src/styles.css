@@ -2,7 +2,7 @@
 
 /* DineFlow design tokens, taken from the Df3Pay mockups. */
 @theme {
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --color-brand: #0f766e;
   --color-brand-dark: #115e59;
   --color-accent: #f5a524;

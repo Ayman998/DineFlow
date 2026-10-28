@@ -76,6 +76,8 @@ public class PaymentLinkCheckoutService(
                 throw AppException.Conflict("payment_in_progress", "Someone is paying the rest of this link right now. Please wait a moment.", Current());
             if (principal != request.ExpectedAmountMinor)
                 throw AppException.Conflict("amount_changed", "The amount to pay has changed. Please check the new amount.", Current());
+            if (request.TipMinor > Venue.MaxTipMinor(principal))
+                throw AppException.BadRequest("tip_too_high", "A tip can be at most 20% of the amount you're paying.");
 
             Payment created;
             try
@@ -127,14 +129,15 @@ public class PaymentLinkCheckoutService(
     }
 
     /// <summary>E-mails the receipt for a successful payment (P1-REC-01).</summary>
-    public async Task SendReceiptAsync(string token, Guid paymentId, string to, CancellationToken ct)
+    /// <param name="language">The language the customer reads ("en" or "ar"); null uses the venue's default.</param>
+    public async Task SendReceiptAsync(string token, Guid paymentId, string to, string? language, CancellationToken ct)
     {
         var (link, venue) = await LoadAsync(token, ct);
         var payment = await FindPaymentAsync(link, paymentId, ct);
         if (payment.Status != PaymentStatus.Succeeded)
             throw AppException.Conflict("not_paid", "A receipt is available once the payment has gone through.");
 
-        await email.SendAsync(Receipt.BuildForLink(to, venue, link, payment), ct);
+        await email.SendAsync(Receipt.BuildForLink(to, venue, link, payment, Languages.IsArabic(language ?? venue.DefaultLocale)), ct);
     }
 
     // ---- Helpers ----
@@ -187,13 +190,13 @@ public class PaymentLinkCheckoutService(
     private PublicPaymentLinkDto ToDto(PaymentLink link, Venue venue, LinkTotals totals)
     {
         var tips = TipsOffered(link, venue)
-            ? new TipSettingsDto(true, venue.TipPresetsBasisPoints, venue.MostCommonTipBasisPoints)
+            ? TipSettingsDto.For(venue)
             : new TipSettingsDto(false, [], null);
         var status = link.StatusAt(clock.GetUtcNow());
         var open = status == PaymentLinkStatus.Active;
 
         return new PublicPaymentLinkDto(link.Code, link.Reference, status,
-            new LinkVenueDto(venue.Tenant.DisplayName, venue.Name, venue.LogoUrl, venue.BrandColor, venue.DefaultLocale),
+            new LinkVenueDto(venue.Tenant.DisplayName, venue.Name, venue.LogoUrl, venue.BrandColor, venue.DefaultLocale, venue.NameAr),
             link.Currency, link.AmountMinor, totals.PaidMinor, totals.RemainingMinor, open ? totals.AvailableMinor : 0,
             open && totals.InFlightMinor > 0, link.AllowSplit, tips, provider.SupportedMethods,
             paymentOptions.Value.TermsVersion, paymentOptions.Value.TermsUrl, link.ExpiresAt);

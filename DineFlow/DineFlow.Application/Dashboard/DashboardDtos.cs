@@ -18,8 +18,11 @@ public record WeekComparisonDto(long RevenueMinor, long PreviousRevenueMinor, do
 public record TrendPointDto(DateTimeOffset Start, long RevenueMinor, long TipsMinor);
 
 /// <summary>Something staff should look at, e.g. failed payments or tables with money left to pay.</summary>
-/// <param name="Kind">"payment", "tables", "review", "refund" or "orders".</param>
-public record AttentionDto(string Kind, string Title, string Detail, int Count);
+/// <param name="Kind">"payment", "pos", "reconciliation", "orders", "tables", "review" or "refund".</param>
+/// <param name="Title">In English, like <paramref name="Detail"/>, for clients that don't know <paramref name="Code"/>.</param>
+/// <param name="Code">Which item it is, e.g. "tables_unpaid", so the portal can word it in the reader's language.</param>
+/// <param name="Params">The values that wording needs besides <paramref name="Count"/>: amounts in minor units, places, times.</param>
+public record AttentionDto(string Kind, string Title, string Detail, int Count, string? Code = null, object? Params = null);
 
 public record OverviewDto(
     OverviewPeriod Period,

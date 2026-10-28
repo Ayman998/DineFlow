@@ -6,6 +6,7 @@ using DineFlow.Domain.Common;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
 using DineFlow.Domain.Pos;
+using DineFlow.Domain.Venues;
 using Microsoft.EntityFrameworkCore;
 
 namespace DineFlow.Application.Transactions;
@@ -82,7 +83,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
                 o.Lines.OrderBy(l => l.Position).Select(l => new TransactionOrderLineDto(l.Name, l.Quantity, l.LineTotalMinor)).ToList(),
                 o.TotalMinor)).ToList(),
             refundDtos,
-            await TimelineAsync(payment, location?.DisplayName, link, orders, refunds, staff, review is null ? null : (review.CreatedAt, review.Rating), ct));
+            await TimelineAsync(payment, location, link, orders, refunds, staff, review is null ? null : (review.CreatedAt, review.Rating), ct));
     }
 
     /// <summary>
@@ -213,20 +214,27 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
 
     /// <summary>Session (or payment link) → orders → payment → provider → ledger → review → refunds, in time order.</summary>
     private async Task<IReadOnlyList<TimelineEventDto>> TimelineAsync(
-        Payment payment, string? place, PaymentLink? link, IReadOnlyList<Order> orders, IReadOnlyList<Refund> refunds,
+        Payment payment, ServiceLocation? location, PaymentLink? link, IReadOnlyList<Order> orders, IReadOnlyList<Refund> refunds,
         Dictionary<Guid, string> staff, (DateTimeOffset At, int Rating)? review, CancellationToken ct)
     {
         string Money(long minor) => FormatMoney(minor, payment.Currency);
         var events = new List<TimelineEventDto>();
 
         if (link is not null)
-            events.Add(new(link.CreatedAt, "link", $"Payment link {link.Code} created{(staff.GetValueOrDefault(link.CreatedByStaffId) is { } by ? $" by {by}" : "")} for {Money(link.AmountMinor)}"));
+        {
+            var by = staff.GetValueOrDefault(link.CreatedByStaffId);
+            events.Add(new(link.CreatedAt, "link", $"Payment link {link.Code} created{(by is null ? "" : $" by {by}")} for {Money(link.AmountMinor)}",
+                "link_created", new { code = link.Code, amountMinor = link.AmountMinor, by }));
+        }
 
         var sessionStart = await db.GuestSessions.AsNoTracking().Where(s => s.Id == payment.GuestSessionId).Select(s => (DateTimeOffset?)s.CreatedAt).SingleOrDefaultAsync(ct);
-        if (sessionStart is { } started) events.Add(new(started, "session", $"Guest scanned the QR code at {place}"));
+        if (sessionStart is { } started)
+            events.Add(new(started, "session", $"Guest scanned the QR code at {location?.DisplayName}",
+                "session_started", new { locationType = location?.Type.ToString(), label = location?.Label }));
 
         foreach (var o in orders)
-            events.Add(new(o.CreatedAt, "order", $"Order #{o.Number} placed · {Money(o.TotalMinor)}{(o.Status == OrderStatus.Rejected ? " (later rejected)" : "")}"));
+            events.Add(new(o.CreatedAt, "order", $"Order #{o.Number} placed · {Money(o.TotalMinor)}{(o.Status == OrderStatus.Rejected ? " (later rejected)" : "")}",
+                "order_placed", new { number = o.Number, amountMinor = o.TotalMinor, rejected = o.Status == OrderStatus.Rejected }));
 
         var split = payment.Mode switch
         {
@@ -235,47 +243,62 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
             PaymentMode.Custom => " · custom amount",
             _ => ""
         };
-        events.Add(new(payment.CreatedAt, "payment", $"Payment started · {Money(payment.AmountMinor)} by {payment.Method}{split}"));
+        events.Add(new(payment.CreatedAt, "payment", $"Payment started · {Money(payment.AmountMinor)} by {payment.Method}{split}",
+            "payment_started", new { amountMinor = payment.AmountMinor, method = payment.Method.ToString(), mode = payment.Mode.ToString(),
+                shares = payment.Shares, people = payment.SplitPeople }));
 
         if (payment.ProviderPaymentId is { } providerId)
         {
             var webhooks = await db.ProcessedWebhooks.AsNoTracking().Where(w => w.ProviderPaymentId == providerId).OrderBy(w => w.CreatedAt).ToListAsync(ct);
             foreach (var w in webhooks)
-                events.Add(new(w.CreatedAt, "provider", w.Status switch
+            {
+                var (text, code) = w.Status switch
                 {
-                    nameof(PaymentStatus.Succeeded) => $"{payment.Provider} confirmed the payment",
-                    nameof(PaymentStatus.Failed) => $"{payment.Provider} declined the payment",
-                    "RefundSucceeded" => $"{payment.Provider} confirmed a refund",
-                    "RefundFailed" => $"{payment.Provider} declined a refund",
-                    _ => $"{payment.Provider} reported {w.Status}"
-                }));
+                    nameof(PaymentStatus.Succeeded) => ($"{payment.Provider} confirmed the payment", "provider_confirmed"),
+                    nameof(PaymentStatus.Failed) => ($"{payment.Provider} declined the payment", "provider_declined"),
+                    "RefundSucceeded" => ($"{payment.Provider} confirmed a refund", "provider_refund_confirmed"),
+                    "RefundFailed" => ($"{payment.Provider} declined a refund", "provider_refund_declined"),
+                    _ => ($"{payment.Provider} reported {w.Status}", "provider_reported")
+                };
+                events.Add(new(w.CreatedAt, "provider", text, code, new { provider = payment.Provider, status = w.Status }));
+            }
         }
-        if (payment.Status == PaymentStatus.Cancelled) events.Add(new(payment.UpdatedAt, "payment", "The guest left the payment page without paying"));
+        if (payment.Status == PaymentStatus.Cancelled)
+            events.Add(new(payment.UpdatedAt, "payment", "The guest left the payment page without paying", "guest_left"));
 
         var ledger = await db.LedgerEntries.AsNoTracking().Where(e => e.PaymentId == payment.Id).OrderBy(e => e.CreatedAt).ToListAsync(ct);
         foreach (var group in ledger.Where(e => e.Type != LedgerEntryType.Refund).GroupBy(e => e.CreatedAt))
-            events.Add(new(group.Key, "ledger", "Ledger: " + string.Join(", ", group.Select(e => $"{LedgerName(e.Type)} {Money(e.AmountMinor)}"))));
+            events.Add(new(group.Key, "ledger", "Ledger: " + string.Join(", ", group.Select(e => $"{LedgerName(e.Type)} {Money(e.AmountMinor)}")),
+                "ledger", new
+                {
+                    entries = group.Select(e => new { type = LedgerName(e.Type), amountMinor = e.AmountMinor }).ToList()
+                }));
         foreach (var e in ledger.Where(e => e.Type == LedgerEntryType.Refund))
-            events.Add(new(e.CreatedAt, "ledger", $"Ledger: refund {Money(e.AmountMinor)}"));
+            events.Add(new(e.CreatedAt, "ledger", $"Ledger: refund {Money(e.AmountMinor)}", "ledger_refund", new { amountMinor = e.AmountMinor }));
 
-        if (review is { } r) events.Add(new(r.At, "review", $"Guest rated the visit {r.Rating} / 5"));
+        if (review is { } r) events.Add(new(r.At, "review", $"Guest rated the visit {r.Rating} / 5", "review", new { rating = r.Rating }));
 
         var posting = await db.PosCommands.AsNoTracking().SingleOrDefaultAsync(c => c.PaymentId == payment.Id, ct);
         if (posting is not null)
             events.Add(posting.Status switch
             {
-                PosCommandStatus.Done => new(posting.CompletedAt ?? posting.CreatedAt, "pos", $"Posted to the POS ({posting.Provider}, {posting.ResultRef})"),
-                PosCommandStatus.Failed => new(posting.LastAttemptAt ?? posting.CreatedAt, "pos", $"The POS refused the payment: {posting.LastError}"),
+                PosCommandStatus.Done => new(posting.CompletedAt ?? posting.CreatedAt, "pos", $"Posted to the POS ({posting.Provider}, {posting.ResultRef})",
+                    "pos_posted", new { provider = posting.Provider, reference = posting.ResultRef }),
+                PosCommandStatus.Failed => new(posting.LastAttemptAt ?? posting.CreatedAt, "pos", $"The POS refused the payment: {posting.LastError}",
+                    "pos_refused", new { error = posting.LastError }),
                 _ => new(posting.LastAttemptAt ?? posting.CreatedAt, "pos",
-                    posting.Attempts == 0 ? "Waiting to post to the POS" : $"Waiting to post to the POS ({posting.Attempts} attempts): {posting.LastError}")
+                    posting.Attempts == 0 ? "Waiting to post to the POS" : $"Waiting to post to the POS ({posting.Attempts} attempts): {posting.LastError}",
+                    "pos_waiting", new { attempts = posting.Attempts, error = posting.LastError })
             });
 
         foreach (var refund in refunds)
         {
-            events.Add(new(refund.CreatedAt, "refund",
-                $"Refund of {Money(refund.AmountMinor)} requested{(staff.GetValueOrDefault(refund.RequestedByStaffId) is { } name ? $" by {name}" : "")}: {refund.Reason}"));
+            var by = staff.GetValueOrDefault(refund.RequestedByStaffId);
+            events.Add(new(refund.CreatedAt, "refund", $"Refund of {Money(refund.AmountMinor)} requested{(by is null ? "" : $" by {by}")}: {refund.Reason}",
+                "refund_requested", new { amountMinor = refund.AmountMinor, by, reason = refund.Reason }));
             if (refund.Status == RefundStatus.Failed && refund.CompletedAt is { } failedAt)
-                events.Add(new(failedAt, "refund", $"Refund of {Money(refund.AmountMinor)} failed: {refund.FailureReason}"));
+                events.Add(new(failedAt, "refund", $"Refund of {Money(refund.AmountMinor)} failed: {refund.FailureReason}",
+                    "refund_failed", new { amountMinor = refund.AmountMinor, reason = refund.FailureReason }));
         }
 
         // Things that happen in the same instant still read in cause-then-effect order.

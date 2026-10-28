@@ -63,7 +63,7 @@
             <li class="flex min-h-[60px] items-center gap-2.5 border-b border-surface py-1.5">
               <span class="min-w-0 flex-1">
                 <span class="block text-[15px] font-semibold">{{ unitName(unit) }}</span>
-                @if (unit.options.length) { <span class="block text-[12px] text-ink-muted">{{ unit.options.join(' · ') }}</span> }
+                @if (unit.options.length) { <span class="block text-[12px] text-ink-muted">{{ unitOptions(unit) }}</span> }
               </span>
               <span class="min-w-[56px] text-end text-sm text-ink-muted">{{ money(unit.amountMinor) }}</span>
               @if (lock) {

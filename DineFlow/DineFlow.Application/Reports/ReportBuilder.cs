@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using DineFlow.Application.Abstractions;
+using DineFlow.Application.Common;
 using DineFlow.Application.Transactions;
 using DineFlow.Domain.Notifications;
 using DineFlow.Domain.Orders;
@@ -66,12 +67,14 @@ public class ReportBuilder(IAppDbContext db)
 
         var tenant = await db.Tenants.IgnoreQueryFilters().AsNoTracking().Where(t => t.Id == venue.TenantId).Select(t => t.DisplayName).SingleAsync(ct);
         return new ReportDto(tenant, venue.Name, venue.Currency, frequency, DateOnly.FromDateTime(start), DateOnly.FromDateTime(end),
-            PeriodLabel(frequency, start, end), metrics, top.Select(t => new ReportItemDto(t.Name, t.Quantity, t.Total)).ToList());
+            PeriodLabel(frequency, start, end), metrics, top.Select(t => new ReportItemDto(t.Name, t.Quantity, t.Total)).ToList(), venue.NameAr);
     }
 
     /// <summary>The report as an e-mail: a table of figures with the change from the period before, then the top items.</summary>
-    public static (string Subject, string Text, string Html) Render(ReportDto report)
+    /// <param name="arabic">In Arabic, laid out right to left, for staff who read Arabic.</param>
+    public static (string Subject, string Text, string Html) Render(ReportDto report, bool arabic = false)
     {
+        string T(string english, string ar) => arabic ? ar : english;
         string Value(ReportMetricDto m, decimal value) => m.Unit switch
         {
             ReportUnit.Money => TransactionService.FormatMoney((long)value, report.Currency),
@@ -81,62 +84,107 @@ public class ReportBuilder(IAppDbContext db)
         static string Change(ReportMetricDto m) => m.Change switch
         {
             null => "",
-            > 0 => $"▲ {m.Change.Value * 100:0.#}%",
-            < 0 => $"▼ {-m.Change.Value * 100:0.#}%",
+            > 0 => $"▲ {(m.Change.Value * 100).ToString("0.#", CultureInfo.InvariantCulture)}%",
+            < 0 => $"▼ {(-m.Change.Value * 100).ToString("0.#", CultureInfo.InvariantCulture)}%",
             _ => "="
         };
+        string Label(ReportMetricDto m) => arabic ? ArabicMetrics.GetValueOrDefault(m.Key, m.Label) : m.Label;
+        var venueName = arabic && report.VenueNameAr is { } nameAr ? nameAr : report.VenueName;
 
-        var frequency = report.Frequency.ToString().ToLowerInvariant();
-        var subject = $"{report.BrandName} · {report.VenueName}: {frequency} report, {report.PeriodLabel}";
+        var period = arabic ? PeriodLabel(report.Frequency, report.PeriodStart.ToDateTime(TimeOnly.MinValue),
+            report.PeriodEnd.ToDateTime(TimeOnly.MinValue), arabic: true) : report.PeriodLabel;
+        var frequency = arabic
+            ? report.Frequency switch { ReportFrequency.Monthly => "الشهري", ReportFrequency.Weekly => "الأسبوعي", _ => "اليومي" }
+            : report.Frequency.ToString().ToLowerInvariant();
+        var subject = arabic
+            ? $"{report.BrandName} · {venueName}: التقرير {frequency} عن {period}"
+            : $"{report.BrandName} · {venueName}: {frequency} report, {period}";
+        var heading = arabic ? $"تقريرك {frequency} عن {period}" : $"Your {frequency} report for {period}";
+        var footer = T("Amounts include taxes and charges. Sent by DineFlow; change who gets it under Reports.",
+            "تشمل المبالغ الضرائب والرسوم. أرسله DineFlow؛ يمكنك تغيير المستلمين من صفحة التقارير.");
 
         var text = new StringBuilder()
-            .AppendLine($"{report.BrandName} · {report.VenueName}")
-            .AppendLine($"Your {frequency} report for {report.PeriodLabel}")
+            .AppendLine($"{report.BrandName} · {venueName}")
+            .AppendLine(heading)
             .AppendLine();
         foreach (var m in report.Metrics)
-            text.AppendLine($"{m.Label,-34} {Value(m, m.Value),16}   was {Value(m, m.Previous)} {Change(m)}");
+            text.AppendLine($"{Label(m),-34} {Value(m, m.Value),16}   {T("was", "كان")} {Value(m, m.Previous)} {Change(m)}");
         if (report.TopItems.Count > 0)
         {
-            text.AppendLine().AppendLine("Best sellers");
+            text.AppendLine().AppendLine(T("Best sellers", "الأكثر مبيعاً"));
             foreach (var item in report.TopItems)
                 text.AppendLine($"{item.Quantity,4} × {item.Name,-30} {TransactionService.FormatMoney(item.TotalMinor, report.Currency)}");
         }
-        text.AppendLine().AppendLine("Amounts include taxes and charges. Sent by DineFlow; change who gets it under Reports.");
+        text.AppendLine().AppendLine(footer);
 
+        // Arabic reads right to left: labels on the right, figures on the left.
+        var (dir, start, end) = arabic ? ("rtl", "right", "left") : ("ltr", "left", "right");
         static string E(string s) => WebUtility.HtmlEncode(s);
         var rows = string.Concat(report.Metrics.Select(m =>
         {
             var colour = m.Change is null or 0 ? "#475467" : (m.Change > 0) == (m.Key is not ("refunds" or "failures")) ? "#067647" : "#B42318";
-            return $"""<tr><td style="padding:6px 0">{E(m.Label)}</td><td style="padding:6px 8px;text-align:right;font-weight:700">{E(Value(m, m.Value))}</td><td style="padding:6px 8px;text-align:right;color:#475467">{E(Value(m, m.Previous))}</td><td style="padding:6px 0;text-align:right;color:{colour}">{E(Change(m))}</td></tr>""";
+            return $"""<tr><td style="padding:6px 0">{E(Label(m))}</td><td style="padding:6px 8px;text-align:{end};font-weight:700">{E(Value(m, m.Value))}</td><td style="padding:6px 8px;text-align:{end};color:#475467">{E(Value(m, m.Previous))}</td><td style="padding:6px 0;text-align:{end};color:{colour}">{E(Change(m))}</td></tr>""";
         }));
         var items = report.TopItems.Count == 0 ? "" : $"""
-            <h3 style="margin:24px 0 8px">Best sellers</h3>
+            <h3 style="margin:24px 0 8px">{T("Best sellers", "الأكثر مبيعاً")}</h3>
             <table style="width:100%;border-collapse:collapse">{string.Concat(report.TopItems.Select(i =>
-                $"""<tr><td style="padding:4px 0">{i.Quantity} × {E(i.Name)}</td><td style="padding:4px 0;text-align:right">{E(TransactionService.FormatMoney(i.TotalMinor, report.Currency))}</td></tr>"""))}</table>
+                $"""<tr><td style="padding:4px 0">{i.Quantity} × {E(i.Name)}</td><td style="padding:4px 0;text-align:{end}">{E(TransactionService.FormatMoney(i.TotalMinor, report.Currency))}</td></tr>"""))}</table>
             """;
         var html = $"""
-            <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;color:#101828">
-              <h2 style="margin:0">{E(report.BrandName)} · {E(report.VenueName)}</h2>
-              <p style="color:#475467;margin:4px 0 16px">Your {frequency} report for {E(report.PeriodLabel)}</p>
+            <div dir="{dir}" lang="{(arabic ? Languages.Arabic : Languages.English)}" style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;color:#101828">
+              <h2 style="margin:0">{E(report.BrandName)} · {E(venueName)}</h2>
+              <p style="color:#475467;margin:4px 0 16px">{E(heading)}</p>
               <table style="width:100%;border-collapse:collapse;font-size:14px">
-                <tr style="color:#475467;font-size:12px;text-transform:uppercase"><th style="text-align:left;padding:4px 0">Figure</th><th style="text-align:right;padding:4px 8px">This period</th><th style="text-align:right;padding:4px 8px">Before</th><th></th></tr>
+                <tr style="color:#475467;font-size:12px;text-transform:uppercase"><th style="text-align:{start};padding:4px 0">{T("Figure", "البند")}</th><th style="text-align:{end};padding:4px 8px">{T("This period", "هذه الفترة")}</th><th style="text-align:{end};padding:4px 8px">{T("Before", "قبلها")}</th><th></th></tr>
                 {rows}
               </table>
               {items}
-              <p style="color:#475467;font-size:12px;margin-top:24px">Amounts include taxes and charges. Sent by DineFlow; change who gets it under Reports.</p>
+              <p style="color:#475467;font-size:12px;margin-top:24px">{E(footer)}</p>
             </div>
             """;
         return (subject, text.ToString(), html);
     }
 
+    /// <summary>The report's figures in Arabic, by key; the merchant portal's reports page uses the same words.</summary>
+    private static readonly Dictionary<string, string> ArabicMetrics = new()
+    {
+        ["revenue"] = "الإيرادات",
+        ["tips"] = "الإكراميات",
+        ["refunds"] = "الاستردادات",
+        ["net"] = "الصافي (الإيرادات + الإكراميات − الاستردادات)",
+        ["orders"] = "الطلبات",
+        ["payments"] = "الدفعات الناجحة",
+        ["average"] = "متوسط الدفعة",
+        ["failures"] = "الدفعات الفاشلة",
+        ["links"] = "المدفوع عبر روابط الدفع",
+        ["reviews"] = "التقييمات",
+        ["rating"] = "متوسط التقييم"
+    };
+
     internal static TimeZoneInfo Zone(Venue venue) =>
         TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone) ? zone : TimeZoneInfo.Utc;
 
-    /// <summary>"Tue 21 Oct 2026", "13–19 Oct 2026" or "September 2026".</summary>
-    internal static string PeriodLabel(ReportFrequency frequency, DateTime start, DateTime end)
+    /// <summary>
+    /// "Tue 21 Oct 2026", "13–19 Oct 2026" or "September 2026"; in Arabic "الثلاثاء 21 تشرين الأول 2026",
+    /// "13–19 تشرين الأول 2026" or "أيلول 2026".
+    /// </summary>
+    internal static string PeriodLabel(ReportFrequency frequency, DateTime start, DateTime end, bool arabic = false)
     {
-        var c = CultureInfo.InvariantCulture;
         var last = end.AddDays(-1);
+        if (arabic)
+        {
+            string Day(DateTime d) => $"{d.Day} {Languages.ArabicMonth(d.Month)}";
+            return frequency switch
+            {
+                ReportFrequency.Monthly => $"{Languages.ArabicMonth(start.Month)} {start.Year}",
+                ReportFrequency.Weekly when start.Month == last.Month && start.Year == last.Year => $"{start.Day}–{Day(last)} {last.Year}",
+                ReportFrequency.Weekly when start.Year == last.Year => $"{Day(start)} – {Day(last)} {last.Year}",
+                ReportFrequency.Weekly => $"{Day(start)} {start.Year} – {Day(last)} {last.Year}",
+                _ => $"{Languages.ArabicDay(start.DayOfWeek)} {Day(start)} {start.Year}"
+            };
+        }
+
+        var c = CultureInfo.InvariantCulture;
         return frequency switch
         {
             ReportFrequency.Monthly => start.ToString("MMMM yyyy", c),

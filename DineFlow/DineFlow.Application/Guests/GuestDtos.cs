@@ -12,14 +12,17 @@ public record GuestContextDto(
     GuestLocationDto Location,
     GuestFeaturesDto Features);
 
+/// <param name="BranchNameAr">The branch's name for guests reading Arabic; null when it has none.</param>
 public record GuestVenueDto(
     string BrandName,
     string BranchName,
     string? LogoUrl,
     string BrandColor,
-    string Currency);
+    string Currency,
+    string? BranchNameAr = null);
 
-public record GuestLocationDto(string Type, string Label, string DisplayName, string? AreaName);
+/// <param name="AreaNameAr">The area's Arabic name, for guests reading Arabic; null when it has none.</param>
+public record GuestLocationDto(string Type, string Label, string DisplayName, string? AreaName, string? AreaNameAr = null);
 
 /// <summary>Which actions the landing screen offers; only supported ones are shown (P1-QR-03).</summary>
 public record GuestFeaturesDto(bool Menu, bool PayAtTable);

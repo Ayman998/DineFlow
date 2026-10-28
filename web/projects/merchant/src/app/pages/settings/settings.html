@@ -1,10 +1,11 @@
-<h1 class="mb-1 text-2xl font-bold">Settings</h1>
-<p class="mb-4 text-sm text-ink-muted">What guests see at this venue, who gets payment alerts, and what's been changed.</p>
+@let t = this.t();
+<h1 class="mb-1 text-2xl font-bold">{{ t.title }}</h1>
+<p class="mb-4 text-sm text-ink-muted">{{ t.intro }}</p>
 
-<div class="mb-6 flex gap-1 rounded-lg bg-surface p-1 w-fit" role="tablist" aria-label="Settings">
-  @for (t of tabs(); track t.value) {
-    <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === t.value"
-            [class]="view() === t.value ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(t.value)">{{ t.label }}</button>
+<div class="mb-6 flex gap-1 rounded-lg bg-surface p-1 w-fit" role="tablist" [attr.aria-label]="t.title">
+  @for (tab of tabs(); track tab.value) {
+    <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === tab.value"
+            [class]="view() === tab.value ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(tab.value)">{{ tab.label }}</button>
   }
 </div>
 
@@ -17,147 +18,153 @@
 } @else {
 
 @if (!auth.canManage()) {
-  <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">Only owners and managers can change settings.</p>
+  <p class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">{{ t.readOnly }}</p>
 }
 
 <form class="grid max-w-4xl gap-6 lg:grid-cols-[1fr_280px]" [formGroup]="form" (ngSubmit)="save()" novalidate>
   <div class="flex flex-col gap-6">
     <section class="card grid gap-4 sm:grid-cols-2">
-      <h2 class="font-semibold sm:col-span-2">Venue</h2>
+      <h2 class="font-semibold sm:col-span-2">{{ t.venue }}</h2>
 
-      <label class="sm:col-span-2">
-        <span class="field-label">Branch name</span>
+      <label>
+        <span class="field-label">{{ t.branchName }}</span>
         <input class="field" formControlName="name" />
-        @if (invalid('name')) { <span class="mt-1 block text-sm text-red-700">Enter a name (up to 120 characters).</span> }
+        @if (invalid('name')) { <span class="mt-1 block text-sm text-red-700">{{ t.nameInvalid }}</span> }
       </label>
 
       <label>
-        <span class="field-label">Currency</span>
+        <span class="field-label">{{ t.branchNameAr }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
+        <input class="field" formControlName="nameAr" dir="rtl" maxlength="120" [placeholder]="t.branchNameArPlaceholder" />
+        <span class="mt-1 block text-xs text-ink-muted">{{ t.branchNameArHint }}</span>
+      </label>
+
+      <label>
+        <span class="field-label">{{ t.currency }}</span>
         <input class="field uppercase" formControlName="currency" list="currencies" maxlength="3" />
         <datalist id="currencies">
           @for (c of currencies; track c) { <option [value]="c"></option> }
         </datalist>
-        @if (invalid('currency')) { <span class="mt-1 block text-sm text-red-700">Use a 3-letter code such as AED.</span> }
+        @if (invalid('currency')) { <span class="mt-1 block text-sm text-red-700">{{ t.currencyInvalid }}</span> }
       </label>
 
       <label>
-        <span class="field-label">Timezone</span>
+        <span class="field-label">{{ t.timeZone }}</span>
         <input class="field" formControlName="timeZone" list="timezones" />
         <datalist id="timezones">
           @for (tz of timeZones; track tz) { <option [value]="tz"></option> }
         </datalist>
-        @if (invalid('timeZone')) { <span class="mt-1 block text-sm text-red-700">Enter a timezone such as Asia/Dubai.</span> }
+        @if (invalid('timeZone')) { <span class="mt-1 block text-sm text-red-700">{{ t.timeZoneInvalid }}</span> }
       </label>
 
       <label>
-        <span class="field-label">Guest default language</span>
+        <span class="field-label">{{ t.defaultGuestLanguage }}</span>
         <select class="field" formControlName="defaultLocale">
-          <option value="en">English</option>
-          <option value="ar">العربية (Arabic)</option>
+          <option value="en" lang="en">English</option>
+          <option value="ar" lang="ar">العربية</option>
         </select>
       </label>
     </section>
 
     <section class="card grid gap-4">
-      <h2 class="font-semibold">Branding</h2>
+      <h2 class="font-semibold">{{ t.branding }}</h2>
 
       <label>
-        <span class="field-label">Logo URL <span class="font-normal text-ink-muted">(optional)</span></span>
+        <span class="field-label">{{ t.logoUrl }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
         <input class="field" type="url" formControlName="logoUrl" placeholder="https://…/logo.png" />
       </label>
 
       <div>
-        <span class="field-label">Brand colour</span>
+        <span class="field-label">{{ t.brandColour }}</span>
         <div class="flex items-center gap-3">
-          <input type="color" class="h-10 w-14 cursor-pointer rounded border border-line" formControlName="brandColor" aria-label="Brand colour picker" />
-          <input class="field max-w-32 font-mono" formControlName="brandColor" aria-label="Brand colour hex" />
+          <input type="color" class="h-10 w-14 cursor-pointer rounded border border-line" formControlName="brandColor" [attr.aria-label]="t.brandColourPicker" />
+          <input class="field max-w-32 font-mono" formControlName="brandColor" [attr.aria-label]="t.brandColourHex" />
         </div>
-        @if (invalid('brandColor')) { <span class="mt-1 block text-sm text-red-700">Use a hex colour such as #0B3B38.</span> }
+        @if (invalid('brandColor')) { <span class="mt-1 block text-sm text-red-700">{{ t.brandColourInvalid }}</span> }
       </div>
     </section>
 
     <section class="card grid gap-4 sm:grid-cols-2">
-      <h2 class="font-semibold sm:col-span-2">Charges</h2>
+      <h2 class="font-semibold sm:col-span-2">{{ t.charges }}</h2>
       <label>
-        <span class="field-label">Service charge (%)</span>
+        <span class="field-label">{{ t.serviceCharge }}</span>
         <input class="field" type="number" min="0" max="30" step="0.01" formControlName="serviceChargePercent" />
-        @if (invalid('serviceChargePercent')) { <span class="mt-1 block text-sm text-red-700">Enter 0–30.</span> }
+        @if (invalid('serviceChargePercent')) { <span class="mt-1 block text-sm text-red-700">{{ t.rateInvalid }}</span> }
       </label>
       <label>
-        <span class="field-label">VAT / tax (%)</span>
+        <span class="field-label">{{ t.tax }}</span>
         <input class="field" type="number" min="0" max="30" step="0.01" formControlName="taxPercent" />
-        @if (invalid('taxPercent')) { <span class="mt-1 block text-sm text-red-700">Enter 0–30.</span> }
+        @if (invalid('taxPercent')) { <span class="mt-1 block text-sm text-red-700">{{ t.rateInvalid }}</span> }
       </label>
       <label class="flex items-start gap-3 sm:col-span-2">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="pricesIncludeTax" />
-        <span><span class="font-medium">Menu prices include VAT</span><br />
-          <span class="text-sm text-ink-muted">Shown to guests as "Includes VAT" instead of being added on top. Service charge is added to the subtotal either way.</span></span>
+        <span><span class="font-medium">{{ t.pricesIncludeTax }}</span><br />
+          <span class="text-sm text-ink-muted">{{ t.pricesIncludeTaxHint }}</span></span>
       </label>
     </section>
 
     <section class="card grid gap-4 sm:grid-cols-2">
-      <h2 class="font-semibold sm:col-span-2">Tips</h2>
+      <h2 class="font-semibold sm:col-span-2">{{ t.tips }}</h2>
       <label class="flex items-start gap-3 sm:col-span-2">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="tipsEnabled" />
-        <span><span class="font-medium">Offer a tip when guests pay</span><br />
-          <span class="text-sm text-ink-muted">Tips are shown separately on receipts and in payment alerts.</span></span>
+        <span><span class="font-medium">{{ t.tipsEnabled }}</span><br />
+          <span class="text-sm text-ink-muted">{{ t.tipsEnabledHint }}</span></span>
       </label>
       @if (form.controls.tipsEnabled.value) {
         <label>
-          <span class="field-label">Suggestions (%)</span>
+          <span class="field-label">{{ t.tipPresets }}</span>
           <input class="field" formControlName="tipPresets" inputmode="decimal" placeholder="5, 10, 15" />
-          @if (invalid('tipPresets')) { <span class="mt-1 block text-sm text-red-700">Enter one to four percentages between 0.01 and 30, separated by commas.</span> }
-          @else { <span class="mt-1 block text-sm text-ink-muted">Percent of the bill. Guests can also enter their own.</span> }
+          @if (invalid('tipPresets')) { <span class="mt-1 block text-sm text-red-700">{{ t.tipPresetsInvalid }}</span> }
+          @else { <span class="mt-1 block text-sm text-ink-muted">{{ t.tipPresetsHint }}</span> }
         </label>
         <label>
-          <span class="field-label">Highlight as "Most common"</span>
+          <span class="field-label">{{ t.mostCommon }}</span>
           <select class="field" formControlName="mostCommonTip">
-            <option value="">None</option>
+            <option value="">{{ t.none }}</option>
             @for (p of tipPresetOptions(); track p) { <option [value]="'' + p">{{ p }}%</option> }
           </select>
-          <span class="mt-1 block text-sm text-ink-muted">Pre-selected on the checkout screen; guests can change it or choose "Not now".</span>
+          <span class="mt-1 block text-sm text-ink-muted">{{ t.mostCommonHint }}</span>
         </label>
       }
     </section>
 
     <section class="card grid gap-4 sm:grid-cols-2">
-      <h2 class="font-semibold sm:col-span-2">Reviews</h2>
+      <h2 class="font-semibold sm:col-span-2">{{ t.reviews }}</h2>
       <label class="flex items-start gap-3 sm:col-span-2">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="reviewsEnabled" />
-        <span><span class="font-medium">Ask guests to rate their visit after paying</span><br />
-          <span class="text-sm text-ink-muted">Guests can skip it; it never affects the payment or receipt.</span></span>
+        <span><span class="font-medium">{{ t.reviewsEnabled }}</span><br />
+          <span class="text-sm text-ink-muted">{{ t.reviewsEnabledHint }}</span></span>
       </label>
       @if (form.controls.reviewsEnabled.value) {
         <label>
-          <span class="field-label">Public review platform</span>
+          <span class="field-label">{{ t.reviewPlatform }}</span>
           <select class="field" formControlName="reviewPlatform">
-            <option value="">None: keep all ratings private</option>
-            @for (p of platforms; track p) { <option [value]="p">{{ p }}</option> }
+            <option value="">{{ t.noReviewPlatform }}</option>
+            @for (p of platforms; track p) { <option [value]="p">{{ t.platforms[p] ?? p }}</option> }
           </select>
-          <span class="mt-1 block text-sm text-ink-muted">Guests who give 4–5 stars are invited to post there.</span>
+          <span class="mt-1 block text-sm text-ink-muted">{{ t.reviewPlatformHint }}</span>
         </label>
         <label>
-          <span class="field-label">Link to your review page</span>
+          <span class="field-label">{{ t.reviewUrl }}</span>
           <input class="field" formControlName="reviewUrl" inputmode="url" placeholder="https://g.page/r/…/review" />
-          @if (invalid('reviewUrl')) { <span class="mt-1 block text-sm text-red-700">Enter a full https:// link.</span> }
+          @if (invalid('reviewUrl')) { <span class="mt-1 block text-sm text-red-700">{{ t.reviewUrlInvalid }}</span> }
         </label>
         <label class="sm:col-span-2">
-          <span class="field-label">Private feedback heading <span class="font-normal text-ink-muted">(optional)</span></span>
-          <input class="field" formControlName="feedbackTitle" maxlength="80" placeholder="Sorry we missed the mark" />
-          <span class="mt-1 block text-sm text-ink-muted">Shown to guests who give 1–3 stars. Their feedback stays private to you.</span>
+          <span class="field-label">{{ t.feedbackTitle }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
+          <input class="field" formControlName="feedbackTitle" maxlength="80" [placeholder]="t.feedbackTitlePlaceholder" />
+          <span class="mt-1 block text-sm text-ink-muted">{{ t.feedbackTitleHint }}</span>
         </label>
       }
     </section>
 
     <section class="card grid gap-3">
-      <h2 class="font-semibold">Guest features</h2>
+      <h2 class="font-semibold">{{ t.guestFeatures }}</h2>
       <label class="flex items-start gap-3">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="menuEnabled" />
-        <span><span class="font-medium">Digital menu</span><br /><span class="text-sm text-ink-muted">Guests can browse the menu and order.</span></span>
+        <span><span class="font-medium">{{ t.digitalMenu }}</span><br /><span class="text-sm text-ink-muted">{{ t.digitalMenuHint }}</span></span>
       </label>
       <label class="flex items-start gap-3">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="payAtTableEnabled" />
-        <span><span class="font-medium">Pay at Table</span><br /><span class="text-sm text-ink-muted">Guests can view and pay the bill from their phone.</span></span>
+        <span><span class="font-medium">{{ t.payAtTable }}</span><br /><span class="text-sm text-ink-muted">{{ t.payAtTableHint }}</span></span>
       </label>
     </section>
 
@@ -165,13 +172,13 @@
       <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
     }
     @if (saved()) {
-      <p class="rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">Settings saved. Guests see the changes on their next scan.</p>
+      <p class="rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">{{ t.saved }}</p>
     }
 
     @if (auth.canManage()) {
       <div>
         <button type="submit" class="btn-primary" [disabled]="saving() || form.pristine">
-          {{ saving() ? 'Saving…' : 'Save settings' }}
+          {{ saving() ? i18n.t().saving : t.saveSettings }}
         </button>
       </div>
     }
@@ -179,21 +186,21 @@
 
   @let preview = form.getRawValue();
   <aside class="lg:sticky lg:top-8 lg:self-start">
-    <div class="field-label">Guest preview</div>
+    <div class="field-label">{{ t.guestPreview }}</div>
     <div class="overflow-hidden rounded-2xl border border-line" aria-hidden="true">
       <div class="flex flex-col items-center gap-2 px-4 pt-8 pb-6 text-center text-white" [style.background-color]="preview.brandColor">
         <div class="flex size-14 items-center justify-center overflow-hidden rounded-full bg-white text-sm font-extrabold" [style.color]="preview.brandColor">
-          @if (preview.logoUrl) { <img [src]="preview.logoUrl" alt="" class="size-full object-cover" /> } @else { Logo }
+          @if (preview.logoUrl) { <img [src]="preview.logoUrl" alt="" class="size-full object-cover" /> } @else { {{ t.logo }} }
         </div>
         <div class="text-lg font-extrabold">{{ auth.profile()?.tenantName }}</div>
         <div class="text-xs opacity-80">{{ preview.name }}</div>
       </div>
       <div class="flex flex-col gap-2 bg-white p-4">
         @if (preview.menuEnabled) {
-          <div class="rounded-lg py-2 text-center text-sm font-bold text-white" [style.background-color]="preview.brandColor">View Menu</div>
+          <div class="rounded-lg py-2 text-center text-sm font-bold text-white" [style.background-color]="preview.brandColor">{{ t.viewMenu }}</div>
         }
         @if (preview.payAtTableEnabled) {
-          <div class="rounded-lg border border-line py-2 text-center text-sm font-bold">Pay Bill</div>
+          <div class="rounded-lg border border-line py-2 text-center text-sm font-bold">{{ t.payBill }}</div>
         }
       </div>
     </div>

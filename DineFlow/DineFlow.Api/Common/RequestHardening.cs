@@ -2,6 +2,7 @@ using DineFlow.Application.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 using Serilog.Context;
 
 namespace DineFlow.Api.Common;
@@ -52,6 +53,9 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
         headers.XFrameOptions = "DENY";
         if (context.Request.Path.StartsWithSegments("/v1") || context.Request.Path.StartsWithSegments("/health"))
             headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
+        // Error messages follow Accept-Language, so a cached 404/410 in one language mustn't answer the other.
+        if (context.Request.Path.StartsWithSegments("/v1"))
+            headers.Append(HeaderNames.Vary, "Accept-Language");
         return next(context);
     }
 }

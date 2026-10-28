@@ -88,7 +88,7 @@ export class PaymentPage implements OnInit {
   protected when(payment: Payment): string {
     const date = new Date(payment.succeededAt ?? payment.createdAt);
     // "20 Oct 2026 · 16:42", as on the mockup.
-    const locale = this.i18n.lang() === 'ar' ? 'ar-u-nu-latn' : 'en-GB';
+    const locale = this.i18n.locale();
     const day = new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
     const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
     return `${day} · ${time}`;

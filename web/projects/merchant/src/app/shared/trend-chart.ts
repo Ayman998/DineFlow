@@ -1,7 +1,9 @@
 import { Component, ElementRef, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
 
 import { TrendGranularity } from '../core/api';
+import { I18n } from '../core/i18n';
 import { formatMoney, minorDigits } from '../core/money';
+import { TREND_CHART } from './trend-chart.i18n';
 
 export interface TrendValue {
   start: string;
@@ -22,8 +24,9 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
 @Component({
   selector: 'df-trend-chart',
   template: `
+    @let t = this.t();
     <div class="relative" (mouseleave)="hovered.set(null)">
-      <svg [attr.width]="width()" [attr.height]="height" role="img" [attr.aria-label]="label()" class="block">
+      <svg [attr.width]="width()" [attr.height]="height" role="img" [attr.aria-label]="label()" direction="ltr" class="block">
         @for (tick of ticks(); track tick.value) {
           <line [attr.x1]="margin.left" [attr.x2]="width() - margin.right" [attr.y1]="tick.y" [attr.y2]="tick.y"
                 [attr.stroke]="tick.value === 0 ? '#D0D5DD' : '#EAECF0'" stroke-width="1" shape-rendering="crispEdges" />
@@ -51,11 +54,11 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
       }
     </div>
     <button type="button" class="link mt-2 text-sm" [attr.aria-expanded]="showTable()" (click)="showTable.set(!showTable())">
-      {{ showTable() ? 'Hide table' : 'Show as table' }}
+      {{ showTable() ? t.hideTable : t.showTable }}
     </button>
     @if (showTable()) {
       <table class="mt-2 w-full text-sm">
-        <thead class="text-xs text-ink-muted uppercase"><tr><th scope="col" class="py-1 text-start font-semibold">Period</th><th scope="col" class="py-1 text-end font-semibold">{{ seriesName() }}</th></tr></thead>
+        <thead class="text-xs text-ink-muted uppercase"><tr><th scope="col" class="py-1 text-start font-semibold">{{ t.period }}</th><th scope="col" class="py-1 text-end font-semibold">{{ seriesName() }}</th></tr></thead>
         <tbody>
           @for (bar of bars(); track bar.start) {
             <tr class="border-t border-line"><td class="py-1.5">{{ bar.label }}</td><td class="py-1.5 text-end tabular-nums">{{ money(bar.value) }}</td></tr>
@@ -67,6 +70,8 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
 })
 export class TrendChart implements OnInit, OnDestroy {
   private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(TREND_CHART);
   private observer?: ResizeObserver;
 
   readonly points = input.required<TrendValue[]>();
@@ -85,8 +90,7 @@ export class TrendChart implements OnInit, OnDestroy {
   protected readonly hovered = signal<number | null>(null);
   protected readonly showTable = signal(false);
 
-  protected readonly label = computed(() =>
-    `${this.seriesName()} by ${({ Hourly: 'hour', Daily: 'day', Weekly: 'week', Monthly: 'month' } as const)[this.granularity()]}`);
+  protected readonly label = computed(() => this.t().by(this.seriesName(), this.granularity()));
 
   /** Round tick values: 0 and three or four steps of 1, 2 or 5 × a power of ten. */
   protected readonly ticks = computed(() => {
@@ -94,7 +98,7 @@ export class TrendChart implements OnInit, OnDestroy {
     const max = Math.max(...this.points().map(p => p.valueMinor), 0) / 10 ** digits;
     const step = niceStep(max / 4 || 1);
     const top = Math.max(step, Math.ceil(max / step) * step);
-    const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+    const compact = new Intl.NumberFormat(this.i18n.locale(), { notation: 'compact', maximumFractionDigits: 1 });
     const ticks = [];
     for (let v = 0; v <= top + step / 2; v += step) {
       ticks.push({ value: v, y: MARGIN.top + this.plotHeight * (1 - v / top), text: compact.format(v) });
@@ -152,10 +156,11 @@ export class TrendChart implements OnInit, OnDestroy {
   private format(iso: string): string {
     const date = new Date(iso);
     const timeZone = this.timeZone();
+    const locale = this.i18n.locale();
     switch (this.granularity()) {
-      case 'Hourly': return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone });
-      case 'Monthly': return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone });
-      default: return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone });
+      case 'Hourly': return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone });
+      case 'Monthly': return date.toLocaleDateString(locale, { month: 'short', year: 'numeric', timeZone });
+      default: return date.toLocaleDateString(locale, { day: '2-digit', month: 'short', timeZone });
     }
   }
 }

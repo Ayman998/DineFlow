@@ -1,70 +1,76 @@
-import { Component, OnInit, input, output, signal } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { DAYS, Day, MenuDto, MenuRequest } from '../../core/api';
+import { I18n } from '../../core/i18n';
+import { MENU } from './menu.i18n';
 
 /** Create or edit a menu: names, published flag and when it is served. */
 @Component({
   selector: 'df-menu-editor',
   imports: [FormsModule],
   template: `
+    @let t = this.t();
     <div class="modal-backdrop" (click)="cancelled.emit()"></div>
     <form class="modal" role="dialog" aria-modal="true" aria-labelledby="menu-editor-title" (ngSubmit)="save()">
-      <h2 id="menu-editor-title" class="text-lg font-bold">{{ menu() ? 'Edit menu' : 'New menu' }}</h2>
+      <h2 id="menu-editor-title" class="text-lg font-bold">{{ menu() ? t.menu.editMenu : t.menu.newMenu }}</h2>
 
       <div class="mt-4 grid gap-4 sm:grid-cols-2">
         <label>
-          <span class="field-label">Name</span>
-          <input class="field" name="name" [(ngModel)]="model.name" required maxlength="80" placeholder="e.g. Breakfast" />
+          <span class="field-label">{{ t.name }}</span>
+          <input class="field" name="name" [(ngModel)]="model.name" required maxlength="80" [placeholder]="t.menu.namePlaceholder" />
         </label>
         <label>
-          <span class="field-label">Arabic name <span class="font-normal text-ink-muted">(optional)</span></span>
+          <span class="field-label">{{ t.arabicName }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
           <input class="field" name="nameAr" dir="rtl" [(ngModel)]="model.nameAr" maxlength="80" />
         </label>
       </div>
 
       <fieldset class="mt-4">
-        <legend class="field-label">Days</legend>
+        <legend class="field-label">{{ t.menu.days }}</legend>
         <div class="flex flex-wrap gap-2">
           @for (day of days; track day) {
             <label class="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-sm">
               <input type="checkbox" class="accent-brand" [name]="'day-' + day" [ngModel]="model.days.includes(day)" (ngModelChange)="toggleDay(day)" />
-              {{ day.slice(0, 3) }}
+              {{ t.days[day] || day.slice(0, 3) }}
             </label>
           }
         </div>
       </fieldset>
 
       <fieldset class="mt-4">
-        <legend class="field-label">Hours</legend>
+        <legend class="field-label">{{ t.menu.hours }}</legend>
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" class="accent-brand" name="allDay" [(ngModel)]="allDay" /> All day
+          <input type="checkbox" class="accent-brand" name="allDay" [(ngModel)]="allDay" /> {{ t.menu.allDay }}
         </label>
         @if (!allDay) {
           <div class="mt-2 flex items-center gap-3">
-            <input class="field max-w-36" type="time" name="start" [(ngModel)]="model.startTime" required aria-label="Start time" />
-            <span>to</span>
-            <input class="field max-w-36" type="time" name="end" [(ngModel)]="model.endTime" required aria-label="End time" />
+            <input class="field max-w-36" type="time" name="start" [(ngModel)]="model.startTime" required [attr.aria-label]="t.menu.startTime" />
+            <span>{{ t.menu.to }}</span>
+            <input class="field max-w-36" type="time" name="end" [(ngModel)]="model.endTime" required [attr.aria-label]="t.menu.endTime" />
           </div>
-          <p class="mt-1 text-xs text-ink-muted">Venue local time. An end before the start runs past midnight.</p>
+          <p class="mt-1 text-xs text-ink-muted">{{ t.menu.hoursHint }}</p>
         }
       </fieldset>
 
       <label class="mt-4 flex items-start gap-3">
         <input type="checkbox" class="mt-1 accent-brand" name="published" [(ngModel)]="model.isPublished" />
-        <span><span class="font-medium">Published</span><br /><span class="text-sm text-ink-muted">Guests only see published menus.</span></span>
+        <span><span class="font-medium">{{ t.menu.published }}</span><br /><span class="text-sm text-ink-muted">{{ t.menu.publishedHint }}</span></span>
       </label>
 
       @if (error()) { <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ error() }}</p> }
 
       <div class="mt-6 flex justify-end gap-2">
-        <button type="button" class="btn-ghost" (click)="cancelled.emit()">Cancel</button>
-        <button type="submit" class="btn-primary">{{ menu() ? 'Save menu' : 'Create menu' }}</button>
+        <button type="button" class="btn-ghost" (click)="cancelled.emit()">{{ i18n.t().cancel }}</button>
+        <button type="submit" class="btn-primary">{{ menu() ? t.menu.saveMenu : t.menu.createMenu }}</button>
       </div>
     </form>
   `
 })
 export class MenuEditor implements OnInit {
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(MENU);
+
   readonly menu = input<MenuDto | null>(null);
   readonly saved = output<MenuRequest>();
   readonly cancelled = output<void>();
@@ -86,10 +92,11 @@ export class MenuEditor implements OnInit {
   }
 
   protected save(): void {
-    if (!this.model.name.trim()) return this.error.set('Enter a name.');
-    if (!this.model.days.length) return this.error.set('Pick at least one day.');
-    if (!this.allDay && (!this.model.startTime || !this.model.endTime)) return this.error.set('Set a start and end time, or choose All day.');
-    if (!this.allDay && this.model.startTime === this.model.endTime) return this.error.set("Start and end time can't be the same.");
+    const t = this.t();
+    if (!this.model.name.trim()) return this.error.set(t.enterName);
+    if (!this.model.days.length) return this.error.set(t.menu.pickDay);
+    if (!this.allDay && (!this.model.startTime || !this.model.endTime)) return this.error.set(t.menu.setTimes);
+    if (!this.allDay && this.model.startTime === this.model.endTime) return this.error.set(t.menu.sameTimes);
 
     this.saved.emit({
       ...this.model,

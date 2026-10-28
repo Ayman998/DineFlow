@@ -35,6 +35,11 @@ public class MetaWhatsAppOptions
     /// <summary>An approved template with four body parameters, e.g. "{{1}}: {{2}} paid. {{3}}. {{4}}".</summary>
     public string TemplateName { get; set; } = "payment_alert";
     public string TemplateLanguage { get; set; } = "en";
+    /// <summary>
+    /// The language code of the template's Arabic translation, e.g. "{{1}}: تم دفع {{2}}. {{3}}. {{4}}",
+    /// used for venues whose default language is Arabic. It needs approving in WhatsApp Manager like the English one.
+    /// </summary>
+    public string ArabicTemplateLanguage { get; set; } = "ar";
 }
 
 /// <summary>
@@ -54,7 +59,7 @@ public class OutboxWhatsAppSender(IOptions<WhatsAppOptions> options, string cont
         Directory.CreateDirectory(folder);
         var id = $"outbox_{Guid.NewGuid():N}";
         var path = Path.Combine(folder, $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{message.To.TrimStart('+')}-{id[7..15]}.json");
-        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new { id, message.To, message.Text, message.Parameters, at = DateTimeOffset.UtcNow },
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new { id, message.To, message.Language, message.Text, message.Parameters, at = DateTimeOffset.UtcNow },
             OutboxJson), ct);
         logger.LogInformation("Wrote WhatsApp message for {To} to {Path}", message.To, path);
         return id;
@@ -83,7 +88,7 @@ public class MetaWhatsAppSender(HttpClient http, IOptions<WhatsAppOptions> optio
                 template = new
                 {
                     name = meta.TemplateName,
-                    language = new { code = meta.TemplateLanguage },
+                    language = new { code = message.Language == "ar" ? meta.ArabicTemplateLanguage : meta.TemplateLanguage },
                     components = new[]
                     {
                         new { type = "body", parameters = message.Parameters.Select(p => new { type = "text", text = p }).ToArray() }

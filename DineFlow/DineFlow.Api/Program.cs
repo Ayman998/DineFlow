@@ -43,8 +43,12 @@ if (!builder.Environment.IsDevelopment()
 }
 
 // Every error response carries the request's correlation id, so a support ticket can be matched to the logs.
+// Model-validation 400s are worded in Arabic when the request prefers it.
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
-    c.ProblemDetails.Extensions["correlationId"] = c.HttpContext.TraceIdentifier);
+{
+    c.ProblemDetails.Extensions["correlationId"] = c.HttpContext.TraceIdentifier;
+    ArabicErrors.LocalizeValidation(c);
+});
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)

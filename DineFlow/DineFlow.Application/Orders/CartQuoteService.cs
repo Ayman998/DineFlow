@@ -31,7 +31,7 @@ public class CartQuoteService(IAppDbContext db, TimeProvider clock)
         var venue = await db.Venues.SingleAsync(v => v.Id == session.VenueId, ct);
         var location = await db.ServiceLocations.Include(l => l.DiningArea).SingleAsync(l => l.Id == session.ServiceLocationId, ct);
 
-        if (!venue.IsActive || !location.IsActive)
+        if (!venue.IsActive || !location.TakesGuests)
             throw AppException.Gone("venue_unavailable", "This venue isn't taking orders right now.");
         if (!venue.MenuEnabled)
             throw AppException.NotFound("menu_unavailable", "This venue doesn't take orders from the digital menu.");

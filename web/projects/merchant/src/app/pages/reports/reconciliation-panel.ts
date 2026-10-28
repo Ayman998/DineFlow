@@ -3,16 +3,9 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Discrepancy, DiscrepancyPage, DiscrepancyStatus, ReconciliationApi, ReconciliationRun } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
-
-const KIND_LABELS: Record<string, string> = {
-  NotSettled: 'Not settled',
-  UnknownToDineFlow: 'Unknown to DineFlow',
-  AmountMismatch: 'Amount differs',
-  RefundMismatch: 'Refund differs',
-  NotInPos: 'Not in POS',
-  SettledTwice: 'Settled twice'
-};
+import { DifferenceValues, RECONCILIATION } from './reports.i18n';
 
 /**
  * Reports → Reconciliation (blueprint 7.2, E12/E14): each day's ledger against the acquirer's
@@ -25,6 +18,8 @@ const KIND_LABELS: Record<string, string> = {
 export class ReconciliationPanel implements OnInit {
   private readonly api = inject(ReconciliationApi);
   private readonly venue = inject(CurrentVenue);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(RECONCILIATION);
 
   protected readonly runs = signal<ReconciliationRun[] | null>(null);
   protected readonly queue = signal<DiscrepancyPage | null>(null);
@@ -73,7 +68,7 @@ export class ReconciliationPanel implements OnInit {
     this.api.reconcile(venueId, null).subscribe({
       next: run => {
         this.busy.set(false);
-        this.notice.set(`Reconciled ${this.day(run.businessDate)}: ${run.openDiscrepancies ? run.openDiscrepancies + ' to look at' : 'everything adds up'}.`);
+        this.notice.set(this.t().reconciled(this.day(run.businessDate), run.openDiscrepancies));
         this.load();
       },
       error: error => {
@@ -90,11 +85,11 @@ export class ReconciliationPanel implements OnInit {
 
   protected resolve(d: Discrepancy): void {
     const note = this.note().trim();
-    if (note.length < 3) return this.error.set('Add a short note saying why this is acceptable.');
+    if (note.length < 3) return this.error.set(this.t().noteRequired);
     this.api.resolve(d.id, note).subscribe({
       next: () => {
         this.resolving.set(null);
-        this.notice.set(`Resolved ${d.reference}.`);
+        this.notice.set(this.t().resolved(d.reference));
         this.load();
       },
       error: error => this.error.set(errorMessage(error))
@@ -118,11 +113,32 @@ export class ReconciliationPanel implements OnInit {
   }
 
   protected kindLabel(kind: string): string {
-    return KIND_LABELS[kind] ?? kind;
+    return this.t().kinds[kind] ?? kind;
+  }
+
+  protected statusLabel(status: DiscrepancyStatus): string {
+    return this.t().statuses[status] ?? status;
   }
 
   protected money(minor: number): string {
     return formatMoney(minor, this.venue.venue()?.currency ?? 'JOD');
+  }
+
+  /** What a difference is about, in the portal's language; a code the portal doesn't know keeps the API's English. */
+  protected details(d: Discrepancy): string {
+    const words = this.t().details as Record<string, ((values: DifferenceValues) => string) | undefined>;
+    const word = d.detailsCode ? words[d.detailsCode] : undefined;
+    if (!word) return d.details;
+    const p = d.detailsParams ?? {};
+    return word({
+      reference: d.reference,
+      expected: this.money(d.expectedMinor),
+      actual: this.money(d.actualMinor),
+      day: this.day(d.businessDate),
+      count: Number(p['count'] ?? 0),
+      attempts: Number(p['attempts'] ?? 0),
+      error: typeof p['error'] === 'string' ? p['error'] : null
+    });
   }
 
   protected signed(minor: number): string {
@@ -130,7 +146,7 @@ export class ReconciliationPanel implements OnInit {
   }
 
   protected day(iso: string): string {
-    return new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+    return new Date(`${iso}T12:00:00`).toLocaleDateString(this.i18n.locale(), { weekday: 'short', day: '2-digit', month: 'short' });
   }
 
   private isoDay(offset: number): string {

@@ -39,7 +39,7 @@ public class GuestService(
 
         var location = qr.ServiceLocation;
         var venue = location.Venue;
-        if (!location.IsActive || !venue.IsActive || venue.Tenant.Status == TenantStatus.Suspended)
+        if (!location.TakesGuests || !venue.IsActive || venue.Tenant.Status == TenantStatus.Suspended)
         {
             throw AppException.Gone("venue_unavailable", "This venue isn't taking orders or payments right now.");
         }
@@ -80,8 +80,8 @@ public class GuestService(
         session.Id,
         session.ExpiresAt,
         session.Locale,
-        new GuestVenueDto(venue.Tenant.DisplayName, venue.Name, venue.LogoUrl, venue.BrandColor, venue.Currency),
-        new GuestLocationDto(location.Type.ToString(), location.Label, location.DisplayName, location.DiningArea?.Name),
+        new GuestVenueDto(venue.Tenant.DisplayName, venue.Name, venue.LogoUrl, venue.BrandColor, venue.Currency, venue.NameAr),
+        new GuestLocationDto(location.Type.ToString(), location.Label, location.DisplayName, location.DiningArea?.Name, location.DiningArea?.NameAr),
         new GuestFeaturesDto(venue.MenuEnabled, venue.PayAtTableEnabled));
 
     private static string ChooseLocale(string? requested, string venueDefault) =>

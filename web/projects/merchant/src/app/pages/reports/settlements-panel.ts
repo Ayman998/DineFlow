@@ -3,7 +3,9 @@ import { Component, OnInit, inject, isDevMode, signal } from '@angular/core';
 import { ReconciliationApi, Settlement, SettlementDetail, SettlementPage } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
+import { SETTLEMENTS } from './reports.i18n';
 
 /**
  * Reports → Settlements (blueprint 9.2): the acquirer's payout batches, imported from its
@@ -16,6 +18,8 @@ import { formatMoney } from '../../core/money';
 export class SettlementsPanel implements OnInit {
   private readonly api = inject(ReconciliationApi);
   private readonly venue = inject(CurrentVenue);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(SETTLEMENTS);
 
   /** The sandbox payout only exists on a development API. */
   protected readonly devMode = isDevMode();
@@ -36,14 +40,14 @@ export class SettlementsPanel implements OnInit {
     const venueId = this.venue.venue()?.id;
     input.value = '';
     if (!file || !venueId || this.busy()) return;
-    if (file.size > 5 * 1024 * 1024) return this.error.set('That file is over 5 MB. Export a shorter period.');
-    this.run(this.api.importSettlement(venueId, file), `Imported ${file.name}`);
+    if (file.size > 5 * 1024 * 1024) return this.error.set(this.t().fileTooLarge);
+    this.run(this.api.importSettlement(venueId, file), this.t().imported(file.name));
   }
 
   protected sandboxPayout(): void {
     const venueId = this.venue.venue()?.id;
     if (!venueId || this.busy()) return;
-    this.run(this.api.sandboxPayout(venueId), 'Simulated a payout');
+    this.run(this.api.sandboxPayout(venueId), this.t().simulated);
   }
 
   protected toggle(s: Settlement): void {
@@ -55,8 +59,16 @@ export class SettlementsPanel implements OnInit {
     return formatMoney(minor, currency ?? this.venue.venue()?.currency ?? 'JOD');
   }
 
+  protected statusLabel(s: Settlement): string {
+    return this.t().statuses[s.status] ?? s.status;
+  }
+
+  protected lineKind(kind: string): string {
+    return this.t().lineKinds[kind] ?? kind;
+  }
+
   protected day(iso: string): string {
-    return new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(`${iso}T12:00:00`).toLocaleDateString(this.i18n.locale(), { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   private run(request: ReturnType<ReconciliationApi['sandboxPayout']>, what: string): void {
@@ -67,10 +79,7 @@ export class SettlementsPanel implements OnInit {
       next: result => {
         this.busy.set(false);
         const batches = result.settlements.map(s => s.batchRef).join(', ');
-        const differences = result.openDiscrepancies
-          ? `${result.openDiscrepancies} ${result.openDiscrepancies === 1 ? 'difference' : 'differences'} to look at on the Reconciliation tab.`
-          : 'Everything matched.';
-        this.notice.set(`${what}: ${batches}, ${result.lines} ${result.lines === 1 ? 'line' : 'lines'}. ${differences}`);
+        this.notice.set(this.t().result(what, batches, result.lines, result.openDiscrepancies));
         this.load();
       },
       error: error => {

@@ -38,7 +38,7 @@
           }
         </div>
         <h1 class="text-[30px] leading-tight font-extrabold">{{ ctx!.venue.brandName }}</h1>
-        <p class="text-[15px] text-[#CFE8E4]">{{ ctx!.venue.branchName }}</p>
+        <p class="text-[15px] text-[#CFE8E4]">{{ i18n.localize(ctx!.venue.branchName, ctx!.venue.branchNameAr) }}</p>
         <div class="inline-flex min-h-10 items-center gap-2 rounded-full bg-white/15 px-4 text-[15px] font-semibold">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" />

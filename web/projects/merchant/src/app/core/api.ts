@@ -4,6 +4,8 @@ import { Injectable, inject } from '@angular/core';
 export interface Venue {
   id: string;
   name: string;
+  /** The branch's name for guests reading Arabic; null shows the name to everyone. */
+  nameAr: string | null;
   currency: string;
   timeZone: string;
   defaultLocale: 'en' | 'ar';
@@ -58,7 +60,11 @@ export interface Location {
 export interface Area {
   id: string;
   name: string;
+  /** What guests reading Arabic see instead of the name; null when there's none. */
+  nameAr: string | null;
   sortOrder: number;
+  /** False while the area is closed: its QR codes don't open and its tables take no new orders. */
+  isActive: boolean;
   locations: Location[];
 }
 
@@ -86,8 +92,16 @@ export class MerchantApi {
     return this.http.get<FloorPlan>(`/v1/merchant/venues/${venueId}/tables`);
   }
 
-  createArea(venueId: string, name: string) {
-    return this.http.post<Area>(`/v1/merchant/venues/${venueId}/areas`, { name });
+  createArea(venueId: string, name: string, nameAr: string | null) {
+    return this.http.post<Area>(`/v1/merchant/venues/${venueId}/areas`, { name, nameAr });
+  }
+
+  updateArea(venueId: string, areaId: string, name: string, nameAr: string | null) {
+    return this.http.put<Area>(`/v1/merchant/venues/${venueId}/areas/${areaId}`, { name, nameAr });
+  }
+
+  setAreaActive(venueId: string, areaId: string, active: boolean) {
+    return this.http.post<Area>(`/v1/merchant/venues/${venueId}/areas/${areaId}/${active ? 'enable' : 'disable'}`, {});
   }
 
   createLocation(venueId: string, diningAreaId: string | null, type: LocationType, label: string) {
@@ -634,7 +648,22 @@ export interface TransactionDetail {
   reviewId: string | null;
   orders: { id: string; number: number; status: string; createdAt: string; lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number }[];
   refunds: RefundRow[];
-  timeline: { at: string; kind: string; text: string }[];
+  timeline: TimelineEvent[];
+}
+
+/**
+ * Values the API sends with a code so the portal can word a message in its own language: amounts
+ * in minor units under keys ending in "Minor", and references, names, counts and the like.
+ */
+export type MessageParams = Record<string, unknown>;
+
+/** One step in a payment's or link's life. code and params word it in the portal's language; text is the English. */
+export interface TimelineEvent {
+  at: string;
+  kind: string;
+  text: string;
+  code?: string | null;
+  params?: MessageParams | null;
 }
 
 export type OverviewPeriod = 'Today' | 'Week' | 'Month' | 'Quarter';
@@ -660,7 +689,8 @@ export interface Overview {
   week: { revenueMinor: number; previousRevenueMinor: number; revenueChange: number | null; orders: number; previousOrders: number };
   granularity: TrendGranularity;
   trend: { start: string; revenueMinor: number; tipsMinor: number }[];
-  attention: { kind: string; title: string; detail: string; count: number }[];
+  /** title and detail are English; code and params word them in the portal's language. */
+  attention: { kind: string; title: string; detail: string; count: number; code?: string | null; params?: MessageParams | null }[];
 }
 
 export type TableState = 'Available' | 'Ordering' | 'Unpaid' | 'PartiallyPaid' | 'Paid' | 'Attention';
@@ -782,7 +812,7 @@ export interface PaymentLinkDetail {
     createdAt: string;
     succeededAt: string | null;
   }[];
-  timeline: { at: string; kind: string; text: string }[];
+  timeline: TimelineEvent[];
 }
 
 export interface CreatePaymentLink {
@@ -1159,6 +1189,7 @@ export interface Discrepancy {
   expectedMinor: number;
   actualMinor: number;
   differenceMinor: number;
+  /** In English; detailsCode (with the fields above and detailsParams) words it in the portal's language. */
   details: string;
   status: DiscrepancyStatus;
   paymentId: string | null;
@@ -1166,6 +1197,8 @@ export interface Discrepancy {
   resolvedAt: string | null;
   resolvedBy: string | null;
   note: string | null;
+  detailsCode?: string | null;
+  detailsParams?: MessageParams | null;
 }
 
 export interface DiscrepancyPage { items: Discrepancy[]; total: number; page: number; pageSize: number; open: number }

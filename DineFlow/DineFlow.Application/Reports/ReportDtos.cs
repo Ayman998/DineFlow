@@ -42,4 +42,5 @@ public record ReportDto(
     DateOnly PeriodEnd,
     string PeriodLabel,
     IReadOnlyList<ReportMetricDto> Metrics,
-    IReadOnlyList<ReportItemDto> TopItems);
+    IReadOnlyList<ReportItemDto> TopItems,
+    string? VenueNameAr = null);

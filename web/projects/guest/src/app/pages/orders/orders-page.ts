@@ -49,7 +49,7 @@ export class OrdersPage implements OnInit {
   }
 
   protected time(order: Order): string {
-    return new Intl.DateTimeFormat(`${this.i18n.lang()}-u-nu-latn`, { hour: '2-digit', minute: '2-digit' }).format(new Date(order.createdAt));
+    return new Intl.DateTimeFormat(this.i18n.locale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(order.createdAt));
   }
 
   protected options(line: Order['lines'][number]): string {

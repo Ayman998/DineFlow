@@ -76,6 +76,8 @@ public class PaymentService(
                 throw AppException.Conflict("payment_in_progress", "Someone at your table is paying the rest of the bill right now. Please wait a moment.", Bill());
             if (principal != request.ExpectedAmountMinor)
                 throw AppException.Conflict("bill_changed", "The bill has changed. Please check the new amount.", Bill());
+            if (request.TipMinor > Venue.MaxTipMinor(principal))
+                throw AppException.BadRequest("tip_too_high", "A tip can be at most 20% of the amount you're paying.");
 
             Guid? promoId = null;
             string? promoCode = null;
@@ -293,8 +295,7 @@ public class PaymentService(
             totals.RemainingMinor, totals.RemainingMinor == 0,
             payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
         await pos.PaymentSucceededAsync(payment, ct);
-        await alerts.QueueTableAsync(payment, $"{location.DisplayName}{(location.DiningArea is { } area ? $" ({area.Name})" : "")}",
-            totals.RemainingMinor, ct);
+        await alerts.QueueTableAsync(payment, location, totals.RemainingMinor, ct);
     }
 
     /// <summary>
@@ -352,7 +353,8 @@ public class PaymentService(
     }
 
     /// <summary>E-mails the receipt for a successful payment (P1-REC-01/02).</summary>
-    public async Task SendReceiptAsync(Guid sessionId, Guid paymentId, string to, CancellationToken ct)
+    /// <param name="language">The language the guest reads now ("en" or "ar"); null uses the one their session started in.</param>
+    public async Task SendReceiptAsync(Guid sessionId, Guid paymentId, string to, string? language, CancellationToken ct)
     {
         var payment = await FindForSessionAsync(sessionId, paymentId, ct);
         if (payment.Status != PaymentStatus.Succeeded)
@@ -364,8 +366,9 @@ public class PaymentService(
             .Where(o => o.CheckId == payment.CheckId && o.Status != OrderStatus.Rejected)
             .Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
         var claims = await db.ItemClaims.AsNoTracking().Where(c => c.PaymentId == payment.Id).ToListAsync(ct);
+        language ??= await db.GuestSessions.Where(s => s.Id == sessionId).Select(s => s.Locale).SingleOrDefaultAsync(ct);
 
-        await email.SendAsync(Receipt.Build(to, venue, location, payment, orders, claims), ct);
+        await email.SendAsync(Receipt.Build(to, venue, location, payment, orders, claims, Languages.IsArabic(language)), ct);
     }
 
     private Task<Payment?> FindRequestAsync(CreatePaymentRequest request, CancellationToken ct) =>
@@ -429,7 +432,7 @@ public class PaymentService(
         return new PaymentDto(p.Id, p.Reference, p.Status, p.Method, p.Mode, p.Shares, p.SplitPeople, itemCount,
             p.Currency, p.BillAmountMinor, p.DiscountMinor, p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4,
             p.FailureReason, p.Status == PaymentStatus.RequiresAction ? p.CheckoutUrl : null,
-            location.Type.ToString(), location.Label, location.DiningArea?.Name,
+            location.Type.ToString(), location.Label, location.DiningArea?.Name, location.DiningArea?.NameAr,
             p.CreatedAt, p.SucceededAt, remaining, fullyPaid, offer, canReview, rating);
     }
 }
@@ -437,19 +440,18 @@ public class PaymentService(
 /// <summary>
 /// The receipt e-mail: venue, table, reference, what this payment covered and what was paid.
 /// Paying by item lists those items; otherwise it lists the bill and the guest's part of it.
+/// It's in English or, for guests reading Arabic, in Arabic laid out right to left.
 /// </summary>
 internal static class Receipt
 {
     public static EmailMessage Build(string to, Venue venue, ServiceLocation location, Payment payment,
-        IReadOnlyList<Order> orders, IReadOnlyList<ItemClaim> paidItems)
+        IReadOnlyList<Order> orders, IReadOnlyList<ItemClaim> paidItems, bool arabic)
     {
+        string T(string english, string ar) => arabic ? ar : english;
         string Money(long minor) => FormatMoney(minor, payment.Currency);
-        var when = TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
-            ? TimeZoneInfo.ConvertTime(payment.SucceededAt ?? payment.CreatedAt, zone)
-            : payment.SucceededAt ?? payment.CreatedAt;
-        var place = $"{location.DisplayName}{(location.DiningArea is { } a ? $" · {a.Name}" : "")}";
-        var method = payment.CardLast4 is { } last4 ? $"{payment.CardBrand ?? payment.Method.ToString()} •••• {last4}" : payment.Method.ToString();
+        var place = $"{Languages.LocationName(location, arabic)}{(location.DiningArea is { } a ? $" · {Languages.AreaName(a, arabic)}" : "")}";
         var lines = orders.OrderBy(o => o.Number).SelectMany(o => o.Lines.OrderBy(l => l.Position)).ToList();
+        string Name(OrderLine line) => arabic && line.NameAr is { } nameAr ? nameAr : line.Name;
 
         var rows = new List<(string Label, string Value)>();
         var totals = new List<(string Label, string Value)>();
@@ -457,103 +459,117 @@ internal static class Receipt
         {
             foreach (var group in paidItems.GroupBy(c => c.OrderLineId))
             {
-                var name = lines.FirstOrDefault(l => l.Id == group.Key)?.Name ?? "Item";
+                var name = lines.FirstOrDefault(l => l.Id == group.Key) is { } line ? Name(line) : T("Item", "صنف");
                 rows.Add(($"{group.Count()} × {name}", Money(group.Sum(c => c.AmountMinor))));
             }
-            totals.Add(("Your items (incl. service and VAT)", Money(payment.BillAmountMinor)));
+            totals.Add((T("Your items (incl. service and VAT)", "أصنافك (شاملة رسوم الخدمة والضريبة)"), Money(payment.BillAmountMinor)));
         }
         else
         {
             foreach (var line in lines)
-                rows.Add(($"{line.Quantity} × {line.Name}", Money(line.LineTotalMinor)));
+                rows.Add(($"{line.Quantity} × {Name(line)}", Money(line.LineTotalMinor)));
 
             // What the bill is made of, so the receipt shows the service charge and VAT.
-            totals.Add(("Subtotal", Money(orders.Sum(o => o.SubtotalMinor))));
+            totals.Add((T("Subtotal", "المجموع الفرعي"), Money(orders.Sum(o => o.SubtotalMinor))));
             var service = orders.Sum(o => o.ServiceChargeMinor);
             var tax = orders.Sum(o => o.TaxMinor);
-            if (service > 0) totals.Add(("Service charge", Money(service)));
-            if (tax > 0) totals.Add((orders.All(o => o.TaxIncluded) ? "VAT (included)" : "VAT", Money(tax)));
+            if (service > 0) totals.Add((T("Service charge", "رسوم الخدمة"), Money(service)));
+            if (tax > 0)
+                totals.Add((orders.All(o => o.TaxIncluded)
+                    ? T("VAT (included)", "ضريبة القيمة المضافة (مشمولة)")
+                    : T("VAT", "ضريبة القيمة المضافة"), Money(tax)));
             var billTotal = orders.Sum(o => o.TotalMinor);
-            totals.Add(("Bill total", Money(billTotal)));
+            totals.Add((T("Bill total", "إجمالي الفاتورة"), Money(billTotal)));
             if (payment.BillAmountMinor != billTotal)
             {
                 var share = payment.Mode switch
                 {
-                    PaymentMode.Equal => $"Your share ({payment.Shares} of {payment.SplitPeople} people)",
-                    PaymentMode.Custom => "Your amount",
-                    _ => "Your part of the bill"
+                    PaymentMode.Equal => YourShare(payment, arabic),
+                    PaymentMode.Custom => T("Your amount", "المبلغ الذي دفعته"),
+                    _ => T("Your part of the bill", "حصتك من الفاتورة")
                 };
                 totals.Add((share, Money(payment.BillAmountMinor)));
             }
         }
-        if (payment.DiscountMinor > 0) totals.Add(($"Promotion {payment.PromoCode}", $"−{Money(payment.DiscountMinor)}"));
-        if (payment.TipMinor > 0) totals.Add(("Tip", Money(payment.TipMinor)));
-        totals.Add(("Paid", Money(payment.AmountMinor)));
+        if (payment.DiscountMinor > 0) totals.Add(($"{T("Promotion", "العرض الترويجي")} {payment.PromoCode}", $"−{Money(payment.DiscountMinor)}"));
+        if (payment.TipMinor > 0) totals.Add((T("Tip", "الإكرامية"), Money(payment.TipMinor)));
+        totals.Add((T("Paid", "المدفوع"), Money(payment.AmountMinor)));
 
-        var text = new StringBuilder()
-            .AppendLine($"{venue.Tenant.DisplayName} · {venue.Name}")
-            .AppendLine(place)
-            .AppendLine($"Receipt {payment.Reference} · {when:dd MMM yyyy HH:mm}")
-            .AppendLine();
-        foreach (var (label, value) in rows) text.AppendLine($"{label,-40} {value}");
-        text.AppendLine();
-        foreach (var (label, value) in totals) text.AppendLine($"{label,-40} {value}");
-        text.AppendLine().AppendLine($"Paid with {method}. Includes all taxes and charges.");
-
-        static string E(string s) => WebUtility.HtmlEncode(s);
-        static string Rows(IEnumerable<(string Label, string Value)> items, bool bold = false) => string.Concat(items.Select(r =>
-            $"<tr><td style=\"padding:4px 0\">{E(r.Label)}</td><td style=\"padding:4px 0;text-align:right{(bold ? ";font-weight:700" : "")}\">{E(r.Value)}</td></tr>"));
-
-        var html = $"""
-            <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
-              <h2 style="margin:0">{E(venue.Tenant.DisplayName)} · {E(venue.Name)}</h2>
-              <p style="color:#475467;margin:4px 0 16px">{E(place)} · Receipt {E(payment.Reference)} · {when:dd MMM yyyy HH:mm}</p>
-              <table style="width:100%;border-collapse:collapse">{Rows(rows)}</table>
-              <hr style="border:0;border-top:1px solid #E4E7EC">
-              <table style="width:100%;border-collapse:collapse">{Rows(totals, bold: true)}</table>
-              <p style="color:#475467">Paid with {E(method)}. Includes all taxes and charges.</p>
-            </div>
-            """;
-
-        return new EmailMessage(to, $"Your receipt from {venue.Tenant.DisplayName} ({payment.Reference})", text.ToString(), html);
+        return Message(to, venue, payment, place, [rows, totals], arabic);
     }
 
     /// <summary>The receipt for a payment through a payment link: the link, its reference and what was paid.</summary>
-    public static EmailMessage BuildForLink(string to, Venue venue, PaymentLink link, Payment payment)
+    public static EmailMessage BuildForLink(string to, Venue venue, PaymentLink link, Payment payment, bool arabic)
     {
+        string T(string english, string ar) => arabic ? ar : english;
         string Money(long minor) => FormatMoney(minor, payment.Currency);
-        var when = TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
-            ? TimeZoneInfo.ConvertTime(payment.SucceededAt ?? payment.CreatedAt, zone)
-            : payment.SucceededAt ?? payment.CreatedAt;
-        var method = payment.CardLast4 is { } last4 ? $"{payment.CardBrand ?? payment.Method.ToString()} •••• {last4}" : payment.Method.ToString();
-        var place = $"Payment link {link.Code}{(link.Reference is { } r ? $" · Reference {r}" : "")}";
+        var place = $"{T("Payment link", "رابط الدفع")} {link.Code}{(link.Reference is { } r ? $" · {T("Reference", "المرجع")} {r}" : "")}";
 
-        var rows = new List<(string Label, string Value)> { ("Amount requested", Money(link.AmountMinor)) };
+        var rows = new List<(string Label, string Value)> { (T("Amount requested", "المبلغ المطلوب"), Money(link.AmountMinor)) };
         if (payment.BillAmountMinor != link.AmountMinor)
-            rows.Add((payment.Mode == PaymentMode.Equal ? $"Your share ({payment.Shares} of {payment.SplitPeople} people)" : "Your amount", Money(payment.BillAmountMinor)));
-        if (payment.TipMinor > 0) rows.Add(("Tip", Money(payment.TipMinor)));
-        rows.Add(("Paid", Money(payment.AmountMinor)));
+            rows.Add((payment.Mode == PaymentMode.Equal ? YourShare(payment, arabic) : T("Your amount", "المبلغ الذي دفعته"), Money(payment.BillAmountMinor)));
+        if (payment.TipMinor > 0) rows.Add((T("Tip", "الإكرامية"), Money(payment.TipMinor)));
+        rows.Add((T("Paid", "المدفوع"), Money(payment.AmountMinor)));
+
+        return Message(to, venue, payment, place, [rows], arabic);
+    }
+
+    /// <summary>The e-mail around the receipt's tables: who it's from, where, when and how it was paid.</summary>
+    /// <param name="tables">Each table of label/amount rows; the last one's amounts are bold.</param>
+    private static EmailMessage Message(string to, Venue venue, Payment payment, string place,
+        IReadOnlyList<List<(string Label, string Value)>> tables, bool arabic)
+    {
+        var when = Languages.DateTime(TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
+            ? TimeZoneInfo.ConvertTime(payment.SucceededAt ?? payment.CreatedAt, zone)
+            : payment.SucceededAt ?? payment.CreatedAt, arabic);
+        var method = Method(payment, arabic);
+        var receipt = arabic ? "إيصال" : "Receipt";
+        var paidWith = arabic ? $"تم الدفع عبر {method}. يشمل المبلغ جميع الضرائب والرسوم." : $"Paid with {method}. Includes all taxes and charges.";
+        var brand = venue.Tenant.DisplayName;
+        var branch = venue.NameFor(arabic);
 
         var text = new StringBuilder()
-            .AppendLine($"{venue.Tenant.DisplayName} · {venue.Name}")
+            .AppendLine($"{brand} · {branch}")
             .AppendLine(place)
-            .AppendLine($"Receipt {payment.Reference} · {when:dd MMM yyyy HH:mm}")
+            .AppendLine($"{receipt} {payment.Reference} · {when}")
             .AppendLine();
-        foreach (var (label, value) in rows) text.AppendLine($"{label,-40} {value}");
-        text.AppendLine().AppendLine($"Paid with {method}. Includes all taxes and charges.");
+        foreach (var table in tables)
+        {
+            foreach (var (label, value) in table) text.AppendLine($"{label,-40} {value}");
+            if (table != tables[^1]) text.AppendLine();
+        }
+        text.AppendLine().AppendLine(paidWith);
 
+        // Arabic reads right to left: labels on the right, amounts on the left.
+        var (dir, end) = arabic ? ("rtl", "left") : ("ltr", "right");
         static string E(string s) => WebUtility.HtmlEncode(s);
+        string Rows(IEnumerable<(string Label, string Value)> items, bool bold) => string.Concat(items.Select(r =>
+            $"<tr><td style=\"padding:4px 0\">{E(r.Label)}</td><td style=\"padding:4px 0;text-align:{end}{(bold ? ";font-weight:700" : "")}\">{E(r.Value)}</td></tr>"));
+        var body = string.Join("\n  <hr style=\"border:0;border-top:1px solid #E4E7EC\">\n  ", tables.Select(table =>
+            $"<table style=\"width:100%;border-collapse:collapse\">{Rows(table, bold: table == tables[^1])}</table>"));
+
         var html = $"""
-            <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
-              <h2 style="margin:0">{E(venue.Tenant.DisplayName)} · {E(venue.Name)}</h2>
-              <p style="color:#475467;margin:4px 0 16px">{E(place)} · Receipt {E(payment.Reference)} · {when:dd MMM yyyy HH:mm}</p>
-              <table style="width:100%;border-collapse:collapse">{string.Concat(rows.Select(r =>
-                  $"<tr><td style=\"padding:4px 0\">{E(r.Label)}</td><td style=\"padding:4px 0;text-align:right;font-weight:700\">{E(r.Value)}</td></tr>"))}</table>
-              <p style="color:#475467">Paid with {E(method)}. Includes all taxes and charges.</p>
+            <div dir="{dir}" lang="{(arabic ? Languages.Arabic : Languages.English)}" style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
+              <h2 style="margin:0">{E(brand)} · {E(branch)}</h2>
+              <p style="color:#475467;margin:4px 0 16px">{E(place)} · {receipt} {E(payment.Reference)} · {E(when)}</p>
+              {body}
+              <p style="color:#475467">{E(paidWith)}</p>
             </div>
             """;
 
-        return new EmailMessage(to, $"Your receipt from {venue.Tenant.DisplayName} ({payment.Reference})", text.ToString(), html);
+        var subject = arabic ? $"إيصالك من {brand} ({payment.Reference})" : $"Your receipt from {brand} ({payment.Reference})";
+        return new EmailMessage(to, subject, text.ToString(), html);
+    }
+
+    private static string YourShare(Payment payment, bool arabic) => arabic
+        ? $"حصتك ({payment.Shares} من {payment.SplitPeople} أشخاص)"
+        : $"Your share ({payment.Shares} of {payment.SplitPeople} people)";
+
+    /// <summary>"Visa •••• 4242", or the method when there's no card, e.g. "ApplePay" (بطاقة for a card in Arabic).</summary>
+    private static string Method(Payment payment, bool arabic)
+    {
+        var method = arabic && payment.Method == PaymentMethod.Card ? "بطاقة" : payment.Method.ToString();
+        return payment.CardLast4 is { } last4 ? $"{payment.CardBrand ?? method} •••• {last4}" : method;
     }
 
     private static string FormatMoney(long minor, string currency)

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DineFlow.Application.Abstractions;
 using DineFlow.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -53,8 +52,7 @@ public class NotificationDispatcher(IAppDbContext db, IWhatsAppSender whatsApp, 
         {
             var providerId = message.Channel switch
             {
-                NotificationChannel.WhatsApp => await whatsApp.SendAsync(new WhatsAppMessage(message.Recipient,
-                    JsonSerializer.Deserialize<string[]>(message.TemplateParameters ?? "[]") ?? [], message.TextBody), ct),
+                NotificationChannel.WhatsApp => await SendWhatsAppAsync(message, ct),
                 _ => await SendEmailAsync(message, ct)
             };
             message.Delivered(providerId, clock.GetUtcNow());
@@ -66,6 +64,12 @@ public class NotificationDispatcher(IAppDbContext db, IWhatsAppSender whatsApp, 
 
         await db.SaveChangesAsync(ct);
         return message.Status == DeliveryStatus.Sent;
+    }
+
+    private Task<string> SendWhatsAppAsync(NotificationDelivery message, CancellationToken ct)
+    {
+        var template = WhatsAppTemplate.FromJson(message.TemplateParameters);
+        return whatsApp.SendAsync(new WhatsAppMessage(message.Recipient, template.Parameters, message.TextBody, template.Language), ct);
     }
 
     private async Task<string?> SendEmailAsync(NotificationDelivery message, CancellationToken ct)

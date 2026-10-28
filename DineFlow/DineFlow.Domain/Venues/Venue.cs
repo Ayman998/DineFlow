@@ -11,6 +11,8 @@ public class Venue : Entity, ITenantOwned
     public Tenant Tenant { get; private set; } = null!;
 
     public string Name { get; private set; } = string.Empty;
+    /// <summary>The branch's name for guests reading Arabic, e.g. "عبدون"; optional, <see cref="Name"/> otherwise.</summary>
+    public string? NameAr { get; private set; }
     /// <summary>ISO 4217, e.g. AED.</summary>
     public string Currency { get; private set; } = string.Empty;
     /// <summary>IANA timezone, e.g. Asia/Dubai.</summary>
@@ -32,6 +34,11 @@ public class Venue : Entity, ITenantOwned
     public bool PricesIncludeTax { get; private set; } = true;
 
     public const int MaxRateBasisPoints = 3000;
+    /// <summary>The most a guest can tip: 20% of the amount they're paying.</summary>
+    public const int MaxTipBasisPoints = 2000;
+
+    /// <summary>The largest tip on <paramref name="amountMinor"/>, rounded as the guest apps round percentages.</summary>
+    public static long MaxTipMinor(long amountMinor) => (amountMinor * MaxTipBasisPoints + 5_000) / 10_000;
 
     /// <summary>Whether guests are offered a tip when paying (P1-PAY-10).</summary>
     public bool TipsEnabled { get; private set; } = true;
@@ -71,7 +78,7 @@ public class Venue : Entity, ITenantOwned
     {
         var presets = presetsBasisPoints.Distinct().Order().ToList();
         if (presets.Count is 0 or > 4) throw new DomainException("Offer between one and four tip suggestions.");
-        if (presets.Any(p => p is < 1 or > MaxRateBasisPoints)) throw new DomainException("Tip suggestions must be between 0.01% and 30%.");
+        if (presets.Any(p => p is < 1 or > MaxTipBasisPoints)) throw new DomainException("Tip suggestions must be between 0.01% and 20%.");
         if (mostCommonBasisPoints is { } common && !presets.Contains(common))
             throw new DomainException("The most common tip must be one of the suggestions.");
 
@@ -118,4 +125,9 @@ public class Venue : Entity, ITenantOwned
         MenuEnabled = menuEnabled;
         PayAtTableEnabled = payAtTableEnabled;
     }
+
+    public void SetArabicName(string? nameAr) => NameAr = Text.Optional(nameAr, 120, "Arabic name");
+
+    /// <summary>The branch's Arabic name for Arabic readers when it has one, otherwise its name.</summary>
+    public string NameFor(bool arabic) => arabic && NameAr is { } nameAr ? nameAr : Name;
 }

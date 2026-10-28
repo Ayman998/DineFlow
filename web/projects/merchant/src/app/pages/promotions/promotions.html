@@ -1,34 +1,36 @@
+@let t = this.t();
+@let common = i18n.t();
 <div class="mx-auto flex max-w-5xl flex-col gap-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-bold">Promotions</h1>
-      <p class="text-sm text-ink-muted">Codes guests can enter at checkout. Turn on "Offer after payment" to show a code on the payment confirmation for the guest's next visit.</p>
+      <h1 class="text-2xl font-bold">{{ t.title }}</h1>
+      <p class="text-sm text-ink-muted">{{ t.intro }}</p>
     </div>
     @if (auth.canManage()) {
-      <button type="button" class="btn-primary" (click)="open('new')">New code</button>
+      <button type="button" class="btn-primary" (click)="open('new')">{{ t.newCode }}</button>
     }
   </div>
 
   @if (loadError()) {
     <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ loadError() }}</p>
   } @else if (!codes()) {
-    <p class="text-sm text-ink-muted">Loading…</p>
+    <p class="text-sm text-ink-muted">{{ common.loading }}</p>
   } @else if (!codes()!.length) {
     <div class="card text-center">
-      <p class="font-semibold">No codes yet</p>
-      <p class="mt-1 text-sm text-ink-muted">Create one, such as WELCOME10 for 10% off, and share it with guests.</p>
+      <p class="font-semibold">{{ t.noCodes }}</p>
+      <p class="mt-1 text-sm text-ink-muted">{{ t.noCodesHint }}</p>
     </div>
   } @else {
     <div class="card overflow-x-auto p-0">
       <table class="w-full text-sm">
         <thead class="border-b border-line text-start text-xs text-ink-muted uppercase">
           <tr>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">Code</th>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">Discount</th>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">Limits</th>
-            <th scope="col" class="px-5 py-3 text-end font-semibold">Used</th>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">Status</th>
-            <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.code }}</th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.discount }}</th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.limits }}</th>
+            <th scope="col" class="px-5 py-3 text-end font-semibold">{{ t.used }}</th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.status }}</th>
+            <th scope="col" class="px-5 py-3"><span class="sr-only">{{ t.actions }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -38,7 +40,7 @@
               <td class="px-5 py-3">
                 <div class="font-mono font-bold">{{ p.code }}</div>
                 <div class="text-ink-muted">{{ p.headline }}</div>
-                @if (p.showAfterPayment) { <div class="mt-1 text-xs font-semibold text-brand">Offered after payment</div> }
+                @if (p.showAfterPayment) { <div class="mt-1 text-xs font-semibold text-brand">{{ t.offeredAfterPayment }}</div> }
               </td>
               <td class="px-5 py-3">{{ discountText(p) }}</td>
               <td class="px-5 py-3 text-ink-muted">{{ limitsText(p) }}</td>
@@ -50,7 +52,7 @@
                 </span>
               </td>
               <td class="px-5 py-3 text-end">
-                @if (auth.canManage()) { <button type="button" class="link" (click)="open(p)">Edit</button> }
+                @if (auth.canManage()) { <button type="button" class="link" (click)="open(p)">{{ common.edit }}</button> }
               </td>
             </tr>
           }
@@ -63,72 +65,72 @@
 @if (editing(); as e) {
   <div class="modal-backdrop" (click)="close()"></div>
   <form class="modal" role="dialog" aria-modal="true" aria-labelledby="promo-editor-title" [formGroup]="form" (ngSubmit)="save()">
-    <h2 id="promo-editor-title" class="text-lg font-bold">{{ e === 'new' ? 'New code' : 'Edit ' + e.code }}</h2>
+    <h2 id="promo-editor-title" class="text-lg font-bold">{{ e === 'new' ? t.newCode : t.editCode(e.code) }}</h2>
 
     <div class="mt-4 grid gap-4 sm:grid-cols-2">
       <label>
-        <span class="field-label">Code</span>
+        <span class="field-label">{{ t.code }}</span>
         <input class="field font-mono uppercase" formControlName="code" maxlength="20" placeholder="WELCOME10" autocomplete="off" />
-        @if (invalid('code')) { <span class="mt-1 block text-sm text-red-700">3–20 letters, digits or dashes.</span> }
-        @else if (e !== 'new') { <span class="mt-1 block text-sm text-ink-muted">Codes can't be renamed once created.</span> }
+        @if (invalid('code')) { <span class="mt-1 block text-sm text-red-700">{{ t.codeInvalid }}</span> }
+        @else if (e !== 'new') { <span class="mt-1 block text-sm text-ink-muted">{{ t.codeLocked }}</span> }
       </label>
       <label>
-        <span class="field-label">Shown to guests as</span>
-        <input class="field" formControlName="headline" maxlength="120" placeholder="10% off your next meal" />
-        @if (invalid('headline')) { <span class="mt-1 block text-sm text-red-700">Enter a short description.</span> }
+        <span class="field-label">{{ t.headline }}</span>
+        <input class="field" formControlName="headline" maxlength="120" [placeholder]="t.headlinePlaceholder" />
+        @if (invalid('headline')) { <span class="mt-1 block text-sm text-red-700">{{ t.headlineRequired }}</span> }
       </label>
 
       <fieldset class="sm:col-span-2">
-        <legend class="field-label">Discount</legend>
+        <legend class="field-label">{{ t.discount }}</legend>
         <div class="flex flex-wrap items-center gap-4">
-          <label class="flex items-center gap-2 text-sm"><input type="radio" class="accent-brand" formControlName="type" value="Percent" /> Percentage</label>
-          <label class="flex items-center gap-2 text-sm"><input type="radio" class="accent-brand" formControlName="type" value="Amount" /> Fixed amount</label>
+          <label class="flex items-center gap-2 text-sm"><input type="radio" class="accent-brand" formControlName="type" value="Percent" /> {{ t.percentage }}</label>
+          <label class="flex items-center gap-2 text-sm"><input type="radio" class="accent-brand" formControlName="type" value="Amount" /> {{ t.fixedAmount }}</label>
         </div>
       </fieldset>
       <label>
-        <span class="field-label">{{ form.controls.type.value === 'Percent' ? 'Percent off' : 'Amount off (' + currency() + ')' }}</span>
+        <span class="field-label">{{ form.controls.type.value === 'Percent' ? t.percentOffLabel : t.amountOffLabel(currency()) }}</span>
         <input class="field" formControlName="value" inputmode="decimal" />
       </label>
       @if (form.controls.type.value === 'Percent') {
         <label>
-          <span class="field-label">Maximum discount ({{ currency() }}) <span class="font-normal text-ink-muted">(optional)</span></span>
-          <input class="field" formControlName="maxDiscount" inputmode="decimal" placeholder="No cap" />
+          <span class="field-label">{{ t.maxDiscount(currency()) }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
+          <input class="field" formControlName="maxDiscount" inputmode="decimal" [placeholder]="t.noCap" />
         </label>
       } @else {
         <div></div>
       }
 
       <label>
-        <span class="field-label">Minimum bill ({{ currency() }}) <span class="font-normal text-ink-muted">(optional)</span></span>
-        <input class="field" formControlName="minBill" inputmode="decimal" placeholder="Any bill" />
+        <span class="field-label">{{ t.minBill(currency()) }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
+        <input class="field" formControlName="minBill" inputmode="decimal" [placeholder]="t.anyBill" />
       </label>
       <label>
-        <span class="field-label">Redemption limit <span class="font-normal text-ink-muted">(optional)</span></span>
-        <input class="field" formControlName="maxRedemptions" inputmode="numeric" placeholder="Unlimited" />
+        <span class="field-label">{{ t.redemptionLimit }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
+        <input class="field" formControlName="maxRedemptions" inputmode="numeric" [placeholder]="t.unlimited" />
       </label>
       <label>
-        <span class="field-label">Starts <span class="font-normal text-ink-muted">(optional)</span></span>
+        <span class="field-label">{{ t.starts }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
         <input class="field" type="datetime-local" formControlName="startsAt" />
       </label>
       <label>
-        <span class="field-label">Ends <span class="font-normal text-ink-muted">(optional)</span></span>
+        <span class="field-label">{{ t.ends }} <span class="font-normal text-ink-muted">{{ t.optional }}</span></span>
         <input class="field" type="datetime-local" formControlName="endsAt" />
       </label>
 
       <label class="flex items-start gap-3 sm:col-span-2">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="isActive" />
-        <span><span class="font-medium">Active</span><br /><span class="text-sm text-ink-muted">Paused codes are refused at checkout.</span></span>
+        <span><span class="font-medium">{{ t.active }}</span><br /><span class="text-sm text-ink-muted">{{ t.activeHint }}</span></span>
       </label>
       <label class="flex items-start gap-3 sm:col-span-2">
         <input type="checkbox" class="mt-1 size-4 accent-brand" formControlName="showAfterPayment" />
-        <span><span class="font-medium">Offer after payment</span><br /><span class="text-sm text-ink-muted">Show this code on the payment confirmation, "For your next visit".</span></span>
+        <span><span class="font-medium">{{ t.offerAfterPayment }}</span><br /><span class="text-sm text-ink-muted">{{ t.offerAfterPaymentHint }}</span></span>
       </label>
     </div>
 
     @if (saveError()) { <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ saveError() }}</p> }
     <div class="mt-6 flex justify-end gap-2">
-      <button type="button" class="btn-ghost" (click)="close()">Cancel</button>
-      <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save' }}</button>
+      <button type="button" class="btn-ghost" (click)="close()">{{ common.cancel }}</button>
+      <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? common.saving : common.save }}</button>
     </div>
   </form>
 }

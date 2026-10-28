@@ -3,6 +3,7 @@ using DineFlow.Application.Orders;
 using DineFlow.Domain.Bills;
 using DineFlow.Domain.Orders;
 using DineFlow.Domain.Payments;
+using DineFlow.Domain.Venues;
 
 namespace DineFlow.Application.Bills;
 
@@ -27,6 +28,7 @@ public record BillDto(
     string LocationType,
     string LocationLabel,
     string? AreaName,
+    string? AreaNameAr,
     IReadOnlyList<BillOrderDto> Orders,
     long SubtotalMinor,
     long ServiceChargeMinor,
@@ -60,6 +62,7 @@ public record BillOrderDto(Guid Id, int Number, OrderStatus Status, IReadOnlyLis
 public record SplitDto(int? People, int SharesTaken, int? SharesLeft, bool EqualAvailable, bool ItemsAvailable, long SelectedMinor);
 
 /// <summary>One portion of an order line, e.g. the first of two Cokes, for splitting by item.</summary>
+/// <param name="OptionsAr">The Arabic option names, in the same order as <c>Options</c> (null where there is none).</param>
 /// <param name="Mine">Held, being paid or paid by this guest.</param>
 public record BillUnitDto(
     Guid OrderLineId,
@@ -68,6 +71,7 @@ public record BillUnitDto(
     string Name,
     string? NameAr,
     IReadOnlyList<string> Options,
+    IReadOnlyList<string?> OptionsAr,
     long AmountMinor,
     BillUnitStatus Status,
     bool Mine);
@@ -82,7 +86,17 @@ public enum BillUnitStatus
     Paid
 }
 
-public record TipSettingsDto(bool Enabled, IReadOnlyList<int> PresetsBasisPoints, int? MostCommonBasisPoints);
+/// <param name="MaxBasisPoints">The most a guest can tip, as a share of what they're paying (20%).</param>
+public record TipSettingsDto(bool Enabled, IReadOnlyList<int> PresetsBasisPoints, int? MostCommonBasisPoints, int MaxBasisPoints = Venue.MaxTipBasisPoints)
+{
+    /// <summary>The venue's tip choices, leaving out any saved before tips were capped at 20%.</summary>
+    public static TipSettingsDto For(Venue venue)
+    {
+        var presets = venue.TipPresetsBasisPoints.Where(p => p <= Venue.MaxTipBasisPoints).ToList();
+        var common = venue.MostCommonTipBasisPoints is { } c && presets.Contains(c) ? c : (int?)null;
+        return new(venue.TipsEnabled, presets, common);
+    }
+}
 
 /// <param name="People">2–50 to split equally; null to stop splitting (only before anyone pays a share).</param>
 public record SplitRequest([Range(2, Check.MaxSplitPeople)] int? People);

@@ -34,6 +34,11 @@ public class ServiceLocation : Entity, ITenantOwned
         Label = label.Trim();
     }
 
+    /// <summary>
+    /// Open to guests: the location is active and so is its area. <see cref="DiningArea"/> must be loaded.
+    /// </summary>
+    public bool TakesGuests => IsActive && DiningArea is not { IsActive: false };
+
     /// <summary>Maps this location to its table in the POS; null unmaps it.</summary>
     public void SetExternalRef(string? externalRef) => ExternalRef = Text.Optional(externalRef, 100, "POS table");
 

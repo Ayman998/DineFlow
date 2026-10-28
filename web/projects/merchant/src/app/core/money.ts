@@ -1,3 +1,5 @@
+import { currentLocale } from './i18n';
+
 /** Decimal places of a currency: 2 for AED, 3 for KWD/BHD/OMR/JOD. */
 export function minorDigits(currency: string): number {
   return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
@@ -6,7 +8,7 @@ export function minorDigits(currency: string): number {
 /** 2750 AED → "AED 27.50". */
 export function formatMoney(minor: number, currency: string): string {
   const digits = minorDigits(currency);
-  return new Intl.NumberFormat('en', { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits })
+  return new Intl.NumberFormat(currentLocale(), { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits })
     .format(minor / 10 ** digits);
 }
 

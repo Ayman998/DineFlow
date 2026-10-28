@@ -78,7 +78,7 @@ export class BillPage implements OnInit {
   protected readonly tipsEnabled = computed(() => !!this.bill()?.tips.enabled);
   protected readonly myItemCount = computed(() => this.bill()?.units.filter(u => u.mine && u.status === 'Selected').length ?? 0);
 
-  protected readonly customTip = computed<CustomTip>(() => parseTip(this.customText(), this.share(), this.currency()));
+  protected readonly customTip = computed<CustomTip>(() => parseTip(this.customText(), this.share(), this.currency(), this.bill()?.tips.maxBasisPoints));
 
   protected readonly tipMinor = computed(() => {
     const choice = this.tipChoice();
@@ -251,6 +251,7 @@ export class BillPage implements OnInit {
         else if (code === 'payment_in_progress') this.payError.set(t.someonePaying);
         else if (code === 'amount_too_high') this.payError.set(t.customTooHigh(this.money(details?.availableMinor ?? 0)));
         else if (code === 'no_items_selected') this.payError.set(t.selectionExpired);
+        else if (code === 'tip_too_high') this.payError.set(t.customTipTooHigh);
         else if (code === 'equal_unavailable' || code === 'items_unavailable' || code === 'split_not_set') {
           this.selection.set({ mode: 'Full' });
           this.payError.set(code === 'equal_unavailable' ? t.equalUnavailable : code === 'items_unavailable' ? t.itemsUnavailable : t.splitChanged);

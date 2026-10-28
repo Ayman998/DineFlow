@@ -15,6 +15,7 @@ public class VenueConfiguration : IEntityTypeConfiguration<Venue>
         builder.Property(v => v.FeedbackTitle).HasMaxLength(80);
         builder.HasKey(v => v.Id);
         builder.Property(v => v.Name).HasMaxLength(120).IsRequired();
+        builder.Property(v => v.NameAr).HasMaxLength(120);
         builder.Property(v => v.Currency).HasMaxLength(3).IsFixedLength().IsRequired();
         builder.Property(v => v.TimeZone).HasMaxLength(64).IsRequired();
         builder.Property(v => v.DefaultLocale).HasMaxLength(5).IsRequired();
@@ -34,6 +35,7 @@ public class DiningAreaConfiguration : IEntityTypeConfiguration<DiningArea>
         builder.ToTable("DiningAreas");
         builder.HasKey(a => a.Id);
         builder.Property(a => a.Name).HasMaxLength(80).IsRequired();
+        builder.Property(a => a.NameAr).HasMaxLength(80);
 
         builder.HasOne<Tenant>().WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Venue>().WithMany().HasForeignKey(a => a.VenueId).OnDelete(DeleteBehavior.Restrict);

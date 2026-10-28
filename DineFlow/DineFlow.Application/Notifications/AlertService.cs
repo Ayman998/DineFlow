@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Domain.Audit;
@@ -73,12 +72,18 @@ public class AlertService(IAppDbContext db, ITenantContext tenant, IWhatsAppSend
         if (contacts.Count == 0) throw AppException.Conflict("no_contacts", "Add a number first.");
 
         var now = clock.GetUtcNow();
-        var parameters = new[] { $"{venue.Tenant.DisplayName} · {venue.Name}", "Test", "Payment alerts are working", "No money moved" };
+        // In the venue's default language, like the payment alerts themselves.
+        var arabic = Languages.IsArabic(venue.DefaultLocale);
+        var parameters = arabic
+            ? new[] { $"{venue.Tenant.DisplayName} · {venue.NameFor(arabic)}", "تجربة", "تنبيهات الدفع تعمل", "لم يُخصم أي مبلغ" }
+            : new[] { $"{venue.Tenant.DisplayName} · {venue.Name}", "Test", "Payment alerts are working", "No money moved" };
+        var text = arabic
+            ? $"{parameters[0]}\nهذه رسالة تجريبية لتنبيهات الدفع من DineFlow. ستصلك رسالة مثلها مع كل دفعة."
+            : $"{parameters[0]}\nThis is a test of DineFlow payment alerts. You'll get a message like this for every payment.";
+        var template = new WhatsAppTemplate(arabic ? Languages.Arabic : Languages.English, parameters).ToJson();
         foreach (var contact in contacts)
             db.NotificationDeliveries.Add(new NotificationDelivery(venue.TenantId, venue.Id, NotificationChannel.WhatsApp, NotificationKind.Test,
-                contact.PhoneNumber, $"test:{Guid.NewGuid():N}", null, null,
-                $"{parameters[0]}\nThis is a test of DineFlow payment alerts. You'll get a message like this for every payment.",
-                null, JsonSerializer.Serialize(parameters), now));
+                contact.PhoneNumber, $"test:{Guid.NewGuid():N}", null, null, text, null, template, now));
         await db.SaveChangesAsync(ct);
     }
 

@@ -1,3 +1,4 @@
+@let t = this.t();
 @let p = page();
 @let d = open();
 
@@ -8,28 +9,29 @@
   <section class="card flex flex-col gap-3">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
-        <h2 class="font-semibold">Import a settlement report</h2>
-        <p class="text-sm text-ink-muted">Download the settlement or payout report from your acquirer's portal as CSV and drop it here. DineFlow matches every line to a payment and reconciles the days it covers. Importing the same batch twice is refused.</p>
+        <h2 class="font-semibold">{{ t.importTitle }}</h2>
+        <p class="text-sm text-ink-muted">{{ t.importIntro }}</p>
       </div>
       <div class="flex shrink-0 flex-wrap gap-2">
         @if (devMode) {
-          <button type="button" class="btn-ghost" [disabled]="busy()" (click)="sandboxPayout()" title="Settles every unsettled test payment, as an acquirer would">Simulate a payout</button>
+          <button type="button" class="btn-ghost" [disabled]="busy()" (click)="sandboxPayout()" [title]="t.simulateHint">{{ t.simulate }}</button>
         }
         <label class="btn-primary cursor-pointer" [class.opacity-60]="busy()">
-          {{ busy() ? 'Importing…' : 'Choose CSV file' }}
+          {{ busy() ? t.importing : t.chooseFile }}
           <input #file type="file" class="sr-only" accept=".csv,text/csv,text/plain" [disabled]="busy()" (change)="upload(file)" />
         </label>
       </div>
     </div>
-    <button type="button" class="link w-fit text-sm" [attr.aria-expanded]="showHelp()" (click)="showHelp.set(!showHelp())">Which columns does the file need?</button>
+    <button type="button" class="link w-fit text-sm" [attr.aria-expanded]="showHelp()" (click)="showHelp.set(!showHelp())">{{ t.whichColumns }}</button>
     @if (showHelp()) {
       <div class="rounded-lg bg-surface p-4 text-sm">
-        <p>One row per transaction, with a header row. Commas or semicolons both work; column names are matched loosely.</p>
+        <p>{{ t.helpIntro }}</p>
         <ul class="mt-2 list-disc ps-5 text-ink-muted">
-          <li><b class="text-ink">Batch</b> (batch, payout id, settlement id) and <b class="text-ink">payout date</b> (payout, settlement or value date)</li>
-          <li><b class="text-ink">Transaction date</b> and <b class="text-ink">type</b>: sale, refund or fee</li>
-          <li><b class="text-ink">Order id</b> (the gateway's order id) or <b class="text-ink">reference</b> (DineFlow's payment reference)</li>
-          <li><b class="text-ink">Amount</b> in {{ p?.items?.[0]?.currency ?? 'JOD' }}, e.g. 12.500, and optionally <b class="text-ink">fee</b>, <b class="text-ink">refund id</b> and <b class="text-ink">currency</b></li>
+          @let h = t.help;
+          <li><b class="text-ink">{{ h.batch }}</b> {{ h.batchColumns }} {{ h.and }} <b class="text-ink">{{ h.payoutDate }}</b> {{ h.payoutDateColumns }}</li>
+          <li><b class="text-ink">{{ h.transactionDate }}</b> {{ h.and }} <b class="text-ink">{{ h.type }}</b>{{ h.typeValues }}</li>
+          <li><b class="text-ink">{{ h.orderId }}</b> {{ h.orderIdNote }} {{ h.or }} <b class="text-ink">{{ h.reference }}</b> {{ h.referenceNote }}</li>
+          <li><b class="text-ink">{{ h.amount }}</b> {{ h.amountIn(p?.items?.[0]?.currency ?? 'JOD') }} <b class="text-ink">{{ h.fee }}</b>{{ h.comma }} <b class="text-ink">{{ h.refundId }}</b> {{ h.and }} <b class="text-ink">{{ h.currency }}</b></li>
         </ul>
       </div>
     }
@@ -37,28 +39,28 @@
 
   @if (p?.items?.length) {
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="card py-4"><p class="text-sm text-ink-muted">Settled sales</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.grossMinor) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">Refunds</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.refundsMinor) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">Acquirer fees</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.feesMinor) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">Paid out</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.netMinor) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.settledSales }}</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.grossMinor) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.refunds }}</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.refundsMinor) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.acquirerFees }}</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.feesMinor) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paidOut }}</p><p class="mt-1 text-xl font-semibold">{{ money(p!.totals.netMinor) }}</p></div>
     </div>
   }
 
   <section class="card p-0">
-    <div class="border-b border-line px-5 py-4"><h2 class="font-semibold">Settlements</h2></div>
-    @if (p && !p.items.length) { <p class="px-5 py-10 text-center text-sm text-ink-muted">No settlements yet. Import your acquirer's first settlement report.</p> }
+    <div class="border-b border-line px-5 py-4"><h2 class="font-semibold">{{ t.settlements }}</h2></div>
+    @if (p && !p.items.length) { <p class="px-5 py-10 text-center text-sm text-ink-muted">{{ t.noSettlements }}</p> }
     @if (p?.items?.length) {
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line text-xs text-ink-muted uppercase">
             <tr>
-              <th scope="col" class="px-5 py-2.5 text-start font-semibold">Payout</th>
-              <th scope="col" class="px-3 py-2.5 text-start font-semibold">Batch</th>
-              <th scope="col" class="px-3 py-2.5 text-end font-semibold">Lines</th>
-              <th scope="col" class="px-3 py-2.5 text-end font-semibold">Sales</th>
-              <th scope="col" class="px-3 py-2.5 text-end font-semibold">Refunds</th>
-              <th scope="col" class="px-3 py-2.5 text-end font-semibold">Fees</th>
-              <th scope="col" class="px-5 py-2.5 text-end font-semibold">Net</th>
+              <th scope="col" class="px-5 py-2.5 text-start font-semibold">{{ t.payout }}</th>
+              <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.batch }}</th>
+              <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.lines }}</th>
+              <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.sales }}</th>
+              <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.refunds }}</th>
+              <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.fees }}</th>
+              <th scope="col" class="px-5 py-2.5 text-end font-semibold">{{ t.net }}</th>
             </tr>
           </thead>
           <tbody>
@@ -66,7 +68,7 @@
               <tr class="cursor-pointer border-b border-line last:border-0 hover:bg-surface" [class.bg-surface]="d?.settlement?.id === s.id" (click)="toggle(s)">
                 <td class="px-5 py-2.5 whitespace-nowrap">
                   <button type="button" class="font-semibold" [attr.aria-expanded]="d?.settlement?.id === s.id">{{ day(s.payoutDate) }}</button>
-                  @if (s.status === 'Expected') { <span class="ms-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">Expected</span> }
+                  @if (s.status === 'Expected') { <span class="ms-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">{{ statusLabel(s) }}</span> }
                 </td>
                 <td class="px-3 py-2.5"><span class="font-mono text-xs">{{ s.batchRef }}</span>
                   <span class="block text-xs text-ink-muted">{{ s.fileName ?? s.provider }}</span></td>
@@ -82,24 +84,24 @@
                     <table class="w-full rounded-lg bg-white text-xs">
                       <thead class="text-ink-muted">
                         <tr>
-                          <th scope="col" class="px-3 py-2 text-start font-semibold">Date</th>
-                          <th scope="col" class="px-3 py-2 text-start font-semibold">Type</th>
-                          <th scope="col" class="px-3 py-2 text-start font-semibold">Acquirer order</th>
-                          <th scope="col" class="px-3 py-2 text-start font-semibold">DineFlow payment</th>
-                          <th scope="col" class="px-3 py-2 text-end font-semibold">Amount</th>
-                          <th scope="col" class="px-3 py-2 text-end font-semibold">Fee</th>
+                          <th scope="col" class="px-3 py-2 text-start font-semibold">{{ t.date }}</th>
+                          <th scope="col" class="px-3 py-2 text-start font-semibold">{{ t.type }}</th>
+                          <th scope="col" class="px-3 py-2 text-start font-semibold">{{ t.acquirerOrder }}</th>
+                          <th scope="col" class="px-3 py-2 text-start font-semibold">{{ t.dineflowPayment }}</th>
+                          <th scope="col" class="px-3 py-2 text-end font-semibold">{{ t.amount }}</th>
+                          <th scope="col" class="px-3 py-2 text-end font-semibold">{{ t.fee }}</th>
                         </tr>
                       </thead>
                       <tbody>
                         @for (l of d!.lines; track l.id) {
                           <tr class="border-t border-line">
                             <td class="px-3 py-1.5 whitespace-nowrap">{{ day(l.transactionDate) }}</td>
-                            <td class="px-3 py-1.5">{{ l.kind === 'Payment' ? 'Sale' : l.kind }}</td>
+                            <td class="px-3 py-1.5">{{ lineKind(l.kind) }}</td>
                             <td class="px-3 py-1.5 font-mono">{{ l.orderId ?? l.reference ?? '–' }}</td>
                             <td class="px-3 py-1.5">
                               @if (l.paymentReference) { <span class="font-mono">{{ l.paymentReference }}</span> }
                               @else if (l.kind === 'Adjustment') { <span class="text-ink-muted">–</span> }
-                              @else { <span class="text-red-700">Not matched</span> }
+                              @else { <span class="text-red-700">{{ t.notMatched }}</span> }
                             </td>
                             <td class="px-3 py-1.5 text-end tabular-nums">{{ l.kind === 'Payment' ? '' : '−' }}{{ money(l.amountMinor, s.currency) }}</td>
                             <td class="px-3 py-1.5 text-end text-ink-muted tabular-nums">{{ l.feeMinor ? money(l.feeMinor, s.currency) : '–' }}</td>

@@ -22,7 +22,7 @@
         </div>
         <div class="min-w-0">
           <p class="truncate text-xl font-extrabold">{{ l.venue.brandName }}</p>
-          <p class="truncate text-sm text-[#CFE8E4]">{{ l.venue.branchName }}</p>
+          <p class="truncate text-sm text-[#CFE8E4]">{{ i18n.localize(l.venue.branchName, l.venue.branchNameAr) }}</p>
         </div>
       </div>
     } @else {
@@ -88,7 +88,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </div>
         <h1 class="text-xl font-extrabold">{{ t.failedTitle }}</h1>
-        @if (r.failureReason) { <p class="font-semibold">{{ r.failureReason }}</p> }
+        @if (t.failureReason(r.failureReason); as reason) { <p class="font-semibold">{{ reason }}</p> }
         <p class="text-ink-muted">{{ t.failedBody }}</p>
         <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="backToPayment()">{{ t.tryAgain }}</button>
       </main>

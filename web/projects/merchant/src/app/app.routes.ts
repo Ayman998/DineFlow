@@ -25,7 +25,7 @@ const placeholder: LoadComponent = () => import('./pages/placeholder/placeholder
 export const routes: Routes = [
   {
     path: 'login',
-    title: 'Sign in · DineFlow',
+    data: { titleKey: 'signIn' },
     loadComponent: () => import('./pages/login/login').then(m => m.Login)
   },
   {
@@ -36,8 +36,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'overview' },
       ...NAV_ITEMS.map(item => ({
         path: item.path,
-        title: `${item.title} · DineFlow`,
-        data: { title: item.title, sprint: item.sprint },
+        data: { titleKey: item.path, sprint: item.sprint },
         loadComponent: PAGES[item.path] ?? placeholder
       }))
     ]

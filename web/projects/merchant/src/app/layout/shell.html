@@ -8,9 +8,9 @@
           routerLinkActive
           ariaCurrentWhenActive="page"
           class="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand">
-          {{ item.title }}
+          {{ t().nav[item.path] }}
           @if (item.path === 'orders' && live.counts().new) {
-            <span class="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-ink" [attr.aria-label]="live.counts().new + ' new orders'">
+            <span class="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-ink" [attr.aria-label]="t().newOrdersBadge(live.counts().new)">
               {{ live.counts().new }}
             </span>
           }
@@ -31,10 +31,12 @@
         <span class="flex items-center gap-1.5 text-xs font-semibold" role="status"
               [class]="live.state() === 'live' ? 'text-emerald-700' : 'text-amber-800'">
           <span class="size-2 rounded-full" [class]="live.state() === 'live' ? 'bg-emerald-500' : 'bg-amber-400'"></span>
-          {{ live.state() === 'live' ? 'Live' : live.state() === 'offline' ? 'Offline: reload to reconnect' : 'Connecting…' }}
+          {{ live.state() === 'live' ? t().live : live.state() === 'offline' ? t().offline : t().connecting }}
         </span>
-        <span class="text-ink-muted">{{ auth.profile()?.displayName }} ({{ auth.profile()?.role }})</span>
-        <button type="button" class="font-medium text-brand hover:underline" (click)="signOut()">Sign out</button>
+        <span class="text-ink-muted">{{ auth.profile()?.displayName }} ({{ t().roles[auth.profile()?.role ?? ''] || auth.profile()?.role }})</span>
+        <button type="button" class="font-medium text-brand hover:underline" [attr.aria-label]="t().changeLanguage" (click)="i18n.toggle()"
+                [attr.lang]="i18n.lang() === 'en' ? 'ar' : 'en'">{{ t().otherLanguage }}</button>
+        <button type="button" class="font-medium text-brand hover:underline" (click)="signOut()">{{ t().signOut }}</button>
       </div>
     </header>
 
@@ -51,74 +53,74 @@
       <div class="rounded-xl border-s-4 border-accent bg-white p-4 shadow-lg" role="alert">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <div class="font-bold">New order #{{ toast.order.number }}</div>
+            <div class="font-bold">{{ t().newOrder(toast.order.number) }}</div>
             <div class="text-sm text-ink-muted">
-              {{ toast.order.locationType }} {{ toast.order.locationLabel }}@if (toast.order.areaName) { · {{ toast.order.areaName }} }
+              {{ place(toast.order.locationType, toast.order.locationLabel) }}@if (toast.order.areaName) { · {{ toast.order.areaName }} }
               · {{ money(toast.order.totalMinor, toast.order.currency) }}
             </div>
           </div>
-          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+          <button type="button" class="btn-ghost px-1 py-0" [attr.aria-label]="t().dismiss" (click)="dismiss(toast.id)">✕</button>
         </div>
-        <a routerLink="/orders" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open orders</a>
+        <a routerLink="/orders" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">{{ t().openOrders }}</a>
       </div>
     } @else if (toast.kind === 'refund') {
       @let rf = toast.refund;
       <div class="rounded-xl border-s-4 bg-white p-4 shadow-lg" [class]="rf.status === 'Succeeded' ? 'border-emerald-500' : 'border-red-500'" role="alert">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <div class="font-bold">{{ rf.status === 'Succeeded' ? 'Refund confirmed' : 'Refund declined' }} · {{ money(rf.amountMinor, rf.currency) }}</div>
-            <div class="text-xs text-ink-muted">Ref {{ rf.reference }}</div>
+            <div class="font-bold">{{ rf.status === 'Succeeded' ? t().refundConfirmed : t().refundDeclined }} · {{ money(rf.amountMinor, rf.currency) }}</div>
+            <div class="text-xs text-ink-muted">{{ t().ref(rf.reference) }}</div>
           </div>
-          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+          <button type="button" class="btn-ghost px-1 py-0" [attr.aria-label]="t().dismiss" (click)="dismiss(toast.id)">✕</button>
         </div>
-        <a routerLink="/transactions" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open transactions</a>
+        <a routerLink="/transactions" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">{{ t().openTransactions }}</a>
       </div>
     } @else if (toast.kind === 'link') {
       @let l = toast.link;
       <div class="rounded-xl border-s-4 border-emerald-500 bg-white p-4 shadow-lg" role="alert">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <div class="font-bold">Payment link paid · {{ money(l.amountMinor, l.currency) }}</div>
+            <div class="font-bold">{{ t().linkPaid }} · {{ money(l.amountMinor, l.currency) }}</div>
             <div class="text-sm text-ink-muted">
-              {{ l.code }}@if (l.linkReference) { · {{ l.linkReference }} }@if (l.tipMinor) { · tip {{ money(l.tipMinor, l.currency) }} }
+              {{ l.code }}@if (l.linkReference) { · {{ l.linkReference }} }@if (l.tipMinor) { · {{ t().tip(money(l.tipMinor, l.currency)) }} }
             </div>
             <div class="mt-1 text-sm font-semibold" [class]="l.fullyPaid ? 'text-emerald-700' : 'text-amber-800'">
-              {{ l.fullyPaid ? 'Paid in full' : money(l.remainingMinor, l.currency) + ' still to pay' }}
+              {{ l.fullyPaid ? t().paidInFull : t().stillToPay(money(l.remainingMinor, l.currency)) }}
             </div>
           </div>
-          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+          <button type="button" class="btn-ghost px-1 py-0" [attr.aria-label]="t().dismiss" (click)="dismiss(toast.id)">✕</button>
         </div>
-        <a routerLink="/payment-links" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open payment links</a>
+        <a routerLink="/payment-links" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">{{ t().openPaymentLinks }}</a>
       </div>
     } @else if (toast.kind === 'review') {
       @let r = toast.review;
       <div class="rounded-xl border-s-4 bg-white p-4 shadow-lg" [class]="r.rating >= 4 ? 'border-[#F5A524]' : 'border-red-500'" role="alert">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <div class="font-bold">New review · <span class="text-[#F5A524]" [attr.aria-label]="r.rating + ' stars'">{{ '★'.repeat(r.rating) }}</span></div>
-            <div class="text-sm text-ink-muted">{{ r.locationType }} {{ r.locationLabel }}@if (r.hasComment) { · with a comment }</div>
+            <div class="font-bold">{{ t().newReview }} · <span class="text-[#F5A524]" [attr.aria-label]="t().stars(r.rating)">{{ '★'.repeat(r.rating) }}</span></div>
+            <div class="text-sm text-ink-muted">{{ place(r.locationType, r.locationLabel) }}@if (r.hasComment) { · {{ t().withComment }} }</div>
           </div>
-          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+          <button type="button" class="btn-ghost px-1 py-0" [attr.aria-label]="t().dismiss" (click)="dismiss(toast.id)">✕</button>
         </div>
-        <a routerLink="/reviews" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">Open reviews</a>
+        <a routerLink="/reviews" class="link mt-2 inline-block text-sm" (click)="dismiss(toast.id)">{{ t().openReviews }}</a>
       </div>
     } @else {
       @let p = toast.payment;
       <div class="rounded-xl border-s-4 border-emerald-500 bg-white p-4 shadow-lg" role="alert">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <div class="font-bold">Payment received · {{ money(p.amountMinor, p.currency) }}</div>
+            <div class="font-bold">{{ t().paymentReceived }} · {{ money(p.amountMinor, p.currency) }}</div>
             <div class="text-sm text-ink-muted">
-              {{ p.locationType }} {{ p.locationLabel }}@if (p.areaName) { · {{ p.areaName }} }
+              {{ place(p.locationType, p.locationLabel) }}@if (p.areaName) { · {{ p.areaName }} }
               @if (splitText(p); as split) { · {{ split }} }
-              @if (p.tipMinor) { · tip {{ money(p.tipMinor, p.currency) }} }
+              @if (p.tipMinor) { · {{ t().tip(money(p.tipMinor, p.currency)) }} }
             </div>
             <div class="mt-1 text-sm font-semibold" [class]="p.fullyPaid ? 'text-emerald-700' : 'text-amber-800'">
-              {{ p.fullyPaid ? 'Bill fully paid' : money(p.remainingMinor, p.currency) + ' still to pay' }}
+              {{ p.fullyPaid ? t().billPaid : t().stillToPay(money(p.remainingMinor, p.currency)) }}
             </div>
-            <div class="text-xs text-ink-muted">Ref {{ p.reference }}</div>
+            <div class="text-xs text-ink-muted">{{ t().ref(p.reference) }}</div>
           </div>
-          <button type="button" class="btn-ghost px-1 py-0" aria-label="Dismiss" (click)="dismiss(toast.id)">✕</button>
+          <button type="button" class="btn-ghost px-1 py-0" [attr.aria-label]="t().dismiss" (click)="dismiss(toast.id)">✕</button>
         </div>
       </div>
     }

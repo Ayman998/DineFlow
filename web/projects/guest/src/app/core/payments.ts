@@ -20,6 +20,8 @@ export interface BillUnit {
   name: string;
   nameAr: string | null;
   options: string[];
+  /** Arabic option names, in the same order as options (null where the venue gave none). */
+  optionsAr?: (string | null)[];
   amountMinor: number;
   status: BillUnitStatus;
   /** Held, being paid or paid by this guest. */
@@ -71,6 +73,7 @@ export interface Bill {
   locationType: string;
   locationLabel: string;
   areaName: string | null;
+  areaNameAr: string | null;
   orders: BillOrder[];
   subtotalMinor: number;
   serviceChargeMinor: number;
@@ -88,7 +91,7 @@ export interface Bill {
   paymentInProgress: boolean;
   split: BillSplit;
   units: BillUnit[];
-  tips: { enabled: boolean; presetsBasisPoints: number[]; mostCommonBasisPoints: number | null };
+  tips: { enabled: boolean; presetsBasisPoints: number[]; mostCommonBasisPoints: number | null; maxBasisPoints: number };
   methods: PaymentMethod[];
   termsVersion: string;
   termsUrl: string;
@@ -123,6 +126,7 @@ export interface Payment {
   locationType: string;
   locationLabel: string;
   areaName: string | null;
+  areaNameAr: string | null;
   createdAt: string;
   succeededAt: string | null;
   remainingMinor: number | null;
@@ -221,8 +225,14 @@ export function percentOf(minor: number, basisPoints: number): number {
   return Math.round((minor * basisPoints) / 10_000);
 }
 
-/** "12%" is a percentage of the bill; "10" or "7.50" is an amount in the venue's currency. */
-export function parseTip(text: string, billMinor: number, currency: string): CustomTip {
+/** The most a guest can tip: 20% of what they're paying, unless the server says otherwise. */
+export const MAX_TIP_BASIS_POINTS = 2_000;
+
+/**
+ * "12%" is a percentage of the bill; "10" or "7.50" is an amount in the venue's currency.
+ * Tips above maxBasisPoints of the bill are refused, as the server would refuse them.
+ */
+export function parseTip(text: string, billMinor: number, currency: string, maxBasisPoints = MAX_TIP_BASIS_POINTS): CustomTip {
   const value = text.trim().replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660)).replace('٫', '.').replace(',', '.');
   if (!value) return null;
 
@@ -233,7 +243,7 @@ export function parseTip(text: string, billMinor: number, currency: string): Cus
   const minor = percent
     ? Math.round((billMinor * Number(number)) / 100)
     : Math.round(Number(number) * 10 ** minorDigits(currency));
-  if (minor > billMinor) return { error: 'tooHigh' };
+  if (minor > percentOf(billMinor, maxBasisPoints)) return { error: 'tooHigh' };
   return { minor };
 }
 

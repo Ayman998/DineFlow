@@ -3,9 +3,11 @@ using DineFlow.Domain.Reviews;
 
 namespace DineFlow.Application.Venues;
 
+/// <param name="NameAr">The branch's name for guests reading Arabic; null shows <paramref name="Name"/>.</param>
 public record VenueDto(
     Guid Id,
     string Name,
+    string? NameAr,
     string Currency,
     string TimeZone,
     string DefaultLocale,
@@ -50,4 +52,6 @@ public record VenueSettingsRequest(
     ReviewPlatform? ReviewPlatform = null,
     [Url, StringLength(500)] string? ReviewUrl = null,
     /// <summary>Heading of the private feedback form for 1–3 stars.</summary>
-    [StringLength(80)] string? FeedbackTitle = null);
+    [StringLength(80)] string? FeedbackTitle = null,
+    /// <summary>The branch's name for guests reading Arabic; empty shows the name to everyone.</summary>
+    [StringLength(120)] string? NameAr = null);

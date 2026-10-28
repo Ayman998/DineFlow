@@ -3,6 +3,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { Auth, errorMessage } from '../../core/auth';
+import { I18n } from '../../core/i18n';
+import { LOGIN } from './login.i18n';
 
 @Component({
   selector: 'df-login',
@@ -12,6 +14,8 @@ import { Auth, errorMessage } from '../../core/auth';
 export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(LOGIN);
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

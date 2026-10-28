@@ -111,6 +111,10 @@ export class SplitSheet implements OnInit {
     return this.i18n.localize(unit.name, unit.nameAr);
   }
 
+  protected unitOptions(unit: BillUnit): string {
+    return unit.options.map((name, i) => this.i18n.localize(name, unit.optionsAr?.[i])).join(' · ');
+  }
+
   /** What the row shows instead of a button when the item isn't this guest's to pick. */
   protected lockText(unit: BillUnit): string | null {
     const t = this.i18n.t();

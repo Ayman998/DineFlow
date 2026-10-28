@@ -80,7 +80,7 @@ public class PublicPaymentLinksController(PaymentLinkCheckoutService checkout) :
     [HttpPost("payments/{paymentId:guid}/receipt")]
     public async Task<IActionResult> Receipt(string token, Guid paymentId, ReceiptRequest request, CancellationToken ct)
     {
-        await checkout.SendReceiptAsync(token, paymentId, request.Email, ct);
+        await checkout.SendReceiptAsync(token, paymentId, request.Email, ArabicErrors.RequestedLanguage(Request), ct);
         return NoContent();
     }
 }

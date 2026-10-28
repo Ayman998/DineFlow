@@ -66,7 +66,10 @@ public record RefundDto(
     string? RequestedBy, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt);
 
 /// <summary>One step in a payment's life, for the timeline (blueprint 4.4 "complete payment timeline").</summary>
-public record TimelineEventDto(DateTimeOffset At, string Kind, string Text);
+/// <param name="Text">The step in English, for clients that don't know its <paramref name="Code"/>.</param>
+/// <param name="Code">What happened, e.g. "payment_paid", so the portal can word it in the reader's language.</param>
+/// <param name="Params">The values that wording needs: amounts in minor units (keys ending in "Minor"), references, names.</param>
+public record TimelineEventDto(DateTimeOffset At, string Kind, string Text, string? Code = null, object? Params = null);
 
 public record TransactionDetailDto(
     TransactionRowDto Summary,

@@ -4,8 +4,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReviewContact, ReviewDetail, ReviewKind, ReviewPage, ReviewQuery, ReviewSort, ReviewStats, ReviewsAdminApi, StaffRating } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
+import { REVIEWS } from './reviews.i18n';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -24,6 +26,8 @@ export class Reviews implements OnInit {
   private readonly live = inject(LiveOrders);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(REVIEWS);
 
   protected readonly ranges = [7, 30, 90];
   protected readonly pageSizes = [10, 25, 50];
@@ -156,8 +160,9 @@ export class Reviews implements OnInit {
   protected change(current: number | null, previous: number | null, kind: 'count' | 'average' | 'share'): string | null {
     if (current === null || previous === null) return null;
     const diff = current - previous;
-    const text = kind === 'share' ? `${Math.round(Math.abs(diff) * 100)} pts` : kind === 'average' ? Math.abs(diff).toFixed(2) : String(Math.abs(diff));
-    return `${diff > 0 ? '▲' : diff < 0 ? '▼' : '='} ${diff === 0 ? 'same' : text} vs previous ${this.days()} days`;
+    const t = this.t();
+    const text = kind === 'share' ? t.points(Math.round(Math.abs(diff) * 100)) : kind === 'average' ? Math.abs(diff).toFixed(2) : String(Math.abs(diff));
+    return `${diff > 0 ? '▲' : diff < 0 ? '▼' : '='} ${diff === 0 ? t.same : text} ${t.vsPrevious(this.days())}`;
   }
 
   protected average(stats: ReviewStats): string {
@@ -166,11 +171,25 @@ export class Reviews implements OnInit {
 
   protected when(iso: string): string {
     const d = new Date(iso);
-    return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} · ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+    const locale = this.i18n.locale();
+    return `${d.toLocaleDateString(locale, { day: '2-digit', month: 'short' })} · ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
   }
 
   protected whenFull(iso: string | null): string {
-    return iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+    return iso ? new Date(iso).toLocaleString(this.i18n.locale(), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+  }
+
+  /** "Table 12", with the location type in the portal's language. */
+  protected location(type: string, label: string): string {
+    return `${this.i18n.t().locationTypes[type] ?? type} ${label}`;
+  }
+
+  protected method(method: string): string {
+    return this.t().methods[method] ?? method;
+  }
+
+  protected paymentStatus(status: string): string {
+    return this.t().paymentStatuses[status] ?? status;
   }
 
   protected money(minor: number, currency: string): string {

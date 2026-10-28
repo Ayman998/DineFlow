@@ -5,8 +5,10 @@ import { merge } from 'rxjs';
 import { FinanceApi, TableState, TableStatus } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
+import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
+import { TABLES } from './tables.i18n';
 
 type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
 
@@ -18,11 +20,12 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
 @Component({
   selector: 'df-live-tables',
   template: `
-    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Show">
-      @for (f of filters; track f.value) {
-        <button type="button" class="rounded-full border px-4 py-2 text-sm font-semibold" [attr.aria-pressed]="filter() === f.value"
-                [class]="filter() === f.value ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink'" (click)="filter.set(f.value)">
-          {{ f.label }} <span class="ms-1 opacity-70">{{ count(f.value) }}</span>
+    @let s = this.s();
+    <div class="flex flex-wrap items-center gap-2" role="group" [attr.aria-label]="s.show">
+      @for (f of filters; track f) {
+        <button type="button" class="rounded-full border px-4 py-2 text-sm font-semibold" [attr.aria-pressed]="filter() === f"
+                [class]="filter() === f ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink'" (click)="filter.set(f)">
+          {{ s.filters[f] }} <span class="ms-1 opacity-70">{{ count(f) }}</span>
         </button>
       }
     </div>
@@ -39,32 +42,32 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
                   (click)="expanded.set(open ? null : t.locationId)">
             <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface text-sm font-bold">{{ t.label }}</span>
             <span class="min-w-0 flex-1">
-              <span class="block font-semibold">{{ t.displayName }}</span>
-              <span class="block text-xs text-ink-muted">{{ t.areaName ?? 'No area' }}@if (t.lastActivityAt) { · {{ ago(t.lastActivityAt) }} }</span>
+              <span class="block font-semibold">{{ place(t) }}</span>
+              <span class="block text-xs text-ink-muted">{{ t.areaName ?? i18n.t().noArea }}@if (t.lastActivityAt) { · {{ ago(t.lastActivityAt) }} }</span>
             </span>
             <span class="shrink-0 text-end">
               @if (t.checkId) { <span class="block text-sm font-semibold tabular-nums">{{ money(t.paidMinor, t.currency) }} / {{ money(t.totalMinor, t.currency) }}</span> }
               <span class="mt-0.5 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold" [class]="badgeClass(t.state)">
-                {{ badgeIcon(t.state) }} {{ badgeText(t.state) }}
+                {{ badgeIcon(t.state) }} {{ s.states[t.state] }}
               </span>
             </span>
           </button>
           @if (open) {
             <div class="border-t border-line px-4 py-3 text-sm">
-              @if (t.attentionReason) { <p class="mb-2 rounded-lg bg-red-50 px-3 py-2 text-red-800">{{ t.attentionReason }}</p> }
+              @if (t.attentionReason) { <p class="mb-2 rounded-lg bg-red-50 px-3 py-2 text-red-800">{{ s.paymentFailed }}</p> }
               <dl class="grid grid-cols-[140px_1fr] gap-y-1">
-                <dt class="text-ink-muted">Customers paid</dt>
-                <dd>{{ money(t.paidMinor, t.currency) }}@if (t.tipsMinor) { <span class="text-ink-muted"> (tip {{ money(t.tipsMinor, t.currency) }})</span> }</dd>
-                <dt class="text-ink-muted">Remaining</dt><dd class="font-semibold">{{ money(t.remainingMinor, t.currency) }}</dd>
+                <dt class="text-ink-muted">{{ s.customersPaid }}</dt>
+                <dd>{{ money(t.paidMinor, t.currency) }}@if (t.tipsMinor) { <span class="text-ink-muted"> ({{ s.tip(money(t.tipsMinor, t.currency)) }})</span> }</dd>
+                <dt class="text-ink-muted">{{ s.remaining }}</dt><dd class="font-semibold">{{ money(t.remainingMinor, t.currency) }}</dd>
               </dl>
               <table class="mt-3 w-full">
-                <thead class="text-xs text-ink-muted uppercase"><tr><th scope="col" class="py-1 text-start font-semibold">Order</th><th scope="col" class="py-1 text-start font-semibold">Created</th><th scope="col" class="py-1 text-start font-semibold">Status</th><th scope="col" class="py-1 text-end font-semibold">Total</th></tr></thead>
+                <thead class="text-xs text-ink-muted uppercase"><tr><th scope="col" class="py-1 text-start font-semibold">{{ s.order }}</th><th scope="col" class="py-1 text-start font-semibold">{{ s.created }}</th><th scope="col" class="py-1 text-start font-semibold">{{ s.status }}</th><th scope="col" class="py-1 text-end font-semibold">{{ s.total }}</th></tr></thead>
                 <tbody>
                   @for (o of t.orders; track o.id) {
                     <tr class="border-t border-line">
                       <td class="py-1.5 font-semibold">#{{ o.number }}</td>
                       <td class="py-1.5 text-ink-muted">{{ time(o.createdAt) }}</td>
-                      <td class="py-1.5">{{ o.status === 'Completed' ? 'Served' : o.status }}</td>
+                      <td class="py-1.5">{{ s.orderStatuses[o.status] || o.status }}</td>
                       <td class="py-1.5 text-end tabular-nums">{{ money(o.totalMinor, t.currency) }}</td>
                     </tr>
                   }
@@ -74,7 +77,7 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
           }
         </li>
       } @empty {
-        <li class="text-sm text-ink-muted">No tables in this view.</li>
+        <li class="text-sm text-ink-muted">{{ s.empty }}</li>
       }
     </ul>
   `
@@ -85,9 +88,11 @@ export class LiveTables implements OnInit {
   private readonly live = inject(LiveOrders);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly filters: { value: Filter; label: string }[] = [
-    { value: 'All', label: 'All' }, { value: 'Unpaid', label: 'Unpaid' }, { value: 'PartiallyPaid', label: 'Partially paid' }, { value: 'Paid', label: 'Paid' }
-  ];
+  protected readonly i18n = inject(I18n);
+  private readonly strings = this.i18n.use(TABLES);
+  /** Named "s" because the template's loop variable is "t". */
+  protected readonly s = computed(() => this.strings().live);
+  protected readonly filters: Filter[] = ['All', 'Unpaid', 'PartiallyPaid', 'Paid'];
   protected readonly filter = signal<Filter>('All');
   protected readonly tables = signal<TableStatus[]>([]);
   protected readonly expanded = signal<string | null>(null);
@@ -113,10 +118,6 @@ export class LiveTables implements OnInit {
     return this.tables().filter(t => this.matches(t, filter)).length;
   }
 
-  protected badgeText(state: TableState): string {
-    return { Available: 'Available', Ordering: 'Ordering', Unpaid: 'Unpaid', PartiallyPaid: 'Partially paid', Paid: 'Fully paid', Attention: 'Needs attention' }[state];
-  }
-
   protected badgeIcon(state: TableState): string {
     return { Available: '', Ordering: '…', Unpaid: '!', PartiallyPaid: '◐', Paid: '✓', Attention: '⚠' }[state];
   }
@@ -132,19 +133,25 @@ export class LiveTables implements OnInit {
     }
   }
 
+  /** "Table 12" in the portal's language (the API's displayName is English). */
+  protected place(t: TableStatus): string {
+    return `${this.i18n.t().locationTypes[t.locationType] ?? t.locationType} ${t.label}`;
+  }
+
   protected money(minor: number, currency: string): string {
     return formatMoney(minor, currency);
   }
 
   protected ago(iso: string): string {
     const minutes = Math.max(0, Math.round((this.now() - new Date(iso).getTime()) / 60_000));
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes} min ago`;
-    return `${Math.floor(minutes / 60)} h ago`;
+    const s = this.s();
+    if (minutes < 1) return s.justNow;
+    if (minutes < 60) return s.minutesAgo(minutes);
+    return s.hoursAgo(Math.floor(minutes / 60));
   }
 
   protected time(iso: string): string {
-    return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString(this.i18n.locale(), { hour: '2-digit', minute: '2-digit' });
   }
 
   private matches(t: TableStatus, filter: Filter): boolean {

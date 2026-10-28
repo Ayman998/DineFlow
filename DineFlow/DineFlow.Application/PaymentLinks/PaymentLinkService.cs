@@ -190,7 +190,7 @@ public class PaymentLinkService(
     {
         try
         {
-            await email.SendAsync(PaymentLinkEmail.Build(to.Trim(), venue, link, UrlOf(link)), ct);
+            await email.SendAsync(PaymentLinkEmail.Build(to.Trim(), venue, link, UrlOf(link), Languages.IsArabic(venue.DefaultLocale)), ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -252,24 +252,31 @@ public class PaymentLinkService(
         string Money(long minor) => TransactionService.FormatMoney(minor, link.Currency);
         var events = new List<TimelineEventDto>
         {
-            new(link.CreatedAt, "link", $"Link created{(createdBy is null ? "" : $" by {createdBy}")} for {Money(link.AmountMinor)}")
+            new(link.CreatedAt, "link", $"Link created{(createdBy is null ? "" : $" by {createdBy}")} for {Money(link.AmountMinor)}",
+                "link_created", new { amountMinor = link.AmountMinor, by = createdBy })
         };
-        if (link.CustomerNotifiedAt is { } notified) events.Add(new(notified, "link", $"Link e-mailed to {link.CustomerEmail}"));
+        if (link.CustomerNotifiedAt is { } notified)
+            events.Add(new(notified, "link", $"Link e-mailed to {link.CustomerEmail}", "link_emailed", new { email = link.CustomerEmail }));
 
         foreach (var p in payments)
         {
-            events.Add(new(p.CreatedAt, "payment", $"{p.Reference}: payment started · {Money(p.AmountMinor)} by {p.Method}"));
+            events.Add(new(p.CreatedAt, "payment", $"{p.Reference}: payment started · {Money(p.AmountMinor)} by {p.Method}",
+                "payment_started", new { reference = p.Reference, amountMinor = p.AmountMinor, method = p.Method.ToString() }));
             if (p.Status == PaymentStatus.Succeeded && p.SucceededAt is { } paidAt)
-                events.Add(new(paidAt, "payment", $"{p.Reference}: paid {Money(p.AmountMinor)}{(p.TipMinor > 0 ? $" (tip {Money(p.TipMinor)})" : "")}"));
+                events.Add(new(paidAt, "payment", $"{p.Reference}: paid {Money(p.AmountMinor)}{(p.TipMinor > 0 ? $" (tip {Money(p.TipMinor)})" : "")}",
+                    "payment_paid", new { reference = p.Reference, amountMinor = p.AmountMinor, tipMinor = p.TipMinor }));
             else if (p.Status == PaymentStatus.Failed)
-                events.Add(new(p.UpdatedAt, "payment", $"{p.Reference}: declined{(p.FailureReason is { } reason ? $" ({reason})" : "")}"));
+                events.Add(new(p.UpdatedAt, "payment", $"{p.Reference}: declined{(p.FailureReason is { } reason ? $" ({reason})" : "")}",
+                    "payment_declined", new { reference = p.Reference, reason = p.FailureReason }));
             else if (p.Status == PaymentStatus.Cancelled)
-                events.Add(new(p.UpdatedAt, "payment", $"{p.Reference}: the customer left the payment page without paying"));
+                events.Add(new(p.UpdatedAt, "payment", $"{p.Reference}: the customer left the payment page without paying",
+                    "payment_abandoned", new { reference = p.Reference }));
         }
 
-        if (link.PaidAt is { } fullyPaid) events.Add(new(fullyPaid, "link", "Paid in full; the link closed"));
-        if (link.CancelledAt is { } cancelled) events.Add(new(cancelled, "link", $"Deactivated{(cancelledBy is null ? "" : $" by {cancelledBy}")}"));
-        if (link.StatusAt(now) == PaymentLinkStatus.Expired) events.Add(new(link.ExpiresAt, "link", "Expired"));
+        if (link.PaidAt is { } fullyPaid) events.Add(new(fullyPaid, "link", "Paid in full; the link closed", "link_paid"));
+        if (link.CancelledAt is { } cancelled)
+            events.Add(new(cancelled, "link", $"Deactivated{(cancelledBy is null ? "" : $" by {cancelledBy}")}", "link_deactivated", new { by = cancelledBy }));
+        if (link.StatusAt(now) == PaymentLinkStatus.Expired) events.Add(new(link.ExpiresAt, "link", "Expired", "link_expired"));
 
         return events.OrderBy(e => e.At).ToList();
     }
@@ -283,38 +290,48 @@ public class PaymentLinkService(
     }
 }
 
-/// <summary>The e-mail that sends a customer their payment link (P1-LNK-03).</summary>
+/// <summary>
+/// The e-mail that sends a customer their payment link (P1-LNK-03), in the venue's default
+/// language: the customer's own isn't known yet, and the payment page opens in it too.
+/// </summary>
 internal static class PaymentLinkEmail
 {
-    public static EmailMessage Build(string to, Venue venue, PaymentLink link, string url)
+    public static EmailMessage Build(string to, Venue venue, PaymentLink link, string url, bool arabic)
     {
         var brand = venue.Tenant.DisplayName;
+        var branch = venue.NameFor(arabic);
         var amount = TransactionService.FormatMoney(link.AmountMinor, link.Currency);
-        var expires = TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
+        var expires = Languages.DateTime(TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
             ? TimeZoneInfo.ConvertTime(link.ExpiresAt, zone)
-            : link.ExpiresAt;
-        var reference = link.Reference is { } r ? $" · Reference {r}" : "";
+            : link.ExpiresAt, arabic);
+        var reference = link.Reference is { } r ? $" · {(arabic ? "المرجع" : "Reference")} {r}" : "";
+        var (sent, payHere, payNow, footer, subject) = arabic
+            ? ($"وصلك رابط دفع بقيمة {amount}{reference}.", "ادفع بأمان من هنا:", "ادفع الآن",
+                $"الرابط {link.Code} · فعّال حتى {expires}. يشمل المبلغ جميع الضرائب والرسوم.", $"طلب دفع من {brand} ({link.Code})")
+            : ($"You've been sent a payment link for {amount}{reference}.", "Pay securely here:", "Pay now",
+                $"Link {link.Code} · active until {expires}. The amount includes all taxes and charges.", $"Payment request from {brand} ({link.Code})");
 
         var text = new StringBuilder()
-            .AppendLine($"{brand} · {venue.Name}")
-            .AppendLine($"You've been sent a payment link for {amount}{reference}.")
+            .AppendLine($"{brand} · {branch}")
+            .AppendLine(sent)
             .AppendLine()
-            .AppendLine($"Pay securely here: {url}")
+            .AppendLine($"{payHere} {url}")
             .AppendLine()
-            .AppendLine($"Link {link.Code} · active until {expires:dd MMM yyyy HH:mm}. The amount includes all taxes and charges.")
+            .AppendLine(footer)
             .ToString();
 
         static string E(string s) => WebUtility.HtmlEncode(s);
+        var lead = arabic ? $"وصلك رابط دفع{reference}." : $"You've been sent a payment link{reference}.";
         var html = $"""
-            <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
-              <h2 style="margin:0">{E(brand)} · {E(venue.Name)}</h2>
-              <p style="color:#475467;margin:4px 0 16px">You've been sent a payment link{E(reference)}.</p>
+            <div dir="{(arabic ? "rtl" : "ltr")}" lang="{(arabic ? Languages.Arabic : Languages.English)}" style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
+              <h2 style="margin:0">{E(brand)} · {E(branch)}</h2>
+              <p style="color:#475467;margin:4px 0 16px">{E(lead)}</p>
               <p style="font-size:28px;font-weight:800;margin:0 0 16px">{E(amount)}</p>
-              <p><a href="{E(url)}" style="display:inline-block;background:#101828;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700">Pay now</a></p>
-              <p style="color:#475467">Link {E(link.Code)} · active until {expires:dd MMM yyyy HH:mm}. The amount includes all taxes and charges.</p>
+              <p><a href="{E(url)}" style="display:inline-block;background:#101828;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700">{payNow}</a></p>
+              <p style="color:#475467">{E(footer)}</p>
             </div>
             """;
 
-        return new EmailMessage(to, $"Payment request from {brand} ({link.Code})", text, html);
+        return new EmailMessage(to, subject, text, html);
     }
 }

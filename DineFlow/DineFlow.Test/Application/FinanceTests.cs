@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
 using DineFlow.Application.Dashboard;
@@ -282,6 +283,10 @@ public class FinanceTests : IDisposable
 
         Assert.Equal(["session", "order", "payment", "provider", "ledger", "review", "refund", "provider", "ledger"], detail.Timeline.Select(e => e.Kind));
         Assert.Contains("Lina", detail.Timeline.Single(e => e.Kind == "refund").Text);
+        Assert.Equal(["session_started", "order_placed", "payment_started", "provider_confirmed", "ledger", "review", "refund_requested",
+            "provider_refund_confirmed", "ledger_refund"], detail.Timeline.Select(e => e.Code));
+        var refundStep = JsonSerializer.SerializeToElement(detail.Timeline.Single(e => e.Kind == "refund").Params);
+        Assert.Equal((500L, "Lina"), (refundStep.GetProperty("amountMinor").GetInt64(), refundStep.GetProperty("by").GetString()));
         Assert.Equal((4, result.Id), (detail.ReviewRating, detail.ReviewId));
         Assert.Equal(("Burger", 1), (detail.Orders.Single().Lines.Single().Name, detail.Orders.Single().Lines.Single().Quantity));
         Assert.Equal((5000L, 500L, 5500L, 5000L), (detail.BillAmountMinor, detail.TipMinor, detail.AmountMinor, detail.RefundableMinor));
@@ -315,7 +320,11 @@ public class FinanceTests : IDisposable
         Assert.Equal(10, overview.Trend.Count);                // 1–10 March
         Assert.Equal(overview.Selected.RevenueMinor, overview.Trend.Sum(p => p.RevenueMinor));
         Assert.Equal(10_000, overview.Trend[^1].RevenueMinor);
-        Assert.Contains(overview.Attention, a => a.Kind == "payment" && a.Title == "1 payment failure today" && a.Detail.StartsWith("Last: Table 7"));
+        var failures = Assert.Single(overview.Attention, a => a.Kind == "payment");
+        Assert.Equal(("1 payment failure today", "payment_failures"), (failures.Title, failures.Code));
+        Assert.StartsWith("Last: Table 7", failures.Detail);
+        var where = JsonSerializer.SerializeToElement(failures.Params);
+        Assert.Equal(("Table", "7"), (where.GetProperty("locationType").GetString(), where.GetProperty("label").GetString()));
     }
 
     [Fact]
@@ -337,6 +346,8 @@ public class FinanceTests : IDisposable
         Assert.Equal(["orders", "tables", "review", "refund"], overview.Attention.Select(a => a.Kind));
         Assert.Equal("2 orders waiting to be accepted", overview.Attention[0].Title);
         Assert.Equal(("1 table partially paid", "Open balance AED 70.00"), (overview.Attention[1].Title, overview.Attention[1].Detail));
+        Assert.Equal(["orders_waiting", "tables_partially_paid", "unhappy_feedback", "refunds_pending"], overview.Attention.Select(a => a.Code));
+        Assert.Equal(7000L, JsonSerializer.SerializeToElement(overview.Attention[1].Params).GetProperty("openMinor").GetInt64());
         Assert.Equal(TrendGranularity.Hourly, overview.Granularity);
     }
 

@@ -1,17 +1,19 @@
+@let t = this.t();
+@let c = i18n.t();
 @let list = schedules();
 @let r = preview();
 
 <div class="mx-auto flex max-w-6xl flex-col gap-6">
   <div>
-    <h1 class="text-2xl font-bold">Reports</h1>
-    <p class="text-sm text-ink-muted">Whether every payment reached your bank, the acquirer's settlements, and the figures by e-mail.</p>
+    <h1 class="text-2xl font-bold">{{ t.title }}</h1>
+    <p class="text-sm text-ink-muted">{{ t.intro }}</p>
   </div>
 
   @if (auth.canManage()) {
-    <div class="flex w-fit gap-1 rounded-lg bg-surface p-1" role="tablist" aria-label="Reports">
-      @for (t of tabs; track t.value) {
-        <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === t.value"
-                [class]="view() === t.value ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(t.value)">{{ t.label }}</button>
+    <div class="flex w-fit gap-1 rounded-lg bg-surface p-1" role="tablist" [attr.aria-label]="t.title">
+      @for (tab of tabs; track tab) {
+        <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === tab"
+                [class]="view() === tab ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(tab)">{{ t.tabs[tab] }}</button>
       }
     </div>
   }
@@ -21,7 +23,7 @@
   } @else if (view() === 'settlements') {
     <df-settlements-panel />
   } @else if (!features.current().emailReports) {
-    <p class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">E-mail reports are switched off for this environment.</p>
+    <p class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">{{ t.emailOff }}</p>
   } @else {
     @if (error()) { <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p> }
     @if (notice()) { <p class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{{ notice() }}</p> }
@@ -30,12 +32,12 @@
       <div class="flex min-w-0 flex-col gap-6">
         <section class="card flex flex-col gap-4">
           <div class="flex items-center justify-between gap-3">
-            <h2 class="font-semibold">E-mail reports</h2>
-            @if (auth.canManage() && editing() !== 'new') { <button type="button" class="btn-secondary" (click)="startNew()">New e-mail report</button> }
+            <h2 class="font-semibold">{{ t.emailReports }}</h2>
+            @if (auth.canManage() && editing() !== 'new') { <button type="button" class="btn-secondary" (click)="startNew()">{{ t.newEmailReport }}</button> }
           </div>
 
           @if (list && !list.length && editing() !== 'new') {
-            <p class="text-sm text-ink-muted">No reports scheduled. Add one to get the figures in your inbox without opening the dashboard.</p>
+            <p class="text-sm text-ink-muted">{{ t.noSchedules }}</p>
           }
 
           <ul class="flex flex-col divide-y divide-line">
@@ -45,18 +47,18 @@
               } @else {
                 <li class="flex flex-wrap items-start justify-between gap-3 py-3 text-sm">
                   <span class="min-w-0">
-                    <span class="block font-semibold">{{ s.frequency }} report @if (!s.isActive) { <span class="ms-1 rounded-full bg-surface px-2 py-0.5 text-xs text-ink-muted">Paused</span> }</span>
+                    <span class="block font-semibold">{{ reportName(s.frequency) }} @if (!s.isActive) { <span class="ms-1 rounded-full bg-surface px-2 py-0.5 text-xs text-ink-muted">{{ t.paused }}</span> }</span>
                     <span class="block text-ink-muted">{{ describe(s) }}</span>
-                    <span class="block truncate text-ink-muted">To {{ s.recipients.join(', ') }}</span>
+                    <span class="block truncate text-ink-muted">{{ t.to(s.recipients.join(', ')) }}</span>
                     <span class="block text-xs text-ink-muted">
-                      @if (s.isActive) { Next {{ when(s.nextRunAt) }} }@if (s.lastRunAt) { · last sent {{ when(s.lastRunAt) }} }
+                      @if (s.isActive) { {{ t.next(when(s.nextRunAt)) }} }@if (s.lastRunAt) { · {{ t.lastSent(when(s.lastRunAt)) }} }
                     </span>
                   </span>
                   @if (auth.canManage()) {
                     <span class="flex shrink-0 gap-1">
-                      <button type="button" class="btn-ghost px-2 py-1" [disabled]="busy()" (click)="sendNow(s)">Send now</button>
-                      <button type="button" class="btn-ghost px-2 py-1" (click)="edit(s)">Edit</button>
-                      <button type="button" class="btn-ghost px-2 py-1 text-red-700" (click)="remove(s)">Delete</button>
+                      <button type="button" class="btn-ghost px-2 py-1" [disabled]="busy()" (click)="sendNow(s)">{{ t.sendNow }}</button>
+                      <button type="button" class="btn-ghost px-2 py-1" (click)="edit(s)">{{ c.edit }}</button>
+                      <button type="button" class="btn-ghost px-2 py-1 text-red-700" (click)="remove(s)">{{ c.delete }}</button>
                     </span>
                   }
                 </li>
@@ -64,19 +66,19 @@
             }
           </ul>
           @if (editing() === 'new') { <ng-container *ngTemplateOutlet="form" /> }
-          @if (!auth.canManage()) { <p class="text-sm text-ink-muted">Only owners and managers can change who gets reports.</p> }
+          @if (!auth.canManage()) { <p class="text-sm text-ink-muted">{{ t.onlyManagers }}</p> }
         </section>
 
         <section class="card min-w-0">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold">Preview</h2>
-              @if (r) { <p class="text-sm text-ink-muted">{{ r.periodLabel }}, compared with the {{ r.frequency === 'Daily' ? 'day' : r.frequency === 'Weekly' ? 'week' : 'month' }} before</p> }
+              <h2 class="font-semibold">{{ t.preview }}</h2>
+              @if (r) { <p class="text-sm text-ink-muted">{{ t.comparedWith(periodLabel(r), r.frequency) }}</p> }
             </div>
-            <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" aria-label="Report period">
+            <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" [attr.aria-label]="t.reportPeriod">
               @for (f of frequencies; track f) {
                 <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="previewFrequency() === f"
-                        [class]="previewFrequency() === f ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setPreview(f)">{{ f }}</button>
+                        [class]="previewFrequency() === f ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setPreview(f)">{{ frequencyLabel(f) }}</button>
               }
             </div>
           </div>
@@ -84,16 +86,16 @@
             <table class="w-full text-sm">
               <thead class="border-b border-line text-xs text-ink-muted uppercase">
                 <tr>
-                  <th scope="col" class="py-2 text-start font-semibold">Figure</th>
-                  <th scope="col" class="py-2 text-end font-semibold">This period</th>
-                  <th scope="col" class="py-2 text-end font-semibold">Before</th>
-                  <th scope="col" class="py-2 text-end font-semibold">Change</th>
+                  <th scope="col" class="py-2 text-start font-semibold">{{ t.figure }}</th>
+                  <th scope="col" class="py-2 text-end font-semibold">{{ t.thisPeriod }}</th>
+                  <th scope="col" class="py-2 text-end font-semibold">{{ t.before }}</th>
+                  <th scope="col" class="py-2 text-end font-semibold">{{ t.change }}</th>
                 </tr>
               </thead>
               <tbody>
                 @for (m of r.metrics; track m.key) {
                   <tr class="border-b border-line last:border-0">
-                    <td class="py-2">{{ m.label }}</td>
+                    <td class="py-2">{{ metricLabel(m) }}</td>
                     <td class="py-2 text-end font-semibold tabular-nums">{{ value(r, m, m.value) }}</td>
                     <td class="py-2 text-end text-ink-muted tabular-nums">{{ value(r, m, m.previous) }}</td>
                     <td class="py-2 text-end tabular-nums" [class]="changeClass(m)">{{ change(m) }}</td>
@@ -102,7 +104,7 @@
               </tbody>
             </table>
             @if (r.topItems.length) {
-              <p class="mt-4 text-xs font-bold tracking-wide text-ink-muted uppercase">Best sellers</p>
+              <p class="mt-4 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.bestSellers }}</p>
               <ul class="mt-1 text-sm">
                 @for (i of r.topItems; track i.name) {
                   <li class="flex justify-between py-1"><span>{{ i.quantity }} × {{ i.name }}</span><span class="tabular-nums">{{ money(i.totalMinor, r.currency) }}</span></li>
@@ -110,12 +112,12 @@
               </ul>
             }
           } @else {
-            <p class="text-sm text-ink-muted">Loading…</p>
+            <p class="text-sm text-ink-muted">{{ c.loading }}</p>
           }
         </section>
       </div>
 
-      <df-delivery-log class="h-fit" channel="Email" title="E-mailed" />
+      <df-delivery-log class="h-fit" channel="Email" [title]="t.emailed" />
     </div>
   }
 </div>
@@ -123,28 +125,28 @@
 <ng-template #form>
   <form class="grid gap-3 rounded-lg border border-line p-4" (submit)="$event.preventDefault(); save()">
     <div class="grid gap-3 sm:grid-cols-2">
-      <label><span class="field-label">How often</span>
+      <label><span class="field-label">{{ t.howOften }}</span>
         <select class="field" [value]="frequency()" (change)="frequency.set($any($event.target).value)">
-          <option value="Daily">Daily, for the day before</option>
-          <option value="Weekly">Weekly on Monday, for the week before</option>
-          <option value="Monthly">Monthly on the 1st, for the month before</option>
+          <option value="Daily">{{ t.dailyOption }}</option>
+          <option value="Weekly">{{ t.weeklyOption }}</option>
+          <option value="Monthly">{{ t.monthlyOption }}</option>
         </select>
       </label>
-      <label><span class="field-label">Send at (venue time)</span>
+      <label><span class="field-label">{{ t.sendAt }}</span>
         <select class="field" [value]="'' + hour()" (change)="hour.set(+$any($event.target).value)">
           @for (h of hours; track h) { <option [value]="'' + h">{{ (h < 10 ? '0' : '') + h }}:00</option> }
         </select>
       </label>
     </div>
-    <label><span class="field-label">Send to</span>
+    <label><span class="field-label">{{ t.sendTo }}</span>
       <textarea class="field" rows="2" placeholder="owner@example.com, finance@example.com" [value]="recipients()" (input)="recipients.set($any($event.target).value)"></textarea>
-      <span class="mt-1 block text-xs text-ink-muted">Up to 10 addresses, separated by commas.</span>
+      <span class="mt-1 block text-xs text-ink-muted">{{ t.recipientsHint }}</span>
     </label>
-    <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 accent-brand" [checked]="active()" (change)="active.set($any($event.target).checked)" /> Send on schedule</label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 accent-brand" [checked]="active()" (change)="active.set($any($event.target).checked)" /> {{ t.sendOnSchedule }}</label>
     @if (formError()) { <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ formError() }}</p> }
     <div class="flex justify-end gap-2">
-      <button type="button" class="btn-ghost" (click)="editing.set(null)">Cancel</button>
-      <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Save' }}</button>
+      <button type="button" class="btn-ghost" (click)="editing.set(null)">{{ c.cancel }}</button>
+      <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? c.saving : c.save }}</button>
     </div>
   </form>
 </ng-template>

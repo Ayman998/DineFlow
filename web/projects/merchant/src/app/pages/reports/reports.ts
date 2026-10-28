@@ -5,9 +5,11 @@ import { Report, ReportFrequency, ReportMetric, ReportSchedule, ReportsApi } fro
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { Features } from '../../core/features';
+import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
 import { DeliveryLog } from '../../shared/delivery-log';
 import { ReconciliationPanel } from './reconciliation-panel';
+import { REPORTS } from './reports.i18n';
 import { SettlementsPanel } from './settlements-panel';
 
 /**
@@ -25,13 +27,11 @@ export class Reports implements OnInit {
   private readonly venue = inject(CurrentVenue);
   protected readonly auth = inject(Auth);
   protected readonly features = inject(Features);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.use(REPORTS);
   private readonly log = viewChild(DeliveryLog);
 
-  protected readonly tabs = [
-    { value: 'reconciliation', label: 'Reconciliation' },
-    { value: 'settlements', label: 'Settlements' },
-    { value: 'email', label: 'E-mail reports' }
-  ] as const;
+  protected readonly tabs = ['reconciliation', 'settlements', 'email'] as const;
   /** Settlements and reconciliation are for owners and managers only. */
   protected readonly view = signal<'reconciliation' | 'settlements' | 'email'>(this.auth.canManage() ? 'reconciliation' : 'email');
 
@@ -84,7 +84,7 @@ export class Reports implements OnInit {
     const editing = this.editing();
     if (!venueId || !editing || this.busy()) return;
     const recipients = this.recipients().split(/[\s,;]+/).map(r => r.trim()).filter(Boolean);
-    if (!recipients.length) return this.formError.set('Add at least one e-mail address.');
+    if (!recipients.length) return this.formError.set(this.t().recipientsRequired);
 
     const request = { venueId, frequency: this.frequency(), sendAtHour: this.hour(), recipients, isActive: this.active() };
     this.busy.set(true);
@@ -108,7 +108,7 @@ export class Reports implements OnInit {
     this.api.sendNow(s.id).subscribe({
       next: result => {
         this.busy.set(false);
-        this.notice.set(`Queued for ${result.queued} ${result.queued === 1 ? 'recipient' : 'recipients'}. It goes out within a few seconds.`);
+        this.notice.set(this.t().queued(result.queued));
         setTimeout(() => this.log()?.load(), 6_000);
       },
       error: error => {
@@ -119,7 +119,7 @@ export class Reports implements OnInit {
   }
 
   protected remove(s: ReportSchedule): void {
-    if (!confirm(`Stop the ${s.frequency.toLowerCase()} report to ${s.recipients.join(', ')}?`)) return;
+    if (!confirm(this.t().confirmStop(this.reportName(s.frequency), s.recipients.join(', ')))) return;
     this.api.delete(s.id).subscribe({ next: () => this.load(), error: error => this.error.set(errorMessage(error)) });
   }
 
@@ -130,14 +130,46 @@ export class Reports implements OnInit {
 
   protected describe(s: ReportSchedule): string {
     const at = `${String(s.sendAtHour).padStart(2, '0')}:00`;
-    return { Daily: `Every day at ${at}, for the day before`, Weekly: `Mondays at ${at}, for the week before`, Monthly: `On the 1st at ${at}, for the month before` }[s.frequency];
+    return this.t().describe[s.frequency]?.(at) ?? s.frequency;
+  }
+
+  protected frequencyLabel(frequency: ReportFrequency): string {
+    return this.t().frequencies[frequency] ?? frequency;
+  }
+
+  protected reportName(frequency: ReportFrequency): string {
+    return this.t().reportName[frequency] ?? `${frequency} report`;
+  }
+
+  /** The API's metric labels are English, so known metrics are labelled here by key. */
+  protected metricLabel(metric: ReportMetric): string {
+    return this.t().metrics[metric.key] ?? metric.label;
+  }
+
+  /** The API's period label is English ("Tue 21 Oct 2026"); in Arabic it's rebuilt from the dates. */
+  protected periodLabel(report: Report): string {
+    if (this.i18n.lang() === 'en') return report.periodLabel;
+    const locale = this.i18n.locale();
+    const date = (iso: string, options: Intl.DateTimeFormatOptions) =>
+      new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { ...options, timeZone: 'UTC' });
+    switch (report.frequency) {
+      case 'Monthly': return date(report.periodStart, { month: 'long', year: 'numeric' });
+      case 'Weekly': {
+        const last = new Date(`${report.periodEnd}T00:00:00Z`);
+        last.setUTCDate(last.getUTCDate() - 1);
+        const lastIso = last.toISOString().slice(0, 10);
+        const sameYear = report.periodStart.slice(0, 4) === lastIso.slice(0, 4);
+        return `${date(report.periodStart, { day: 'numeric', month: 'short', year: sameYear ? undefined : 'numeric' })} – ${date(lastIso, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      default: return date(report.periodStart, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    }
   }
 
   protected value(report: Report, metric: ReportMetric, value: number): string {
     switch (metric.unit) {
       case 'Money': return formatMoney(value, report.currency);
       case 'Rating': return value ? `${value.toFixed(1)} / 5` : '–';
-      default: return value.toLocaleString('en-GB');
+      default: return value.toLocaleString(this.i18n.locale());
     }
   }
 
@@ -162,7 +194,7 @@ export class Reports implements OnInit {
   /** In the venue's time zone, like the send hour, so "08:00" means the same everywhere. */
   protected when(iso: string | null): string {
     return iso
-      ? new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: this.venue.venue()?.timeZone })
+      ? new Date(iso).toLocaleString(this.i18n.locale(), { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: this.venue.venue()?.timeZone })
       : '–';
   }
 

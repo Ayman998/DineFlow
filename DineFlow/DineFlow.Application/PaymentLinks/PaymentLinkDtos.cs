@@ -89,7 +89,8 @@ public record PaymentLinkDetailDto(
 
 // ---- Public (the customer's payment page) ----
 
-public record LinkVenueDto(string BrandName, string BranchName, string? LogoUrl, string BrandColor, string DefaultLocale);
+/// <param name="BranchNameAr">The branch's name for customers reading Arabic; null when it has none.</param>
+public record LinkVenueDto(string BrandName, string BranchName, string? LogoUrl, string BrandColor, string DefaultLocale, string? BranchNameAr = null);
 
 /// <summary>
 /// The link as the customer sees it (blueprint 9.1 GET /v1/public/payment-links/{token}, 4.2

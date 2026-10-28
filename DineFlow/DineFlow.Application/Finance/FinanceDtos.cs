@@ -28,9 +28,16 @@ public record ReconciliationRunDto(
     int Settled, long SettledGrossMinor, long SettledFeesMinor, int AwaitingSettlement,
     int PostedToPos, int Matched, int OpenDiscrepancies);
 
+/// <param name="Details">What's wrong, in English, for clients that don't know <paramref name="DetailsCode"/>.</param>
+/// <param name="DetailsCode">
+/// Which problem it is, e.g. "amount_mismatch", so the portal can word Details in the reader's language
+/// from the reference, amounts and day, plus <paramref name="DetailsParams"/>.
+/// </param>
+/// <param name="DetailsParams">Values the wording needs beyond the discrepancy's own: how often it was settled, the POS's error.</param>
 public record DiscrepancyDto(
     Guid Id, DateOnly BusinessDate, DiscrepancyKind Kind, string Reference, long ExpectedMinor, long ActualMinor, long DifferenceMinor,
-    string Details, DiscrepancyStatus Status, Guid? PaymentId, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? ResolvedBy, string? Note);
+    string Details, DiscrepancyStatus Status, Guid? PaymentId, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? ResolvedBy, string? Note,
+    string? DetailsCode = null, object? DetailsParams = null);
 
 public record DiscrepancyPageDto(IReadOnlyList<DiscrepancyDto> Items, int Total, int Page, int PageSize, int Open);
 

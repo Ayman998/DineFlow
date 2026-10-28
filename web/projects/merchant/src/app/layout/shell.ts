@@ -6,6 +6,7 @@ import { OrderDto, PaymentLinkNotice, PaymentNotice, RefundNotice, ReviewNotice 
 import { Auth } from '../core/auth';
 import { CurrentVenue } from '../core/current-venue';
 import { Features } from '../core/features';
+import { I18n } from '../core/i18n';
 import { LiveOrders } from '../core/live-orders';
 import { formatMoney } from '../core/money';
 import { NAV_ITEMS } from './nav';
@@ -35,6 +36,8 @@ export class Shell implements OnInit {
   protected readonly currentVenue = inject(CurrentVenue);
   protected readonly live = inject(LiveOrders);
   protected readonly toasts = signal<Toast[]>([]);
+  protected readonly i18n = inject(I18n);
+  protected readonly t = this.i18n.t;
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe(() => this.live.start());
@@ -63,12 +66,18 @@ export class Shell implements OnInit {
 
   /** What a split payment covered, e.g. "1 of 4 shares"; null for the whole bill. */
   protected splitText(p: PaymentNotice): string | null {
+    const t = this.t();
     switch (p.mode) {
-      case 'Equal': return `${p.shares} of ${p.splitPeople} shares`;
-      case 'Items': return p.itemCount === 1 ? '1 item' : `${p.itemCount} items`;
-      case 'Custom': return 'Custom amount';
+      case 'Equal': return t.sharesOf(p.shares ?? 0, p.splitPeople ?? 0);
+      case 'Items': return t.items(p.itemCount);
+      case 'Custom': return t.customAmount;
       default: return null;
     }
+  }
+
+  /** "Table 12" in the current language. */
+  protected place(type: string, label: string): string {
+    return `${this.t().locationTypes[type] ?? type} ${label}`;
   }
 
   protected money(minor: number, currency: string): string {

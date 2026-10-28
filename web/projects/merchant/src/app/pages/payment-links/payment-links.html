@@ -1,28 +1,30 @@
+@let t = this.t();
+@let c = i18n.t();
 @let d = data();
 
 <div class="mx-auto flex max-w-6xl flex-col gap-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-bold">Payment Links</h1>
-      <p class="text-sm text-ink-muted">Ask customers to pay ahead, e.g. for a booking or an order. A link closes by itself once it's paid in full.</p>
+      <h1 class="text-2xl font-bold">{{ c.nav['payment-links'] }}</h1>
+      <p class="text-sm text-ink-muted">{{ t.intro }}</p>
     </div>
     <div class="flex gap-2">
-      <button type="button" class="btn-secondary" [disabled]="exporting()" (click)="exportCsv()">{{ exporting() ? 'Exporting…' : 'Export CSV' }}</button>
-      <button type="button" class="btn-primary" (click)="startCreate()">Create payment link</button>
+      <button type="button" class="btn-secondary" [disabled]="exporting()" (click)="exportCsv()">{{ exporting() ? t.exporting : t.exportCsv }}</button>
+      <button type="button" class="btn-primary" (click)="startCreate()">{{ t.createLink }}</button>
     </div>
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
-    <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" aria-label="Status">
+    <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" [attr.aria-label]="t.statusGroup">
       @for (s of filters; track s) {
         <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="status() === s"
                 [class]="status() === s ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setStatus(s)">
-          {{ s === 'Cancelled' ? 'Deactivated' : s }} <span class="ms-0.5 opacity-70">{{ count(s) }}</span>
+          {{ statusLabel(s) }} <span class="ms-0.5 opacity-70">{{ count(s) }}</span>
         </button>
       }
     </div>
-    <label class="sr-only" for="pl-search">Search</label>
-    <input id="pl-search" class="field w-72" type="search" placeholder="Link ID, reference, e-mail or amount" [value]="search()" (input)="setSearch($any($event.target).value)" />
+    <label class="sr-only" for="pl-search">{{ c.search }}</label>
+    <input id="pl-search" class="field w-72" type="search" [placeholder]="t.searchPlaceholder" [value]="search()" (input)="setSearch($any($event.target).value)" />
   </div>
 
   @if (error()) {
@@ -34,11 +36,11 @@
       @if (!d.items.length) {
         <div class="px-5 py-12 text-center">
           @if (d.counts.all === 0 && !search()) {
-            <p class="font-semibold">No payment links yet</p>
-            <p class="mt-1 text-sm text-ink-muted">Create one to take a deposit or prepayment. Share it by QR code, WhatsApp or e-mail.</p>
-            <button type="button" class="btn-primary mt-4" (click)="startCreate()">Create payment link</button>
+            <p class="font-semibold">{{ t.emptyTitle }}</p>
+            <p class="mt-1 text-sm text-ink-muted">{{ t.emptyText }}</p>
+            <button type="button" class="btn-primary mt-4" (click)="startCreate()">{{ t.createLink }}</button>
           } @else {
-            <p class="text-sm text-ink-muted">No links match.</p>
+            <p class="text-sm text-ink-muted">{{ t.noMatch }}</p>
           }
         </div>
       } @else {
@@ -46,14 +48,14 @@
           <table class="w-full text-sm">
             <thead class="border-b border-line text-xs text-ink-muted uppercase">
               <tr>
-                <th scope="col" class="px-5 py-2.5 text-start font-semibold">Created</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Link</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Reference</th>
-                <th scope="col" class="px-3 py-2.5 text-end font-semibold">Amount</th>
-                <th scope="col" class="px-3 py-2.5 text-end font-semibold">Paid</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Status</th>
-                <th scope="col" class="px-3 py-2.5 text-start font-semibold">Expires</th>
-                <th scope="col" class="px-5 py-2.5"><span class="sr-only">Actions</span></th>
+                <th scope="col" class="px-5 py-2.5 text-start font-semibold">{{ t.colCreated }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.colLink }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.colReference }}</th>
+                <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.colAmount }}</th>
+                <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.colPaid }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.colStatus }}</th>
+                <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.colExpires }}</th>
+                <th scope="col" class="px-5 py-2.5"><span class="sr-only">{{ t.colActions }}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -65,13 +67,13 @@
                   <td class="px-3 py-3 text-end whitespace-nowrap tabular-nums">{{ money(l.amountMinor, l.currency) }}</td>
                   <td class="px-3 py-3 text-end whitespace-nowrap tabular-nums">
                     {{ money(l.paidMinor, l.currency) }}
-                    @if (l.tipsMinor) { <span class="block text-xs text-ink-muted">+ {{ money(l.tipsMinor, l.currency) }} tips</span> }
+                    @if (l.tipsMinor) { <span class="block text-xs text-ink-muted">{{ t.plusTips(money(l.tipsMinor, l.currency)) }}</span> }
                   </td>
                   <td class="px-3 py-3 whitespace-nowrap">
                     <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="statusClass(l.status)">{{ statusLabel(l.status) }}</span>
                   </td>
                   <td class="px-3 py-3 whitespace-nowrap text-ink-muted">{{ l.status === 'Active' || l.status === 'Expired' ? dateTime(l.expiresAt) : '–' }}</td>
-                  <td class="px-5 py-3 text-end"><button type="button" class="link" (click)="open(l.id)">{{ l.status === 'Active' ? 'Share' : 'Details' }}</button></td>
+                  <td class="px-5 py-3 text-end"><button type="button" class="link" (click)="open(l.id)">{{ l.status === 'Active' ? t.share : t.details }}</button></td>
                 </tr>
               }
             </tbody>
@@ -79,15 +81,15 @@
         </div>
       }
       <div class="flex items-center justify-end gap-4 border-t border-line px-5 py-3 text-sm text-ink-muted">
-        <span>{{ d.total ? (d.page - 1) * d.pageSize + 1 : 0 }}–{{ lastRow(d) }} of {{ d.total }}</span>
+        <span>{{ t.range(d.total ? (d.page - 1) * d.pageSize + 1 : 0, lastRow(d), d.total) }}</span>
         <span class="flex gap-1">
-          <button type="button" class="btn-ghost px-2 py-1" aria-label="Previous page" [disabled]="d.page <= 1" (click)="goTo(d.page - 1)">‹</button>
-          <button type="button" class="btn-ghost px-2 py-1" aria-label="Next page" [disabled]="lastRow(d) >= d.total" (click)="goTo(d.page + 1)">›</button>
+          <button type="button" class="btn-ghost px-2 py-1" [attr.aria-label]="t.previousPage" [disabled]="d.page <= 1" (click)="goTo(d.page - 1)">‹</button>
+          <button type="button" class="btn-ghost px-2 py-1" [attr.aria-label]="t.nextPage" [disabled]="lastRow(d) >= d.total" (click)="goTo(d.page + 1)">›</button>
         </span>
       </div>
     </section>
   } @else if (!error()) {
-    <p class="text-sm text-ink-muted">Loading…</p>
+    <p class="text-sm text-ink-muted">{{ c.loading }}</p>
   }
 </div>
 
@@ -96,52 +98,52 @@
   <div class="modal-backdrop" (click)="close()"></div>
   <form class="drawer max-w-md overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="pl-create-title" (submit)="$event.preventDefault(); create()">
     <div class="flex items-start justify-between gap-3">
-      <h2 id="pl-create-title" class="text-lg font-bold">Create payment link</h2>
-      <button type="button" class="btn-ghost px-2" aria-label="Close" (click)="close()">✕</button>
+      <h2 id="pl-create-title" class="text-lg font-bold">{{ t.createLink }}</h2>
+      <button type="button" class="btn-ghost px-2" [attr.aria-label]="c.close" (click)="close()">✕</button>
     </div>
-    <p class="mt-2 rounded-lg bg-surface px-3 py-2.5 text-sm text-ink-muted">Each payment link deactivates automatically once full payment is received.</p>
+    <p class="mt-2 rounded-lg bg-surface px-3 py-2.5 text-sm text-ink-muted">{{ t.createIntro }}</p>
 
     <div class="mt-4 flex flex-col divide-y divide-line rounded-xl border border-line">
       <label class="flex items-center justify-between gap-3 px-4 py-3">
-        <span><span class="block text-sm font-semibold">Accept split payments</span><span class="block text-xs text-ink-muted">Several people can each pay part of it</span></span>
+        <span><span class="block text-sm font-semibold">{{ t.allowSplit }}</span><span class="block text-xs text-ink-muted">{{ t.allowSplitHint }}</span></span>
         <input type="checkbox" class="toggle" [checked]="allowSplit()" (change)="allowSplit.set($any($event.target).checked)" />
       </label>
       <label class="flex items-center justify-between gap-3 px-4 py-3">
-        <span><span class="block text-sm font-semibold">Request a tip</span><span class="block text-xs text-ink-muted">Offer your usual tip choices on top</span></span>
+        <span><span class="block text-sm font-semibold">{{ t.requestTip }}</span><span class="block text-xs text-ink-muted">{{ t.requestTipHint }}</span></span>
         <input type="checkbox" class="toggle" [checked]="requestTip()" (change)="requestTip.set($any($event.target).checked)" />
       </label>
     </div>
 
-    <label class="mt-4 block"><span class="field-label">Amount ({{ currency() }})</span>
+    <label class="mt-4 block"><span class="field-label">{{ t.amount(currency()) }}</span>
       <input class="field text-lg font-semibold" inputmode="decimal" autocomplete="off" placeholder="0.00" [value]="amount()" (input)="amount.set($any($event.target).value)" />
-      <span class="mt-1 block text-xs text-ink-muted">Including taxes and charges.</span>
+      <span class="mt-1 block text-xs text-ink-muted">{{ t.amountHint }}</span>
     </label>
 
-    <label class="mt-4 block"><span class="field-label">Reference (optional)</span>
-      <input class="field" maxlength="60" placeholder="e.g. Booking 42, Saturday 8 pm" [value]="reference()" (input)="reference.set($any($event.target).value)" />
+    <label class="mt-4 block"><span class="field-label">{{ t.referenceOptional }}</span>
+      <input class="field" maxlength="60" [placeholder]="t.referencePlaceholder" [value]="reference()" (input)="reference.set($any($event.target).value)" />
     </label>
 
     <fieldset class="mt-4">
-      <legend class="field-label">Link expiry · active for</legend>
+      <legend class="field-label">{{ t.expiryLegend }}</legend>
       <div class="flex gap-2">
-        <input class="field w-24" inputmode="numeric" aria-label="How long" [value]="validFor()" (input)="validFor.set($any($event.target).value)" />
-        <select class="field w-auto" aria-label="Unit" [value]="unit()" (change)="unit.set($any($event.target).value)">
-          <option value="Hours">Hours</option>
-          <option value="Days">Days</option>
+        <input class="field w-24" inputmode="numeric" [attr.aria-label]="t.howLong" [value]="validFor()" (input)="validFor.set($any($event.target).value)" />
+        <select class="field w-auto" [attr.aria-label]="t.unit" [value]="unit()" (change)="unit.set($any($event.target).value)">
+          <option value="Hours">{{ t.units['Hours'] }}</option>
+          <option value="Days">{{ t.units['Days'] }}</option>
         </select>
       </div>
       <p class="mt-1 text-xs" [class]="expiresPreview() ? 'text-ink-muted' : 'text-red-700'" aria-live="polite">
-        {{ expiresPreview() ? 'Link expires on ' + expiresPreview() : 'Choose between 1 hour and 90 days.' }}
+        {{ expiresPreview() ? t.expiresOn(expiresPreview()!) : t.expiryRange }}
       </p>
     </fieldset>
 
     <div class="mt-4 rounded-xl border border-line">
       <label class="flex items-center justify-between gap-3 px-4 py-3">
-        <span class="text-sm font-semibold">Notify customer by email</span>
+        <span class="text-sm font-semibold">{{ t.notifyCustomer }}</span>
         <input type="checkbox" class="toggle" [checked]="notifyCustomer()" (change)="notifyCustomer.set($any($event.target).checked)" />
       </label>
       @if (notifyCustomer()) {
-        <label class="block border-t border-line px-4 py-3"><span class="field-label">Customer email</span>
+        <label class="block border-t border-line px-4 py-3"><span class="field-label">{{ t.customerEmail }}</span>
           <input class="field" type="email" autocomplete="off" maxlength="254" placeholder="name@example.com" [value]="email()" (input)="email.set($any($event.target).value)" />
         </label>
       }
@@ -149,7 +151,7 @@
 
     @if (createError()) { <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ createError() }}</p> }
 
-    <button type="submit" class="btn-primary mt-5 w-full py-3" [disabled]="creating()">{{ creating() ? 'Creating…' : 'Create payment link' }}</button>
+    <button type="submit" class="btn-primary mt-5 w-full py-3" [disabled]="creating()">{{ creating() ? t.creating : t.createLink }}</button>
   </form>
 }
 
@@ -160,30 +162,30 @@
   <div class="drawer max-w-md overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="pl-title">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h2 id="pl-title" class="text-lg font-bold">Payment link</h2>
+        <h2 id="pl-title" class="text-lg font-bold">{{ t.paymentLink }}</h2>
         <p class="font-mono text-sm text-ink-muted">{{ s.code }}</p>
       </div>
-      <button type="button" class="btn-ghost px-2" aria-label="Close" (click)="close()">✕</button>
+      <button type="button" class="btn-ghost px-2" [attr.aria-label]="c.close" (click)="close()">✕</button>
     </div>
 
     <div class="mt-4 text-center">
       <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="justCreated() ? 'bg-[#EEF4FF] text-[#3538CD]' : statusClass(s.status)">
-        {{ justCreated() ? 'Created' : statusLabel(s.status) }}
+        {{ justCreated() ? t.justCreated : statusLabel(s.status) }}
       </span>
       <p class="mt-2 text-4xl font-extrabold tabular-nums">{{ money(s.amountMinor, s.currency) }}</p>
-      @if (s.reference) { <p class="text-sm text-ink-muted">Reference {{ s.reference }}</p> }
+      @if (s.reference) { <p class="text-sm text-ink-muted">{{ t.referenceValue(s.reference) }}</p> }
       <div class="mt-2 flex flex-wrap justify-center gap-2 text-xs font-semibold">
-        @if (s.allowSplit) { <span class="rounded-full bg-surface px-2.5 py-0.5">Split enabled</span> }
-        @if (s.requestTip) { <span class="rounded-full bg-surface px-2.5 py-0.5">Tip requested</span> }
+        @if (s.allowSplit) { <span class="rounded-full bg-surface px-2.5 py-0.5">{{ t.splitEnabled }}</span> }
+        @if (s.requestTip) { <span class="rounded-full bg-surface px-2.5 py-0.5">{{ t.tipRequested }}</span> }
       </div>
       @if (s.status === 'Active') {
-        <p class="mt-2 text-sm font-semibold">Expires {{ dateTime(s.expiresAt) }}</p>
+        <p class="mt-2 text-sm font-semibold">{{ t.expiresAt(dateTime(s.expiresAt)) }}</p>
       } @else if (s.status === 'Expired') {
-        <p class="mt-2 text-sm font-semibold text-amber-800">Expired {{ dateTime(s.expiresAt) }}</p>
+        <p class="mt-2 text-sm font-semibold text-amber-800">{{ t.expiredAt(dateTime(s.expiresAt)) }}</p>
       } @else if (s.status === 'Paid') {
-        <p class="mt-2 text-sm font-semibold text-emerald-700">Paid in full {{ dateTime(s.paidAt) }}</p>
+        <p class="mt-2 text-sm font-semibold text-emerald-700">{{ t.paidInFullAt(dateTime(s.paidAt)) }}</p>
       } @else {
-        <p class="mt-2 text-sm font-semibold text-ink-muted">Deactivated {{ dateTime(link.cancelledAt) }}@if (link.cancelledBy) { by {{ link.cancelledBy }} }</p>
+        <p class="mt-2 text-sm font-semibold text-ink-muted">{{ t.deactivatedAt(dateTime(link.cancelledAt), link.cancelledBy) }}</p>
       }
     </div>
 
@@ -191,58 +193,58 @@
     @if (detailError()) { <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ detailError() }}</p> }
 
     @if (s.status === 'Active') {
-      <df-qr-code class="mx-auto mt-4 size-48 rounded-xl border border-line p-2" [url]="s.url" [alt]="'QR code for ' + s.code" />
+      <df-qr-code class="mx-auto mt-4 size-48 rounded-xl border border-line p-2" [url]="s.url" [alt]="t.qrAlt(s.code)" />
       <div class="mt-4 grid grid-cols-2 gap-2">
-        <a class="btn-secondary col-span-2 text-center" [href]="whatsAppUrl(s)" target="_blank" rel="noopener">Share via WhatsApp</a>
-        <a class="btn-secondary text-center" [href]="mailtoUrl(s)">Email</a>
-        <button type="button" class="btn-secondary" (click)="downloadQr(s)">Download QR</button>
-        <button type="button" class="btn-secondary" (click)="copy(s)">{{ copied() ? 'Copied' : 'Copy link' }}</button>
-        @if (canShare) { <button type="button" class="btn-secondary" (click)="share(s)">Share</button> }
+        <a class="btn-secondary col-span-2 text-center" [href]="whatsAppUrl(s)" target="_blank" rel="noopener">{{ t.shareWhatsApp }}</a>
+        <a class="btn-secondary text-center" [href]="mailtoUrl(s)">{{ t.email }}</a>
+        <button type="button" class="btn-secondary" (click)="downloadQr(s)">{{ t.downloadQr }}</button>
+        <button type="button" class="btn-secondary" (click)="copy(s)">{{ copied() ? t.copied : t.copyLink }}</button>
+        @if (canShare) { <button type="button" class="btn-secondary" (click)="share(s)">{{ t.share }}</button> }
       </div>
-      <label class="mt-3 block"><span class="sr-only">Link</span>
+      <label class="mt-3 block"><span class="sr-only">{{ t.link }}</span>
         <input class="field font-mono text-xs" readonly [value]="s.url" (focus)="$any($event.target).select()" />
       </label>
 
       <form class="mt-4 flex gap-2" (submit)="$event.preventDefault(); sendEmail()">
-        <label class="min-w-0 flex-1"><span class="sr-only">Customer email</span>
-          <input class="field" type="email" maxlength="254" placeholder="Send to name@example.com" [value]="sendTo()" (input)="sendTo.set($any($event.target).value)" />
+        <label class="min-w-0 flex-1"><span class="sr-only">{{ t.customerEmail }}</span>
+          <input class="field" type="email" maxlength="254" [placeholder]="t.sendToPlaceholder" [value]="sendTo()" (input)="sendTo.set($any($event.target).value)" />
         </label>
-        <button type="submit" class="btn-secondary shrink-0" [disabled]="sending()">{{ sending() ? 'Sending…' : link.customerNotifiedAt ? 'Send again' : 'Send' }}</button>
+        <button type="submit" class="btn-secondary shrink-0" [disabled]="sending()">{{ sending() ? t.sending : link.customerNotifiedAt ? t.sendAgain : t.send }}</button>
       </form>
-      @if (link.customerNotifiedAt) { <p class="mt-1 text-xs text-ink-muted">E-mailed to {{ s.customerEmail }} on {{ dateTime(link.customerNotifiedAt) }}</p> }
+      @if (link.customerNotifiedAt) { <p class="mt-1 text-xs text-ink-muted">{{ t.emailedTo(s.customerEmail, dateTime(link.customerNotifiedAt)) }}</p> }
     }
 
-    <p class="mt-6 text-xs font-bold tracking-wide text-ink-muted uppercase">Payments</p>
+    <p class="mt-6 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.payments }}</p>
     <dl class="mt-1 grid grid-cols-[140px_1fr] gap-y-1 text-sm">
-      <dt class="text-ink-muted">Paid</dt><dd class="font-semibold">{{ money(s.paidMinor, s.currency) }} of {{ money(s.amountMinor, s.currency) }}</dd>
-      <dt class="text-ink-muted">Left to pay</dt><dd>{{ money(link.remainingMinor, s.currency) }}</dd>
-      @if (s.tipsMinor) { <dt class="text-ink-muted">Tips</dt><dd>{{ money(s.tipsMinor, s.currency) }}</dd> }
+      <dt class="text-ink-muted">{{ t.paid }}</dt><dd class="font-semibold">{{ t.paidOf(money(s.paidMinor, s.currency), money(s.amountMinor, s.currency)) }}</dd>
+      <dt class="text-ink-muted">{{ t.leftToPay }}</dt><dd>{{ money(link.remainingMinor, s.currency) }}</dd>
+      @if (s.tipsMinor) { <dt class="text-ink-muted">{{ t.tips }}</dt><dd>{{ money(s.tipsMinor, s.currency) }}</dd> }
     </dl>
     @if (link.payments.length) {
       <ul class="mt-2 flex flex-col gap-2 text-sm">
         @for (p of link.payments; track p.id) {
           <li class="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2">
             <span class="min-w-0">
-              <span class="block font-semibold tabular-nums">{{ money(p.amountMinor, s.currency) }}@if (p.tipMinor) { <span class="font-normal text-ink-muted"> (tip {{ money(p.tipMinor, s.currency) }})</span> }</span>
-              <span class="block text-xs text-ink-muted"><span class="font-mono">{{ p.reference }}</span> · {{ p.cardBrand ?? p.method }}@if (p.cardLast4) { · {{ p.cardLast4 }} } · {{ dateTime(p.succeededAt ?? p.createdAt) }}</span>
+              <span class="block font-semibold tabular-nums">{{ money(p.amountMinor, s.currency) }}@if (p.tipMinor) { <span class="font-normal text-ink-muted"> ({{ c.tip(money(p.tipMinor, s.currency)) }})</span> }</span>
+              <span class="block text-xs text-ink-muted"><span class="font-mono">{{ p.reference }}</span> · {{ p.cardBrand ?? method(p.method) }}@if (p.cardLast4) { · {{ p.cardLast4 }} } · {{ dateTime(p.succeededAt ?? p.createdAt) }}</span>
             </span>
             <span class="flex shrink-0 items-center gap-2">
               <span class="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">{{ paymentState(p.state) }}</span>
-              @if (p.state !== 'Pending') { <a routerLink="/transactions" class="link text-xs">Transactions</a> }
+              @if (p.state !== 'Pending') { <a routerLink="/transactions" class="link text-xs">{{ c.nav['transactions'] }}</a> }
             </span>
           </li>
         }
       </ul>
     } @else {
-      <p class="mt-2 text-sm text-ink-muted">No payments yet.</p>
+      <p class="mt-2 text-sm text-ink-muted">{{ t.noPayments }}</p>
     }
 
-    <p class="mt-6 text-xs font-bold tracking-wide text-ink-muted uppercase">Timeline</p>
+    <p class="mt-6 text-xs font-bold tracking-wide text-ink-muted uppercase">{{ t.timeline }}</p>
     <ol class="mt-2 border-s border-line ps-4">
       @for (e of link.timeline; track $index) {
         <li class="relative pb-3 text-sm">
           <span class="absolute -start-[21px] top-1.5 size-2.5 rounded-full border-2 border-white" [class]="e.kind === 'payment' ? 'bg-brand' : 'bg-[#98A2B3]'"></span>
-          <span class="block">{{ e.text }}</span>
+          <span class="block">{{ step(e, s.currency) }}</span>
           <span class="text-xs text-ink-muted">{{ dateTime(e.at) }}</span>
         </li>
       }
@@ -250,7 +252,7 @@
 
     @if (s.status === 'Active') {
       <button type="button" class="btn-ghost mt-2 self-start text-red-700 hover:text-red-800" [disabled]="working()" (click)="deactivate()">
-        {{ working() ? 'Deactivating…' : 'Deactivate link' }}
+        {{ working() ? t.deactivating : t.deactivate }}
       </button>
     }
   </div>
