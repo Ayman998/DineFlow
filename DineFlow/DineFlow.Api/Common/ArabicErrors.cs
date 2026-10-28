@@ -118,6 +118,7 @@ public static class ArabicErrors
         ["area_not_found"] = "المنطقة غير موجودة.",
         ["bill_busy"] = "قام أحد الجالسين على طاولتك بتعديل الفاتورة للتو. يُرجى المحاولة مرة أخرى.",
         ["bill_changed"] = "تغيّرت الفاتورة. يُرجى مراجعة المبلغ الجديد.",
+        ["cannot_change_self"] = "لا يمكنك تغيير دورك أو إيقاف حسابك بنفسك. اطلب ذلك من مالك آخر.",
         ["cart_invalid"] = "لا يمكن طلب بعض الأصناف حاليًا.",
         ["category_not_found"] = "الفئة غير موجودة.",
         ["contact_exists"] = "هذا الرقم يتلقى التنبيهات مسبقًا.",
@@ -125,6 +126,7 @@ public static class ArabicErrors
         ["delivery_not_found"] = "الرسالة غير موجودة.",
         ["discrepancy_not_found"] = "الفرق غير موجود.",
         ["email_failed"] = "تعذّر إرسال البريد الإلكتروني. حاول مرة أخرى، أو شارك الرابط بطريقة أخرى.",
+        ["email_taken"] = "هناك من يسجّل الدخول بهذا البريد الإلكتروني بالفعل.",
         ["equal_unavailable"] = "طاولتك تدفع حسب الصنف، لذا لا يمكن تقسيم الفاتورة بالتساوي.",
         ["future_day"] = "هذا اليوم لم يأتِ بعد.",
         ["image_empty"] = "اختر صورة لرفعها.",
@@ -199,6 +201,7 @@ public static class ArabicErrors
         ["refund_not_allowed"] = "لا يمكن استرداد هذا المبلغ.",
         ["review_not_found"] = "التقييم غير موجود.",
         ["reviews_disabled"] = "هذا المكان لا يجمع التقييمات حاليًا.",
+        ["role_not_allowed"] = "المالك وحده يمكنه إضافة المالكين والمديرين أو تغييرهم.",
         ["schedule_not_found"] = "جدول التقرير غير موجود.",
         ["session_expired"] = "انتهت جلستك. امسح رمز QR مرة أخرى.",
         ["session_not_found"] = "الجلسة غير موجودة.",
@@ -206,6 +209,7 @@ public static class ArabicErrors
         ["settlement_not_found"] = "التسوية غير موجودة.",
         ["split_disabled"] = "يجب دفع هذا الرابط بالكامل.",
         ["split_not_set"] = "اختر أولًا عدد الأشخاص الذين يتقاسمون الفاتورة.",
+        ["staff_not_found"] = "عضو الفريق غير موجود.",
         ["tenant_required"] = "سجّل الدخول إلى حساب تاجر أولًا.",
         ["terms_required"] = "يُرجى الموافقة على الشروط والأحكام لإتمام الدفع.",
         ["tip_too_high"] = "لا يمكن أن تتجاوز الإكرامية 20% من المبلغ الذي تدفعه.",
@@ -217,7 +221,9 @@ public static class ArabicErrors
         ["transaction_not_found"] = "المعاملة غير موجودة.",
         ["unknown_pos"] = "لا يتوفر في DineFlow موصل لنظام نقاط البيع هذا.",
         ["venue_not_found"] = "الفرع غير موجود.",
-        ["venue_unavailable"] = "هذا المكان لا يستقبل الطلبات أو المدفوعات حاليًا."
+        ["venue_unavailable"] = "هذا المكان لا يستقبل الطلبات أو المدفوعات حاليًا.",
+        ["weak_password"] = "اختر كلمة مرور لم تستخدمها هنا من قبل.",
+        ["wrong_password"] = "كلمة المرور الحالية غير صحيحة."
     };
 
     /// <summary>

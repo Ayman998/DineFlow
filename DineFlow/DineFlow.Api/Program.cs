@@ -12,6 +12,7 @@ using DineFlow.Infrastructure.Security;
 using DineFlow.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -27,19 +28,30 @@ builder.Services.AddScoped<ITenantContext, ClaimsTenantContext>();
 builder.Services.AddScoped<IOrderNotifier, SignalROrderNotifier>();
 builder.Services.AddScoped<IPaymentNotifier, SignalRPaymentNotifier>();
 builder.Services.AddScoped<IReviewNotifier, SignalRReviewNotifier>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<StaffAccess>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 
-// The sandbox provider accepts test cards and marks bills paid without moving money, so it must be
-// switched on deliberately anywhere but a developer's machine (e.g. for a demo environment).
-if (!builder.Environment.IsDevelopment()
-    && builder.Configuration["Payments:Provider"] is null or "sandbox"
-    && !builder.Configuration.GetValue<bool>("Payments:Sandbox:AllowOutsideDevelopment"))
+var productionChecks = ProductionChecks.Run(builder.Configuration, builder.Environment.IsDevelopment());
+if (productionChecks.Errors.Count > 0)
+    throw new InvalidOperationException("DineFlow isn't configured for this environment:" + Environment.NewLine
+        + string.Join(Environment.NewLine, productionChecks.Errors.Select(e => " - " + e)));
+
+// Behind a reverse proxy (the bundled Caddy, a load balancer, App Service) the client's address and
+// scheme arrive in X-Forwarded-For/-Proto. Without them rate limits would count every guest as the
+// proxy, and the API would think requests are plain http. Only enable this when the API port is
+// reachable through the proxy alone, since any caller could otherwise claim to be anyone.
+if (builder.Configuration.GetValue<bool>("ReverseProxy:Enabled"))
 {
-    throw new InvalidOperationException(
-        "The sandbox payment provider only runs in Development. Configure a real provider, or set Payments:Sandbox:AllowOutsideDevelopment for a demo.");
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.KnownNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
 }
 
 // Every error response carries the request's correlation id, so a support ticket can be matched to the logs.
@@ -67,6 +79,16 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         // Browsers can't set headers on WebSocket requests, so SignalR sends the token in the query string.
         bearer.Events = new JwtBearerEvents
         {
+            // A merchant token lives for hours, so a switched-off or demoted team member is turned away
+            // here too, within StaffAccess.CacheFor, instead of only at their next sign-in.
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal;
+                if (principal?.FindFirst(DineFlowClaims.Scope)?.Value != DineFlowClaims.MerchantScope) return;
+                var access = context.HttpContext.RequestServices.GetRequiredService<StaffAccess>();
+                if (!await access.IsCurrentAsync(principal.UserId(), principal.FindFirst(DineFlowClaims.Role)?.Value, context.HttpContext.RequestAborted))
+                    context.Fail("This account was switched off or its role changed. Sign in again.");
+            },
             OnMessageReceived = context =>
             {
                 if (context.HttpContext.Request.Path.StartsWithSegments("/hubs")
@@ -129,6 +151,11 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+foreach (var warning in productionChecks.Warnings) app.Logger.LogWarning("Configuration: {Warning}", warning);
+
+// `dotnet DineFlow.Api.dll migrate` and `… provision …` run once and exit (see AdminCommands).
+if (await AdminCommands.TryRunAsync(app, args) is { } exitCode) return exitCode;
+
 if (app.Environment.IsDevelopment())
 {
     try
@@ -140,6 +167,8 @@ if (app.Environment.IsDevelopment())
         app.Logger.LogError(ex, "Database initialisation failed. Is SQL Server running and reachable?");
     }
 }
+
+if (app.Configuration.GetValue<bool>("ReverseProxy:Enabled")) app.UseForwardedHeaders();
 
 // The correlation id comes first so every log line for the request carries it, request logging included.
 app.UseMiddleware<CorrelationIdMiddleware>();
@@ -197,4 +226,5 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     })
 });
 
-app.Run();
+await app.RunAsync();
+return 0;

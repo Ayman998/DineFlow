@@ -9,6 +9,7 @@ using DineFlow.Application.Common;
 using DineFlow.Application.Guests;
 using DineFlow.Application.Menus;
 using DineFlow.Application.Notifications;
+using DineFlow.Application.Onboarding;
 using DineFlow.Application.Orders;
 using DineFlow.Application.PaymentLinks;
 using DineFlow.Application.Pos;
@@ -16,6 +17,7 @@ using DineFlow.Application.Payments;
 using DineFlow.Application.Promotions;
 using DineFlow.Application.Reports;
 using DineFlow.Application.Reviews;
+using DineFlow.Application.Staff;
 using DineFlow.Application.Tables;
 using DineFlow.Application.Transactions;
 using DineFlow.Application.Venues;
@@ -60,7 +62,7 @@ public sealed class TestHost : IDisposable
         Guests = new GuestService(Db, QrTokens, tokenIssuer, guestOptions, Clock);
         Venues = new VenueService(Db, _tenant);
         Tables = new TableService(Db, _tenant, QrTokens, guestOptions, Clock);
-        Auth = new AuthService(Db, Passwords, tokenIssuer);
+        Auth = new AuthService(Db, Passwords, tokenIssuer, Clock);
         GuestMenu = new GuestMenuService(Db, Clock);
         Menus = new MenuAdminService(Db, _tenant, Clock);
         Images = new MenuImageService(Files, _tenant);
@@ -91,6 +93,8 @@ public sealed class TestHost : IDisposable
         Pos = new PosService(Db, _tenant, PosConnectors, Secrets, Clock);
         Reconciler = new Reconciler(Db, Clock);
         Finance = new FinanceService(Db, _tenant, Reconciler, Sandbox, Clock);
+        Team = new TeamService(Db, _tenant, Passwords, Clock);
+        Provisioning = new ProvisioningService(Db, QrTokens, Passwords);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>
@@ -145,6 +149,12 @@ public sealed class TestHost : IDisposable
     public PosService Pos { get; }
     public Reconciler Reconciler { get; }
     public FinanceService Finance { get; }
+    public TeamService Team { get; }
+    public ProvisioningService Provisioning { get; }
+
+    /// <summary>The deployment's payment setup the go-live checklist sees; the sandbox unless a test changes it.</summary>
+    public PaymentEnvironment PaymentEnvironment { get; set; } = new("sandbox", IsTest: true);
+    public GoLiveService GoLive => new(Db, _tenant, PaymentEnvironment);
 
     /// <summary>
     /// Another request running at the same time as the main one: its own DbContext (and so its own

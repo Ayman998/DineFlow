@@ -21,7 +21,7 @@ const EN = {
   nav: {
     overview: 'Overview', orders: 'Orders', tables: 'Tables', transactions: 'Transactions', menu: 'Menu',
     'item-categories': 'Item Categories', items: 'Items',
-    promotions: 'Promotions', 'payment-links': 'Payment Links', reviews: 'Reviews', reports: 'Reports', settings: 'Settings'
+    promotions: 'Promotions', 'payment-links': 'Payment Links', reviews: 'Reviews', reports: 'Reports', 'go-live': 'Go-live', settings: 'Settings'
   } as Record<string, string>,
   newOrdersBadge: (count: number) => `${count} new orders`,
   live: 'Live',
@@ -89,7 +89,7 @@ const AR: Common = {
   nav: {
     overview: 'نظرة عامة', orders: 'الطلبات', tables: 'الطاولات', transactions: 'المعاملات', menu: 'القائمة',
     'item-categories': 'فئات الأصناف', items: 'الأصناف',
-    promotions: 'العروض', 'payment-links': 'روابط الدفع', reviews: 'التقييمات', reports: 'التقارير', settings: 'الإعدادات'
+    promotions: 'العروض', 'payment-links': 'روابط الدفع', reviews: 'التقييمات', reports: 'التقارير', 'go-live': 'جاهزية الإطلاق', settings: 'الإعدادات'
   },
   newOrdersBadge: (count: number) => `${count} طلبات جديدة`,
   live: 'مباشر',

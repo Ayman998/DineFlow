@@ -8,6 +8,11 @@ namespace DineFlow.Infrastructure.Email;
 public class EmailOptions
 {
     public const string Section = "Email";
+    public const string File = "file";
+    public const string Smtp = "smtp";
+
+    /// <summary>"file" writes .eml files (development); "smtp" sends them (see SmtpEmailSender).</summary>
+    public string Provider { get; set; } = File;
 
     public string From { get; set; } = "receipts@dineflow.local";
 
@@ -17,7 +22,7 @@ public class EmailOptions
 
 /// <summary>
 /// Development e-mail: writes each message as an .eml file you can open in any mail app, instead
-/// of sending it. Swap for an SMTP or provider-backed sender in production.
+/// of sending it. Production sets Email:Provider to "smtp".
 /// </summary>
 public class FileEmailSender(IOptions<EmailOptions> options, string contentRoot, ILogger<FileEmailSender> logger) : IEmailSender
 {

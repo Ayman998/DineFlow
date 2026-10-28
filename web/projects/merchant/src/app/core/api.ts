@@ -1263,3 +1263,54 @@ export class ReconciliationApi {
     return this.http.get('/v1/merchant/ledger/export', { params: { venueId, from, to }, responseType: 'blob' });
   }
 }
+
+// ---- Team, passwords and the go-live checklist (Sprint 12) ----
+
+export type StaffRole = 'Owner' | 'Manager' | 'Staff';
+
+export interface StaffMember { id: string; email: string; displayName: string; role: StaffRole; isActive: boolean; isYou: boolean }
+
+/** temporaryPassword is shown once, to hand over; DineFlow keeps only its hash. */
+export interface StaffPassword { member: StaffMember; temporaryPassword: string }
+
+export interface GoLiveCheck { key: string; group: string; required: boolean; done: boolean; count: number | null }
+
+export interface GoLive {
+  venueId: string;
+  paymentProvider: string;
+  testMode: boolean;
+  ready: boolean;
+  requiredDone: number;
+  requiredTotal: number;
+  checks: GoLiveCheck[];
+}
+
+/** Settings → Team (owners and managers), the signed-in user's own password, and the go-live checklist. */
+@Injectable({ providedIn: 'root' })
+export class TeamApi {
+  private readonly http = inject(HttpClient);
+
+  list() {
+    return this.http.get<StaffMember[]>('/v1/merchant/team');
+  }
+
+  add(request: { email: string; displayName: string; role: StaffRole }) {
+    return this.http.post<StaffPassword>('/v1/merchant/team', request);
+  }
+
+  update(id: string, request: { displayName: string; role: StaffRole; isActive: boolean }) {
+    return this.http.put<StaffMember>(`/v1/merchant/team/${id}`, request);
+  }
+
+  resetPassword(id: string) {
+    return this.http.post<StaffPassword>(`/v1/merchant/team/${id}/reset-password`, {});
+  }
+
+  changePassword(currentPassword: string, newPassword: string) {
+    return this.http.post<void>('/v1/merchant/auth/password', { currentPassword, newPassword });
+  }
+
+  goLive(venueId: string) {
+    return this.http.get<GoLive>(`/v1/merchant/venues/${venueId}/go-live`);
+  }
+}

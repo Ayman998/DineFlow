@@ -19,6 +19,7 @@ const PAGES: Partial<Record<string, LoadComponent>> = {
   transactions: () => import('./pages/transactions/transactions').then(m => m.Transactions),
   'payment-links': () => import('./pages/payment-links/payment-links').then(m => m.PaymentLinks),
   reports: () => import('./pages/reports/reports').then(m => m.Reports),
+  'go-live': () => import('./pages/go-live/go-live').then(m => m.GoLive),
   settings: () => import('./pages/settings/settings').then(m => m.Settings)
 };
 

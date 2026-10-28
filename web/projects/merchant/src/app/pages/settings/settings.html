@@ -9,7 +9,9 @@
   }
 </div>
 
-@if (view() === 'pos') {
+@if (view() === 'team') {
+  <df-team-settings />
+} @else if (view() === 'pos') {
   <df-pos-settings />
 } @else if (view() === 'notifications') {
   <df-alert-settings />

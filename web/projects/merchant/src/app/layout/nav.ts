@@ -11,5 +11,6 @@ export const NAV_ITEMS = [
   { path: 'payment-links', sprint: 8 },
   { path: 'reviews', sprint: 6 },
   { path: 'reports', sprint: 9 },
+  { path: 'go-live', sprint: 12 },
   { path: 'settings', sprint: 1 }
 ] as const;

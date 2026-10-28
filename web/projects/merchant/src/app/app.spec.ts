@@ -19,8 +19,11 @@ describe('Shell', () => {
     const fixture = TestBed.createComponent(Shell);
     await fixture.whenStable();
     const links = (fixture.nativeElement as HTMLElement).querySelectorAll('nav a');
-    expect(links.length).toBe(NAV_ITEMS.length);
-    expect([...links].map(a => a.textContent?.trim())).toContain('Promotions');
+    const labels = [...links].map(a => a.textContent?.trim());
+    // Go-live is for owners and managers; nobody is signed in here.
+    expect(links.length).toBe(NAV_ITEMS.length - 1);
+    expect(labels).toContain('Promotions');
+    expect(labels).not.toContain('Go-live');
   });
 
   it('switches the navigation to Arabic and the page to right-to-left', async () => {

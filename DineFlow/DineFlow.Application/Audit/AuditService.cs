@@ -43,7 +43,11 @@ public class AuditService(IAppDbContext db, ITenantContext tenant)
         ["reconciliation.resolved"] = "Resolved a reconciliation difference",
         ["pos.connection.saved"] = "Changed the POS connection",
         ["pos.mapping.saved"] = "Changed POS table or item mapping",
-        ["pos.command.retried"] = "Sent an item to the POS again"
+        ["pos.command.retried"] = "Sent an item to the POS again",
+        ["staff.added"] = "Added a team member",
+        ["staff.updated"] = "Changed a team member",
+        ["staff.password_reset"] = "Reset a team member's password",
+        ["account.password_changed"] = "Changed their own password"
     };
 
     public async Task<AuditPageDto> ListAsync(AuditQuery query, CancellationToken ct)

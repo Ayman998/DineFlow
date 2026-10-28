@@ -212,7 +212,7 @@ public class PaymentService(
         try { webhook = provider.ParseWebhook(body, headers); }
         catch (InvalidWebhookException ex) { throw AppException.BadRequest("invalid_webhook", ex.Message); }
 
-        await ApplyEventAsync(webhook, ct);
+        await ApplyEventAsync(webhook, ct, viaWebhook: true);
     }
 
     /// <summary>
@@ -220,22 +220,33 @@ public class PaymentService(
     /// provider (<see cref="IPaymentStatusSource"/>). Each event id is applied once, so the same outcome
     /// arriving both ways is counted once.
     /// </summary>
-    public async Task ApplyEventAsync(ProviderWebhookEvent webhook, CancellationToken ct)
+    /// <param name="viaWebhook">True for the provider's signed webhook, false for a status check.</param>
+    public async Task ApplyEventAsync(ProviderWebhookEvent webhook, CancellationToken ct, bool viaWebhook = false)
     {
         // Webhooks carry no tenant, so these lookups bypass the tenant filter.
-        if (await db.ProcessedWebhooks.AnyAsync(w => w.Provider == provider.Name && w.EventId == webhook.EventId, ct)) return;
+        var processed = await db.ProcessedWebhooks.SingleOrDefaultAsync(w => w.Provider == provider.Name && w.EventId == webhook.EventId, ct);
+        if (processed is not null)
+        {
+            // Already applied by a status check: only note that the webhook works too.
+            if (viaWebhook && !processed.ViaWebhook)
+            {
+                processed.MarkWebhookReceived();
+                await db.SaveChangesAsync(ct);
+            }
+            return;
+        }
 
         var now = clock.GetUtcNow();
         if (webhook.ProviderRefundId is { } providerRefundId)
         {
-            await ApplyRefundAsync(webhook, providerRefundId, now, ct);
+            await ApplyRefundAsync(webhook, providerRefundId, viaWebhook, now, ct);
             return;
         }
 
         var payment = await db.Payments.IgnoreQueryFilters()
             .SingleOrDefaultAsync(p => p.Provider == provider.Name && p.ProviderPaymentId == webhook.ProviderPaymentId, ct);
 
-        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, webhook.Status.ToString(), now));
+        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, webhook.Status.ToString(), viaWebhook, now));
         var wasFinal = payment?.IsFinal ?? true;
         var succeeded = payment?.Apply(webhook.Status, webhook.CardBrand, webhook.CardLast4, webhook.FailureReason, now) ?? false;
         var failed = !wasFinal && payment!.Status is PaymentStatus.Failed or PaymentStatus.Cancelled;
@@ -323,12 +334,12 @@ public class PaymentService(
     }
 
     /// <summary>The provider's verdict on a refund: a success writes the refund's own ledger entry (blueprint 7.2).</summary>
-    private async Task ApplyRefundAsync(ProviderWebhookEvent webhook, string providerRefundId, DateTimeOffset now, CancellationToken ct)
+    private async Task ApplyRefundAsync(ProviderWebhookEvent webhook, string providerRefundId, bool viaWebhook, DateTimeOffset now, CancellationToken ct)
     {
         var refund = await db.Refunds.IgnoreQueryFilters()
             .SingleOrDefaultAsync(r => r.Provider == provider.Name && r.ProviderRefundId == providerRefundId, ct);
 
-        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, $"Refund{webhook.Status}", now));
+        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, $"Refund{webhook.Status}", viaWebhook, now));
         var wasFinal = refund?.IsFinal ?? true;
         var status = webhook.Status == PaymentStatus.Succeeded ? RefundStatus.Succeeded : RefundStatus.Failed;
         var succeeded = refund?.Apply(status, webhook.FailureReason, now) ?? false;

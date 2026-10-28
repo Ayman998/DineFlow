@@ -1,0 +1,17 @@
+# Build context for deploy/*.Dockerfile is the repository root; keep it small and free of secrets.
+.git
+.github
+.vs
+.claude
+docs
+**/bin
+**/obj
+**/App_Data
+**/*.user
+**/appsettings.*.local.json
+DineFlow/DineFlow.Test
+web/node_modules
+web/dist
+web/.angular
+deploy/.env
+deploy/backups

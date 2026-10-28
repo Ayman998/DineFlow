@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DineFlow.Application.Abstractions;
 using DineFlow.Application.Common;
+using DineFlow.Domain.Audit;
 using DineFlow.Domain.Staff;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,12 +11,16 @@ public record LoginRequest(
     [Required, EmailAddress] string Email,
     [Required] string Password);
 
+public record ChangePasswordRequest(
+    [Required] string CurrentPassword,
+    [Required, StringLength(128, MinimumLength = StaffUser.MinPasswordLength)] string NewPassword);
+
 public record LoginResultDto(string Token, DateTimeOffset ExpiresAt, StaffProfileDto Profile);
 
 public record StaffProfileDto(Guid Id, string Email, string DisplayName, string Role, Guid TenantId, string TenantName);
 
 /// <summary>Merchant sign-in with email and password; issues a tenant-scoped JWT.</summary>
-public class AuthService(IAppDbContext db, IPasswordService passwords, ITokenIssuer tokenIssuer)
+public class AuthService(IAppDbContext db, IPasswordService passwords, ITokenIssuer tokenIssuer, TimeProvider clock)
 {
     // Checked when the email is unknown, so "no such user" takes as long as "wrong password"
     // and response times don't reveal which emails have accounts.
@@ -52,6 +57,21 @@ public class AuthService(IAppDbContext db, IPasswordService passwords, ITokenIss
 
         var tenantName = await db.Tenants.Where(t => t.Id == user.TenantId).Select(t => t.DisplayName).SingleAsync(ct);
         return ToProfile(user, tenantName);
+    }
+
+    /// <summary>Anyone signed in can change their own password, e.g. the temporary one from Settings → Team.</summary>
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct)
+    {
+        var user = await db.StaffUsers.SingleOrDefaultAsync(u => u.Id == userId && u.IsActive, ct)
+            ?? throw AppException.Unauthorized("invalid_session", "Please sign in again.");
+        if (!passwords.Verify(user, request.CurrentPassword))
+            throw AppException.BadRequest("wrong_password", "Your current password isn't right.");
+        if (request.NewPassword == request.CurrentPassword)
+            throw AppException.BadRequest("weak_password", "Choose a password you haven't used here.");
+
+        user.SetPasswordHash(passwords.Hash(user, request.NewPassword));
+        db.AuditEntries.Add(new AuditEntry(user.TenantId, user.Id, "account.password_changed", nameof(StaffUser), user.Id, clock.GetUtcNow()));
+        await db.SaveChangesAsync(ct);
     }
 
     private static StaffProfileDto ToProfile(StaffUser u, string tenantName) =>

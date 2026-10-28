@@ -1,0 +1,55 @@
+@let t = this.t();
+@let d = data();
+
+<div class="mx-auto flex max-w-4xl flex-col gap-6">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0 flex-1">
+      <h1 class="text-2xl font-bold">{{ t.title }}</h1>
+      <p class="text-sm text-ink-muted">{{ t.intro }}</p>
+    </div>
+    <button type="button" class="btn-secondary shrink-0" [disabled]="loading()" (click)="load()">{{ t.refresh }}</button>
+  </div>
+
+  @if (error()) { <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p> }
+
+  @if (d) {
+    <section class="card flex flex-col gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="font-semibold">{{ d.ready ? t.ready : t.progress(d.requiredDone, d.requiredTotal) }}</p>
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              [class]="d.testMode ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'">
+          {{ d.testMode ? t.testMode(d.paymentProvider) : t.liveMode(d.paymentProvider) }}
+        </span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-surface" role="progressbar" [attr.aria-valuenow]="d.requiredDone" aria-valuemin="0" [attr.aria-valuemax]="d.requiredTotal">
+        <div class="h-full rounded-full bg-brand transition-all" [style.width.%]="d.requiredTotal ? (100 * d.requiredDone) / d.requiredTotal : 0"></div>
+      </div>
+    </section>
+
+    @for (g of groups(); track g.key) {
+      <section class="card p-0">
+        <h2 class="border-b border-line px-5 py-3 font-semibold">{{ t.groups[g.key] ?? g.key }}</h2>
+        <ul class="divide-y divide-line">
+          @for (c of g.checks; track c.key) {
+            <li class="flex items-start gap-3 px-5 py-3 text-sm">
+              <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                    [class]="c.done ? 'bg-emerald-600 text-white' : c.required ? 'border-2 border-amber-500' : 'border-2 border-line'"
+                    [attr.aria-label]="c.done ? t.done : t.todo">{{ c.done ? '✓' : '' }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block font-semibold" [class.text-ink-muted]="c.done">{{ title(c.key) }}
+                  @if (!c.required) { <span class="ms-1 rounded-full bg-surface px-2 py-0.5 text-xs font-normal text-ink-muted">{{ t.recommended }}</span> }
+                </span>
+                <span class="block text-ink-muted">{{ hint(c) }}</span>
+              </span>
+              @if (!c.done && link(c.key); as href) {
+                <a class="link shrink-0" [routerLink]="href">{{ t.open }}</a>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  } @else if (!error()) {
+    <p class="text-sm text-ink-muted">{{ i18n.t().loading }}</p>
+  }
+</div>

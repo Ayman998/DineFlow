@@ -6,7 +6,7 @@ import { I18n } from '../../core/i18n';
 import { AUDIT_LOG } from './settings.i18n';
 
 /** Area filters (action prefixes); labels are in the lexicon. */
-const AREAS = ['', 'payment', 'review', 'alerts', 'report', 'notification', 'settlement', 'reconciliation', 'pos'];
+const AREAS = ['', 'payment', 'review', 'alerts', 'report', 'notification', 'settlement', 'reconciliation', 'pos', 'staff', 'account'];
 
 /** Settings → Activity: the audit log for owners and managers (blueprint section 11, E15). */
 @Component({

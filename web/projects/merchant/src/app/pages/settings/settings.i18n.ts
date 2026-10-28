@@ -12,7 +12,7 @@ function arCount(n: number, one: string, two: string, few: string, many: string)
 const settings = {
   title: 'Settings',
   intro: "What guests see at this venue, who gets payment alerts, and what's been changed.",
-  tabs: { venue: 'Venue', pos: 'POS', notifications: 'Notifications', activity: 'Activity' },
+  tabs: { venue: 'Venue', team: 'Team', pos: 'POS', notifications: 'Notifications', activity: 'Activity' },
   readOnly: 'Only owners and managers can change settings.',
   venue: 'Venue',
   branchName: 'Branch name',
@@ -80,7 +80,7 @@ export const SETTINGS: Lexicon<typeof settings> = {
   ar: {
     title: 'الإعدادات',
     intro: 'ما يراه الضيوف في هذا الفرع، ومن يستلم تنبيهات الدفع، وما الذي تم تغييره.',
-    tabs: { venue: 'الفرع', pos: 'نظام نقاط البيع (POS)', notifications: 'الإشعارات', activity: 'النشاط' },
+    tabs: { venue: 'الفرع', team: 'الفريق', pos: 'نظام نقاط البيع (POS)', notifications: 'الإشعارات', activity: 'النشاط' },
     readOnly: 'يمكن للمالك أو المدير فقط تغيير الإعدادات.',
     venue: 'الفرع',
     branchName: 'اسم الفرع',
@@ -200,7 +200,9 @@ const audit = {
     notification: 'Resent messages',
     settlement: 'Settlement imports',
     reconciliation: 'Resolved differences',
-    pos: 'POS'
+    pos: 'POS',
+    staff: 'Team',
+    account: 'Password changes'
   } as Partial<Record<string, string>>,
   empty: 'Nothing recorded yet.',
   when: 'When',
@@ -231,7 +233,9 @@ export const AUDIT_LOG: Lexicon<typeof audit> = {
       notification: 'الرسائل المُعاد إرسالها',
       settlement: 'استيراد التسويات',
       reconciliation: 'الفروقات التي تمت معالجتها',
-      pos: 'نظام نقاط البيع (POS)'
+      pos: 'نظام نقاط البيع (POS)',
+      staff: 'الفريق',
+      account: 'تغيير كلمات المرور'
     },
     empty: 'لم يُسجَّل أي شيء بعد.',
     when: 'الوقت',
@@ -256,7 +260,11 @@ export const AUDIT_LOG: Lexicon<typeof audit> = {
       'reconciliation.resolved': 'عالج فرقاً في المطابقة',
       'pos.connection.saved': 'غيّر ربط نظام نقاط البيع',
       'pos.mapping.saved': 'غيّر ربط الطاولات أو الأصناف مع نظام نقاط البيع',
-      'pos.command.retried': 'أعاد إرسال عملية إلى نظام نقاط البيع'
+      'pos.command.retried': 'أعاد إرسال عملية إلى نظام نقاط البيع',
+      'staff.added': 'أضاف عضواً إلى الفريق',
+      'staff.updated': 'عدّل بيانات عضو في الفريق',
+      'staff.password_reset': 'أعاد تعيين كلمة مرور عضو في الفريق',
+      'account.password_changed': 'غيّر كلمة المرور الخاصة به'
     },
     objectTypes: {
       Payment: 'دفعة',
@@ -269,7 +277,8 @@ export const AUDIT_LOG: Lexicon<typeof audit> = {
       Settlement: 'تسوية',
       Discrepancy: 'فرق مطابقة',
       PosConnection: 'ربط POS',
-      PosCommand: 'عملية POS'
+      PosCommand: 'عملية POS',
+      StaffUser: 'عضو الفريق'
     },
     range: (from: number, to: number, total: number) => `${from}–${to} من ${total}`,
     previousPage: 'الصفحة السابقة',
@@ -427,5 +436,76 @@ export const POS_SETTINGS: Lexicon<typeof pos> = {
     tablesSaved: 'تم حفظ الطاولات.',
     productsSaved: 'تم حفظ المنتجات.',
     requeued: 'أُعيدت إلى قائمة الانتظار، وستُرسَل خلال ثوانٍ قليلة.'
+  }
+};
+
+// Settings → Team (who signs in, roles, temporary passwords) and the signed-in user's own password
+
+const team = {
+  yourPassword: 'Your password',
+  yourPasswordIntro: 'Signed in with a temporary password? Replace it with one only you know.',
+  currentPassword: 'Current password',
+  newPassword: 'New password',
+  newPasswordHint: (min: number) => `At least ${min} characters.`,
+  confirmPassword: 'New password again',
+  changePassword: 'Change password',
+  passwordChanged: 'Password changed. Use the new one next time you sign in.',
+  passwordsDiffer: "The two new passwords don't match.",
+  passwordTooShort: (min: number) => `Use at least ${min} characters.`,
+  heading: 'Team',
+  intro: 'Everyone who signs in to this portal. Staff accept orders and see tables; managers also run refunds, reports and settings; owners manage managers.',
+  add: 'Add team member',
+  name: 'Name',
+  email: 'E-mail',
+  role: 'Role',
+  roles: { Owner: 'Owner', Manager: 'Manager', Staff: 'Staff' } as Record<string, string>,
+  you: 'You',
+  off: 'Switched off',
+  switchOff: 'Switch off',
+  switchOn: 'Switch on',
+  resetPassword: 'Reset password',
+  confirmSwitchOff: (name: string) => `Switch off ${name}? They're signed out within a minute and can't sign in again until switched on.`,
+  confirmReset: (name: string) => `Give ${name} a new temporary password? Their current one stops working.`,
+  temporaryTitle: (name: string) => `Temporary password for ${name}`,
+  temporaryHint: "Hand it over privately: it's only shown now. They change it under Settings → Team → Your password.",
+  copy: 'Copy',
+  copied: 'Copied',
+  done: 'Done',
+  managersOnly: 'Owners and managers manage the team.'
+};
+
+export const TEAM: Lexicon<typeof team> = {
+  en: team,
+  ar: {
+    yourPassword: 'كلمة المرور الخاصة بك',
+    yourPasswordIntro: 'هل سجّلت الدخول بكلمة مرور مؤقتة؟ استبدلها بكلمة مرور لا يعرفها أحد سواك.',
+    currentPassword: 'كلمة المرور الحالية',
+    newPassword: 'كلمة المرور الجديدة',
+    newPasswordHint: (min: number) => `${min} أحرف على الأقل.`,
+    confirmPassword: 'أعد كتابة كلمة المرور الجديدة',
+    changePassword: 'تغيير كلمة المرور',
+    passwordChanged: 'تم تغيير كلمة المرور. استخدم الجديدة في المرة القادمة التي تسجّل فيها الدخول.',
+    passwordsDiffer: 'كلمتا المرور الجديدتان غير متطابقتين.',
+    passwordTooShort: (min: number) => `استخدم ${min} أحرف على الأقل.`,
+    heading: 'الفريق',
+    intro: 'كل من يسجّل الدخول إلى هذه البوابة. الموظفون يقبلون الطلبات ويرون الطاولات؛ والمديرون يجرون أيضاً الاستردادات والتقارير والإعدادات؛ والمالكون يديرون المديرين.',
+    add: 'إضافة عضو',
+    name: 'الاسم',
+    email: 'البريد الإلكتروني',
+    role: 'الدور',
+    roles: { Owner: 'مالك', Manager: 'مدير', Staff: 'موظف' },
+    you: 'أنت',
+    off: 'موقوف',
+    switchOff: 'إيقاف',
+    switchOn: 'تفعيل',
+    resetPassword: 'إعادة تعيين كلمة المرور',
+    confirmSwitchOff: (name: string) => `إيقاف حساب ${name}؟ سيتم تسجيل خروجه خلال دقيقة ولن يتمكن من الدخول حتى يُعاد تفعيله.`,
+    confirmReset: (name: string) => `إعطاء ${name} كلمة مرور مؤقتة جديدة؟ ستتوقف كلمة المرور الحالية عن العمل.`,
+    temporaryTitle: (name: string) => `كلمة المرور المؤقتة لـ${name}`,
+    temporaryHint: 'سلّمها بشكل خاص، فهي تظهر الآن فقط. يغيّرها صاحبها من الإعدادات ← الفريق ← كلمة المرور الخاصة بك.',
+    copy: 'نسخ',
+    copied: 'تم النسخ',
+    done: 'تم',
+    managersOnly: 'المالكون والمديرون فقط يديرون الفريق.'
   }
 };

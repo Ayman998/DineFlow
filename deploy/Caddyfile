@@ -1,0 +1,48 @@
+# Two sites, one per app. Caddy gets and renews their Let's Encrypt certificates by itself once the
+# domains' DNS points at this server and ports 80 and 443 are open.
+{
+	email {$ACME_EMAIL}
+}
+
+# The API's paths, on both domains: REST, SignalR (WebSockets), menu photos, health checks, and the
+# sandbox's test checkout page for demo environments.
+(api) {
+	@api path /v1/* /hubs/* /media/* /health/* /sandbox/*
+	handle @api {
+		reverse_proxy api:8080
+	}
+}
+
+(app) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+	handle {
+		# Angular's js and css file names change with every build, so they can be cached for good.
+		# Everything else (index.html under any route, icons) is revalidated, or phones keep loading
+		# the previous release. Headers are matched before try_files rewrites deep links.
+		@hashed path *.js *.css
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@other not path *.js *.css
+		header @other Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+{$GUEST_DOMAIN} {
+	import api
+	root * /srv/guest
+	import app
+}
+
+{$MERCHANT_DOMAIN} {
+	import api
+	root * /srv/merchant
+	import app
+}

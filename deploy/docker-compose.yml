@@ -1,0 +1,67 @@
+# DineFlow on one server: SQL Server, the API, and Caddy serving both apps over HTTPS.
+# Settings and secrets come from .env next to this file (copy .env.example). See README.md.
+name: dineflow
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD:?Set DB_SA_PASSWORD in .env}
+      # Express is free (10 GB per database), plenty for a pilot. Use Standard with a licence later.
+      MSSQL_PID: ${DB_EDITION:-Express}
+    volumes:
+      - db-data:/var/opt/mssql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -b -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  api:
+    image: ${IMAGE_PREFIX:-ghcr.io/ayman998/dineflow}-api:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    # Everything in .env written as Section__Key reaches the API's configuration (see .env.example).
+    env_file: .env
+    environment:
+      ConnectionStrings__DineFlow: "Server=db;Database=DineFlow;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      # Caddy is the only way in: the API port isn't published, so forwarded headers can be trusted.
+      ReverseProxy__Enabled: "true"
+    volumes:
+      - api-data:/app/App_Data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ${IMAGE_PREFIX:-ghcr.io/ayman998/dineflow}-web:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    environment:
+      GUEST_DOMAIN: ${GUEST_DOMAIN:?Set GUEST_DOMAIN in .env}
+      MERCHANT_DOMAIN: ${MERCHANT_DOMAIN:?Set MERCHANT_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  # Menu photos, Data Protection keys (they decrypt stored POS tokens) and file outboxes. Back it up.
+  api-data:
+  # Caddy's certificates; keeping them avoids Let's Encrypt rate limits on redeploys.
+  caddy-data:
+  caddy-config:

@@ -9,6 +9,7 @@ import { I18n } from '../../core/i18n';
 import { AlertSettingsPanel } from './alert-settings';
 import { AuditLog } from './audit-log';
 import { PosSettingsPanel } from './pos-settings';
+import { TeamSettingsPanel } from './team-settings';
 import { SETTINGS } from './settings.i18n';
 
 // Jordan first: DineFlow's venues are in Amman.
@@ -18,10 +19,10 @@ const TIME_ZONES = [
   'Africa/Cairo', 'Europe/London', 'UTC'
 ];
 
-/** Venue profile, branding and guest features (P1-MER-01); WhatsApp alerts; the audit log for managers. */
+/** Venue profile, branding and guest features (P1-MER-01); the team and passwords; WhatsApp alerts; the audit log for managers. */
 @Component({
   selector: 'df-settings',
-  imports: [ReactiveFormsModule, AlertSettingsPanel, AuditLog, PosSettingsPanel],
+  imports: [ReactiveFormsModule, AlertSettingsPanel, AuditLog, PosSettingsPanel, TeamSettingsPanel],
   templateUrl: './settings.html'
 })
 export class Settings implements OnInit {
@@ -32,11 +33,12 @@ export class Settings implements OnInit {
   protected readonly i18n = inject(I18n);
   protected readonly t = this.i18n.use(SETTINGS);
 
-  protected readonly view = signal<'venue' | 'pos' | 'notifications' | 'activity'>('venue');
+  protected readonly view = signal<'venue' | 'team' | 'pos' | 'notifications' | 'activity'>('venue');
   protected readonly tabs = computed(() => {
     const labels = this.t().tabs;
     return [
       { value: 'venue' as const, label: labels.venue },
+      { value: 'team' as const, label: labels.team },
       { value: 'pos' as const, label: labels.pos },
       ...(this.features.current().whatsAppAlerts ? [{ value: 'notifications' as const, label: labels.notifications }] : []),
       ...(this.auth.canManage() ? [{ value: 'activity' as const, label: labels.activity }] : [])

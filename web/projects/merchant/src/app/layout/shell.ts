@@ -31,7 +31,8 @@ export class Shell implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly features = inject(Features);
   /** Areas whose feature is switched off in the API's configuration are left out. */
-  protected readonly nav = computed(() => NAV_ITEMS.filter(item => item.path !== 'payment-links' || this.features.current().paymentLinks));
+  protected readonly nav = computed(() => NAV_ITEMS.filter(item =>
+    (item.path !== 'payment-links' || this.features.current().paymentLinks) && (item.path !== 'go-live' || this.auth.canManage())));
   protected readonly auth = inject(Auth);
   protected readonly currentVenue = inject(CurrentVenue);
   protected readonly live = inject(LiveOrders);

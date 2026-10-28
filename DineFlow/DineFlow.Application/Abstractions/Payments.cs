@@ -8,6 +8,12 @@ namespace DineFlow.Application.Abstractions;
 /// (P1-SEC-01). Real providers (Checkout.com, Tap, HyperPay, Stripe…) implement this alongside
 /// the built-in sandbox.
 /// </summary>
+/// <summary>
+/// Which provider this deployment takes payments with, and whether it's a test setup (the sandbox,
+/// or Mastercard's test gateway or a TEST… merchant id) where no card is really charged.
+/// </summary>
+public record PaymentEnvironment(string Provider, bool IsTest);
+
 public interface IPaymentProvider
 {
     string Name { get; }

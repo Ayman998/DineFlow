@@ -24,6 +24,7 @@ DineFlow/
 web/
   projects/guest/           guest PWA       → http://localhost:4200
   projects/merchant/        merchant portal → http://localhost:4300
+deploy/                     Docker images, Caddy, Compose, backups and the pilot runbook
 ```
 
 ## Prerequisites
@@ -288,13 +289,50 @@ A batch that's already been imported is refused, so importing the same file twic
 
 **Ledger export** downloads every money movement for a date range as CSV, for the accountant. Each row has the payment, the table or link, and the settlement batch, payout date and fee once settled.
 
+### Team, passwords and go-live
+
+**Settings → Team** is where everyone changes their own password, for example the temporary one they were given. Owners and managers add the people who sign in. Each new person, or a password reset, gets a temporary password that's shown once to hand over. Owners manage everyone; managers add and manage staff only. Nobody can change their own role or switch themselves off, so there's always an active owner. A switched-off or demoted person is signed out within 30 seconds, because the API checks every merchant token against the current account. Changes are audit-logged.
+
+**Go-live** (owners and managers) is the pilot checklist for the venue. Each check is worked out from what has actually happened:
+
+- **Venue and tables:** sales tax set, QR codes on tables, a printed code scanned.
+- **Menu and team:** a menu with orderable items, staff who can sign in.
+- **Payments:** a test payment, the gateway's own webhook received, a refund, a receipt e-mail delivered, a settlement imported, and finally the live gateway.
+
+The webhook check only counts the provider's signed webhook. A payment the status check settled first still turns it green once the webhook arrives, so a missing webhook setup in Merchant Administration shows up here. Alerts, reports, photos and the POS are recommended, not required.
+
+### Deploying
+
+[`deploy/README.md`](deploy/README.md) is the pilot runbook. It covers one Linux server with Docker Compose: SQL Server, the API, and Caddy serving both apps on their own domains with automatic HTTPS and forwarding the API's paths. It also covers creating a venue, the Mastercard Gateway test checklist, going live, updates and backups. Pushing a `v*` tag builds the `dineflow-api` and `dineflow-web` images to GitHub Container Registry.
+
+The API has two one-off commands, run with its own configuration:
+
+```bash
+dotnet DineFlow/DineFlow.Api/bin/Debug/net8.0/DineFlow.Api.dll migrate
+```
+
+```bash
+dotnet DineFlow/DineFlow.Api/bin/Debug/net8.0/DineFlow.Api.dll provision --business "Hashem Kitchen" --venue "Abdoun, Amman" --owner-email owner@example.jo --owner-name "Lina Haddad"
+```
+
+`provision` creates the business, a venue with Amman defaults (JOD, Asia/Amman, Arabic, 16% tax, 10% service), numbered tables with QR codes, and the owner. It prints the owner's temporary password once. In Docker, these are `docker compose run --rm api migrate` and `… provision …`.
+
+Outside Development, the API refuses to start with settings that are wrong for real guests:
+
+- the sandbox payment provider
+- `Seed:Enabled`
+- a non-https `Guest:AppBaseUrl`
+- e-mail written to files instead of sent (`Email:Provider` must be `smtp`, configured under `Email:Smtp`)
+
+It logs warnings at startup for settings to double-check, such as Mastercard's test gateway or WhatsApp alerts going to files. Behind a reverse proxy, set `ReverseProxy:Enabled` so client addresses (for rate limits) and https come from the forwarded headers. `DataProtection:KeysPath` moves the Data Protection keys to a persistent volume.
+
 ### From Visual Studio
 
 `DineFlow.slnx` includes the Angular workspace as `DineFlow.Web` (`web/DineFlow.Web.esproj`). Pick the **API + Web** launch profile in the toolbar's startup dropdown and press F5. That starts the API and runs `npm start`, which serves both Angular apps.
 
 ### Keys and secrets
 
-`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code. With `Payments:Provider` set to `mastercard`, `Payments:Mastercard:ApiPassword` and `WebhookSecret` are required secrets. With `WhatsApp:Provider` set to `meta`, `WhatsApp:MetaApi:AccessToken` is a secret too, and the API refuses to start without it and `PhoneNumberId`.
+`appsettings.Development.json` holds **development-only** values: the JWT signing key, the QR token key, the sandbox payment key and the demo owner's password. Outside Development, `Jwt:SigningKey`, `Qr:TokenKey` and (with the sandbox) `Payments:Sandbox:SecretKey` are required (base64, at least 32 bytes), and the API refuses to start without them. Set them with environment variables, user-secrets or a key vault. Changing `Qr:TokenKey` invalidates every printed QR code. With `Payments:Provider` set to `mastercard`, `Payments:Mastercard:ApiPassword` and `WebhookSecret` are required secrets. With `WhatsApp:Provider` set to `meta`, `WhatsApp:MetaApi:AccessToken` is a secret too, and the API refuses to start without it and `PhoneNumberId`. `Email:Smtp:Password` is a secret as well.
 
 ### Uploaded images
 
@@ -370,12 +408,15 @@ npm --prefix web test
 | `GET /v1/merchant/reconciliation?venueId=`, `POST …/reconciliation/run` | manager | Reconciled days; reconcile a day now (yesterday by default) |
 | `GET /v1/merchant/reconciliation/discrepancies?venueId=&status=&page=`, `POST …/discrepancies/{id}/resolve` | manager | The queue of differences; resolve one with a note (audit-logged) |
 | `GET /v1/merchant/ledger/export?venueId=&from=&to=` | manager | Ledger CSV with settlement batch and fee |
+| `POST /v1/merchant/auth/password` | merchant | Change your own password |
+| `GET`/`POST /v1/merchant/team`, `PUT …/team/{id}`, `POST …/team/{id}/reset-password` | manager | Team members, roles, switch off, temporary passwords (shown once) |
+| `GET /v1/merchant/venues/{id}/go-live` | manager | The venue's go-live checklist |
 
 ### Real-time
 
 SignalR hubs push order and payment events. Staff screens connect to `/hubs/merchant` (merchant JWT) and receive `orderPlaced`, `orderChanged`, `paymentReceived`, `reviewSubmitted`, `refundUpdated` and `paymentLinkPaid` for their tenant. Guest phones connect to `/hubs/guest` (guest session token) and receive `orderChanged` for their own session, plus `billChanged` whenever anything at their table changes what it owes: an order, a payment, a held item or the split. Browsers send the token as `?access_token=` on these paths. Delivery is best effort, and both apps reload their lists after reconnecting.
 
-Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired`, `link_paid`, `invalid_contact`, `settlement_exists`, `invalid_settlement_file`, `nothing_to_settle` or `feature_disabled`, plus the request's `correlationId`.
+Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `venue_unavailable`, `invalid_credentials`, `location_exists`, `bill_changed`, `payment_in_progress`, `promo_expired`, `refund_not_allowed`, `link_not_found`, `link_expired`, `link_paid`, `invalid_contact`, `settlement_exists`, `invalid_settlement_file`, `nothing_to_settle`, `email_taken`, `wrong_password`, `role_not_allowed`, `cannot_change_self` or `feature_disabled`, plus the request's `correlationId`.
 
 ## Ground rules (from the blueprint)
 
@@ -404,3 +445,4 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |
 | 10 | Real payments for Jordan: Mastercard Gateway (MPGS) Hosted Checkout, verified webhooks plus status checks, refunds, JOD defaults (to verify with acquirer test credentials) ✅ | E8 |
 | 11 | Settlements and reconciliation: settlement CSV import, daily ledger vs settlement vs POS reconciliation, differences queue with resolve and audit, sandbox payout, ledger export ✅ | E12, E14 |
+| 12 | Pilot readiness for Amman: Docker + Caddy deployment, release images, production settings guard, SMTP e-mail, venue provisioning, team and passwords, go-live checklist with the Mastercard test script, backups ✅ | E15 |

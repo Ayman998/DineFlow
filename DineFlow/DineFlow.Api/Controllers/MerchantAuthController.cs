@@ -20,4 +20,13 @@ public class MerchantAuthController(AuthService auth) : ControllerBase
     [Authorize(Policy = Policies.Merchant)]
     public Task<StaffProfileDto> Me(CancellationToken ct) =>
         auth.GetProfileAsync(User.UserId(), ct);
+
+    [HttpPost("password")]
+    [Authorize(Policy = Policies.Merchant)]
+    [EnableRateLimiting(Policies.LoginRateLimit)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        await auth.ChangePasswordAsync(User.UserId(), request, ct);
+        return NoContent();
+    }
 }

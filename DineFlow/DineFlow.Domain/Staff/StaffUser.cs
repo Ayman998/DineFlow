@@ -24,6 +24,20 @@ public class StaffUser : Entity, ITenantOwned
     }
 
     public void SetPasswordHash(string passwordHash) => PasswordHash = passwordHash;
+
+    public void Rename(string displayName) => DisplayName = Text.Required(displayName, MaxNameLength, "Name");
+
+    public void SetRole(StaffRole role) => Role = role;
+
+    /// <summary>Signs the person out everywhere (see the API's token check) and blocks sign-in; history keeps their name.</summary>
+    public void Deactivate() => IsActive = false;
+
+    public void Activate() => IsActive = true;
+
+    public const int MaxNameLength = 80;
+
+    /// <summary>The shortest password DineFlow accepts (NIST 800-63B asks for at least 8; staff share tablets, so 10).</summary>
+    public const int MinPasswordLength = 10;
 }
 
 public enum StaffRole

@@ -13,6 +13,7 @@ public class AppException(int statusCode, string code, string message, object? d
 
     public static AppException BadRequest(string code, string message) => new(400, code, message);
     public static AppException Unauthorized(string code, string message) => new(401, code, message);
+    public static AppException Forbidden(string code, string message) => new(403, code, message);
     public static AppException NotFound(string code, string message) => new(404, code, message);
     public static AppException Conflict(string code, string message, object? details = null) => new(409, code, message, details);
     public static AppException Gone(string code, string message) => new(410, code, message);
