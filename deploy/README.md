@@ -6,7 +6,7 @@ helloZen runs on one Linux server with Docker: SQL Server, the API, and Caddy, w
 |---|---|---|
 | `db` | SQL Server 2022 (Express edition by default) | `db-data` volume |
 | `api` | The .NET API, port 8080 inside the network only | `api-data` volume: photos, Data Protection keys |
-| `web` | Caddy: the guest app on `GUEST_DOMAIN` (with `www.` redirecting to it), the merchant portal on `MERCHANT_DOMAIN`, with automatic HTTPS | `caddy-data` volume: certificates |
+| `web` | Caddy: the guest app on `GUEST_DOMAIN` and the merchant portal under `/portal/` on the same domain (with `www.` redirecting to it), with automatic HTTPS | `caddy-data` volume: certificates |
 
 ## 1. Server
 
@@ -17,11 +17,10 @@ helloZen runs on one Linux server with Docker: SQL Server, the API, and Caddy, w
 
   | Type | Host | Value | What it serves |
   |---|---|---|---|
-  | A | `@` | the server's public IPv4 | The guest app, `https://hello-zen.com`. QR codes (`/q/…`) and payment links (`/l/…`) point here, so don't change it once codes are printed |
-  | A | `portal` | the server's public IPv4 | The merchant portal, `https://portal.hello-zen.com` |
+  | A | `@` | the server's public IPv4 | Both apps: the guest app at `https://hello-zen.com` and the merchant portal at `https://hello-zen.com/portal/`. QR codes (`/q/…`) and payment links (`/l/…`) point here, so don't change it once codes are printed |
   | CNAME | `www` | `hello-zen.com` | Redirects to `https://hello-zen.com` |
 
-  Caddy can only get certificates once DNS resolves, so check that `nslookup hello-zen.com`, `nslookup www.hello-zen.com` and `nslookup portal.hello-zen.com` return only the server's IP before the first start.
+  Caddy can only get certificates once DNS resolves, so check that `nslookup hello-zen.com` and `nslookup www.hello-zen.com` return only the server's IP before the first start.
 - Receipts are sent from `receipts@hello-zen.com`. Add the domain to the mail provider whose SMTP server you use (Microsoft 365, Google Workspace, Spacemail…). Then add the SPF, DKIM and DMARC records it gives you on the same Advanced DNS page. Without them, receipts land in spam.
 
 ## 2. First start
@@ -49,7 +48,7 @@ Check that it's up:
 
 ```bash
 docker compose ps
-curl -s https://portal.hello-zen.com/health/ready
+curl -s https://hello-zen.com/health/ready
 docker compose logs api --tail 50
 ```
 
@@ -69,7 +68,7 @@ The defaults suit Amman: JOD, Asia/Amman, Arabic first, 16% sales tax, 10% servi
 
 The owner then:
 
-1. Signs in at `https://portal.hello-zen.com` and replaces the password under **Settings → Team → Your password**.
+1. Signs in at `https://hello-zen.com/portal/` and replaces the password under **Settings → Team → Your password**.
 2. Adds managers and waiters under **Settings → Team**. Each person gets a temporary password shown once.
 3. Builds the menu, prints the QR codes from **Tables**, and works through **Go-live** in the portal.
 

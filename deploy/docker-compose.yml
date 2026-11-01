@@ -48,7 +48,6 @@ services:
       dockerfile: deploy/web.Dockerfile
     environment:
       GUEST_DOMAIN: ${GUEST_DOMAIN:?Set GUEST_DOMAIN in .env}
-      MERCHANT_DOMAIN: ${MERCHANT_DOMAIN:?Set MERCHANT_DOMAIN in .env}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
     ports:
       - "80:80"
