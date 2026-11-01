@@ -35,7 +35,7 @@ export interface CategoryChoice {
  * photo, allergens, tags, availability and modifier groups with their options.
  */
 @Component({
-  selector: 'df-item-editor',
+  selector: 'hz-item-editor',
   imports: [FormsModule],
   templateUrl: './item-editor.html'
 })

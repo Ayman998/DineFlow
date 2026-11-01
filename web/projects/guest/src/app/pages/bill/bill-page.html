@@ -219,6 +219,6 @@
 </div>
 
 @if (splitOpen() && bill(); as b) {
-  <df-split-sheet [bill]="b" [current]="selection()" (billChange)="setBill($event)"
+  <hz-split-sheet [bill]="b" [current]="selection()" (billChange)="setBill($event)"
                   (confirmed)="onSplitConfirmed($event)" (removed)="onSplitRemoved()" (closed)="onSplitClosed()" />
 }

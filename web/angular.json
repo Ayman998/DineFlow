@@ -16,7 +16,7 @@
       },
       "root": "projects/guest",
       "sourceRoot": "projects/guest/src",
-      "prefix": "df",
+      "prefix": "hz",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
@@ -92,7 +92,7 @@
       },
       "root": "projects/merchant",
       "sourceRoot": "projects/merchant/src",
-      "prefix": "df",
+      "prefix": "hz",
       "architect": {
         "build": {
           "builder": "@angular/build:application",

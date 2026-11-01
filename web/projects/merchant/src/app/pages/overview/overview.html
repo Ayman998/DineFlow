@@ -75,7 +75,7 @@
             </label>
           </div>
           <h2 class="sr-only">{{ series() === 'revenue' ? t.revenue : t.tips }} {{ periodName() }}</h2>
-          <df-trend-chart [points]="trend()" [currency]="d.currency" [granularity]="d.granularity" [timeZone]="d.timeZone"
+          <hz-trend-chart [points]="trend()" [currency]="d.currency" [granularity]="d.granularity" [timeZone]="d.timeZone"
                           [seriesName]="series() === 'revenue' ? t.revenue : t.tips" />
         </section>
 

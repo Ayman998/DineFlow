@@ -129,8 +129,8 @@
 </ng-template>
 
 @if (menuDialog(); as dialog) {
-  <df-menu-editor [menu]="dialog.menu" (saved)="saveMenu($event)" (cancelled)="menuDialog.set(null)" />
+  <hz-menu-editor [menu]="dialog.menu" (saved)="saveMenu($event)" (cancelled)="menuDialog.set(null)" />
 }
 @if (linkDialog(); as dialog) {
-  <df-link-items [menu]="dialog.menu" [catalog]="dialog.catalog" (saved)="saveLinks($event)" (cancelled)="linkDialog.set(null)" />
+  <hz-link-items [menu]="dialog.menu" [catalog]="dialog.catalog" (saved)="saveLinks($event)" (cancelled)="linkDialog.set(null)" />
 }

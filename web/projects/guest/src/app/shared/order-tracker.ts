@@ -7,7 +7,7 @@ import { I18n } from '../core/i18n';
  * (P1-ORD-05). Steps before the current one show a tick; the current one is highlighted.
  */
 @Component({
-  selector: 'df-order-tracker',
+  selector: 'hz-order-tracker',
   template: `
     @let t = i18n.t();
     <ol class="flex items-start" [attr.aria-label]="t.orderProgress">

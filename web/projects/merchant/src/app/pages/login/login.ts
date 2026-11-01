@@ -8,7 +8,7 @@ import { Logo } from '../../shared/logo';
 import { LOGIN } from './login.i18n';
 
 @Component({
-  selector: 'df-login',
+  selector: 'hz-login',
   imports: [ReactiveFormsModule, Logo],
   templateUrl: './login.html'
 })

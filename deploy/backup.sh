@@ -1,6 +1,7 @@
 #!/bin/sh
-# Backs up the DineFlow database and the API's data volume (photos and Data Protection keys) into
-# ./backups, and keeps the last 14 days. Run from this folder, e.g. nightly from cron:
+# Backs up the database and the API's data volume (photos and Data Protection keys) into ./backups,
+# and keeps the last 14 days. Both keep their pre-rename names (DineFlow, dineflow_api-data); see
+# docker-compose.yml. Run from this folder, e.g. nightly from cron:
 #   0 3 * * * cd /opt/dineflow/deploy && ./backup.sh >> backups/backup.log 2>&1
 # Copy ./backups off the server too (rclone, restic, your provider's object storage): a backup on
 # the same disk doesn't survive losing the server.

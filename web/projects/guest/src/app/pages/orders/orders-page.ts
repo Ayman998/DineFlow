@@ -13,7 +13,7 @@ import { OrderTracker } from '../../shared/order-tracker';
  * the Selection → Checkout → Preparing → Delivered tracker, updated as staff move it along.
  */
 @Component({
-  selector: 'df-orders-page',
+  selector: 'hz-orders-page',
   imports: [RouterLink, OrderTracker],
   templateUrl: './orders-page.html'
 })

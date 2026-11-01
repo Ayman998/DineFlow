@@ -11,7 +11,7 @@ export interface CategoryNames {
 
 /** Create or rename a category or subcategory. */
 @Component({
-  selector: 'df-category-editor',
+  selector: 'hz-category-editor',
   imports: [FormsModule],
   template: `
     @let t = this.t();

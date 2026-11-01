@@ -22,7 +22,7 @@ const MAX_HOURS = 90 * 24;
  * follow its status and payments, and deactivate it. A link closes by itself once it's paid in full.
  */
 @Component({
-  selector: 'df-payment-links',
+  selector: 'hz-payment-links',
   imports: [QrCode, RouterLink],
   templateUrl: './payment-links.html'
 })

@@ -20,7 +20,7 @@ type AttentionItem = OverviewData['attention'][number];
  * and what needs attention. Updates live as orders and payments come in.
  */
 @Component({
-  selector: 'df-overview',
+  selector: 'hz-overview',
   imports: [RouterLink, TrendChart],
   templateUrl: './overview.html'
 })

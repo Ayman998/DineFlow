@@ -1,0 +1,230 @@
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using HelloZen.Api.Common;
+using HelloZen.Api.Hubs;
+using HelloZen.Api.Tenancy;
+using HelloZen.Application;
+using HelloZen.Application.Abstractions;
+using HelloZen.Application.Reviews;
+using HelloZen.Infrastructure;
+using HelloZen.Infrastructure.Persistence;
+using HelloZen.Infrastructure.Security;
+using HelloZen.Infrastructure.Storage;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(context.Configuration));
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantContext, ClaimsTenantContext>();
+builder.Services.AddScoped<IOrderNotifier, SignalROrderNotifier>();
+builder.Services.AddScoped<IPaymentNotifier, SignalRPaymentNotifier>();
+builder.Services.AddScoped<IReviewNotifier, SignalRReviewNotifier>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<StaffAccess>();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
+
+var productionChecks = ProductionChecks.Run(builder.Configuration, builder.Environment.IsDevelopment());
+if (productionChecks.Errors.Count > 0)
+    throw new InvalidOperationException("helloZen isn't configured for this environment:" + Environment.NewLine
+        + string.Join(Environment.NewLine, productionChecks.Errors.Select(e => " - " + e)));
+
+// Behind a reverse proxy (the bundled Caddy, a load balancer, App Service) the client's address and
+// scheme arrive in X-Forwarded-For/-Proto. Without them rate limits would count every guest as the
+// proxy, and the API would think requests are plain http. Only enable this when the API port is
+// reachable through the proxy alone, since any caller could otherwise claim to be anyone.
+if (builder.Configuration.GetValue<bool>("ReverseProxy:Enabled"))
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.KnownNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
+}
+
+// Every error response carries the request's correlation id, so a support ticket can be matched to the logs.
+// Model-validation 400s are worded in Arabic when the request prefers it.
+builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
+{
+    c.ProblemDetails.Extensions["correlationId"] = c.HttpContext.TraceIdentifier;
+    ArabicErrors.LocalizeValidation(c);
+});
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((bearer, jwt) =>
+    {
+        bearer.MapInboundClaims = false;
+        bearer.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = jwt.Value.Issuer,
+            ValidAudience = jwt.Value.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(jwt.Value.SigningKeyBytes()),
+            NameClaimType = "sub",
+            RoleClaimType = HelloZenClaims.Role,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+        // Browsers can't set headers on WebSocket requests, so SignalR sends the token in the query string.
+        bearer.Events = new JwtBearerEvents
+        {
+            // A merchant token lives for hours, so a switched-off or demoted team member is turned away
+            // here too, within StaffAccess.CacheFor, instead of only at their next sign-in.
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal;
+                if (principal?.FindFirst(HelloZenClaims.Scope)?.Value != HelloZenClaims.MerchantScope) return;
+                var access = context.HttpContext.RequestServices.GetRequiredService<StaffAccess>();
+                if (!await access.IsCurrentAsync(principal.UserId(), principal.FindFirst(HelloZenClaims.Role)?.Value, context.HttpContext.RequestAborted))
+                    context.Fail("This account was switched off or its role changed. Sign in again.");
+            },
+            OnMessageReceived = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments("/hubs")
+                    && context.Request.Query["access_token"] is { Count: > 0 } token)
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(Policies.Merchant, p => p
+        .RequireClaim(HelloZenClaims.Scope, HelloZenClaims.MerchantScope)
+        .RequireClaim(HelloZenClaims.TenantId))
+    .AddPolicy(Policies.MerchantManager, p => p
+        .RequireClaim(HelloZenClaims.Scope, HelloZenClaims.MerchantScope)
+        .RequireClaim(HelloZenClaims.TenantId)
+        .RequireRole("Owner", "Manager"))
+    .AddPolicy(Policies.Guest, p => p
+        .RequireClaim(HelloZenClaims.Scope, HelloZenClaims.GuestScope)
+        .RequireClaim(HelloZenClaims.SessionId));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(Policies.PublicRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
+    options.AddPolicy(Policies.LoginRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+});
+
+builder.Services.AddCors(options => options.AddPolicy("web", policy => policy
+    .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
+
+builder.Services.AddControllers(o => o.Filters.Add<AppExceptionFilter>())
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "helloZen API", Version = "v1" });
+    var bearer = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+    };
+    c.AddSecurityDefinition("Bearer", bearer);
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
+});
+
+var app = builder.Build();
+
+foreach (var warning in productionChecks.Warnings) app.Logger.LogWarning("Configuration: {Warning}", warning);
+
+// `dotnet HelloZen.Api.dll migrate` and `… provision …` run once and exit (see AdminCommands).
+if (await AdminCommands.TryRunAsync(app, args) is { } exitCode) return exitCode;
+
+if (app.Environment.IsDevelopment())
+{
+    try
+    {
+        await app.Services.InitialiseDatabaseAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Database initialisation failed. Is SQL Server running and reachable?");
+    }
+}
+
+if (app.Configuration.GetValue<bool>("ReverseProxy:Enabled")) app.UseForwardedHeaders();
+
+// The correlation id comes first so every log line for the request carries it, request logging included.
+app.UseMiddleware<CorrelationIdMiddleware>();
+// Request logging wraps the exception handler so it records the status code the client actually got.
+app.UseSerilogRequestLogging(o => o.EnrichDiagnosticContext = (diagnostics, http) =>
+    diagnostics.Set("CorrelationId", http.TraceIdentifier));
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseExceptionHandler();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// In development the Angular dev servers proxy to the API over plain http on the same machine.
+// Redirecting those calls to https would send the browser to another origin, which drops the
+// Authorization header (every signed-in call then fails with 401), so only redirect elsewhere.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+// Uploaded menu images. File names are random and never reused, so they can be cached for a year.
+var media = app.Services.GetRequiredService<LocalFileStorage>();
+Directory.CreateDirectory(media.RootPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(media.RootPath),
+    RequestPath = app.Services.GetRequiredService<IOptions<StorageOptions>>().Value.PublicPath,
+    OnPrepareResponse = file =>
+    {
+        file.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        file.Context.Response.Headers.XContentTypeOptions = "nosniff";
+    }
+});
+
+app.UseCors("web");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
+
+app.MapControllers();
+app.MapHub<MerchantHub>(MerchantHub.Path);
+app.MapHub<GuestHub>(GuestHub.Path);
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+// Readiness: the database, and whether queued WhatsApp and e-mail messages are going out (see NotificationHealthCheck).
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    ResponseWriter = (http, report) => http.Response.WriteAsJsonAsync(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.ToDictionary(e => e.Key, e => new { status = e.Value.Status.ToString(), e.Value.Description, e.Value.Data })
+    })
+});
+
+await app.RunAsync();
+return 0;

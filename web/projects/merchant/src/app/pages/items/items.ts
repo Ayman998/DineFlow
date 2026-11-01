@@ -23,7 +23,7 @@ interface ItemGroup {
  * tags, availability and modifiers, by category. Menus pick which ones they show.
  */
 @Component({
-  selector: 'df-items',
+  selector: 'hz-items',
   imports: [FormsModule, RouterLink, ItemEditor],
   templateUrl: './items.html'
 })

@@ -1,5 +1,8 @@
-# DineFlow on one server: SQL Server, the API, and Caddy serving both apps over HTTPS.
+# helloZen on one server: SQL Server, the API, and Caddy serving both apps over HTTPS.
 # Settings and secrets come from .env next to this file (copy .env.example). See README.md.
+# The project and database keep their pre-rename name "dineflow": volume names (dineflow_db-data,
+# dineflow_api-data, ...) come from it, and renaming them would start from an empty database and lose
+# the Data Protection keys.
 name: dineflow
 
 services:
@@ -21,14 +24,14 @@ services:
       start_period: 30s
 
   api:
-    image: ${IMAGE_PREFIX:-ghcr.io/ayman998/dineflow}-api:${TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/ayman998/hellozen}-api:${TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/api.Dockerfile
     # Everything in .env written as Section__Key reaches the API's configuration (see .env.example).
     env_file: .env
     environment:
-      ConnectionStrings__DineFlow: "Server=db;Database=DineFlow;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      ConnectionStrings__HelloZen: "Server=db;Database=DineFlow;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
       # Caddy is the only way in: the API port isn't published, so forwarded headers can be trusted.
       ReverseProxy__Enabled: "true"
     volumes:
@@ -39,7 +42,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: ${IMAGE_PREFIX:-ghcr.io/ayman998/dineflow}-web:${TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/ayman998/hellozen}-web:${TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/web.Dockerfile

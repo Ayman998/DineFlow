@@ -15,7 +15,7 @@ type State =
  * of a technical error.
  */
 @Component({
-  selector: 'df-landing',
+  selector: 'hz-landing',
   imports: [RouterLink],
   templateUrl: './landing.html'
 })

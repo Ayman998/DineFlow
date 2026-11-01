@@ -2,7 +2,7 @@
 <main class="flex min-h-full bg-white">
   <!-- Brand panel, from the helloZen brand board -->
   <section class="relative hidden w-[46%] max-w-[640px] flex-col justify-between overflow-hidden bg-ink p-12 text-white lg:flex">
-    <df-logo class="relative z-10 self-start text-[34px]" [tagline]="true" />
+    <hz-logo class="relative z-10 self-start text-[34px]" [tagline]="true" />
 
     <div class="relative z-10">
       <h2 class="max-w-md text-[34px] leading-tight font-bold">@for (part of t.pitch; track $index) {<span [class.text-accent]="$index % 2 === 1">{{ part }}</span>}</h2>
@@ -34,7 +34,7 @@
       (ngSubmit)="submit()"
       novalidate>
       <div class="mb-8">
-        <df-logo tone="light" class="mb-10 text-[26px] lg:hidden" />
+        <hz-logo tone="light" class="mb-10 text-[26px] lg:hidden" />
         <h1 class="text-[28px] font-bold">{{ t.signIn }}</h1>
         <p class="mt-1.5 text-ink-muted">{{ t.intro }}</p>
       </div>

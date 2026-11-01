@@ -9,7 +9,7 @@ docs
 **/App_Data
 **/*.user
 **/appsettings.*.local.json
-DineFlow/DineFlow.Test
+HelloZen/HelloZen.Test
 web/node_modules
 web/dist
 web/.angular

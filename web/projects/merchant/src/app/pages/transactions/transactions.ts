@@ -19,7 +19,7 @@ const DAY = 24 * 60 * 60 * 1000;
  * or in part (owners and managers). A refund completes when the provider confirms it.
  */
 @Component({
-  selector: 'df-transactions',
+  selector: 'hz-transactions',
   templateUrl: './transactions.html'
 })
 export class Transactions implements OnInit {

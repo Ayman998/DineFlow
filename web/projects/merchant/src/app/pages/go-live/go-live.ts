@@ -20,7 +20,7 @@ const LINKS: Record<string, string | null> = {
 
 /** The pilot's go-live checklist for the venue (Sprint 12), worked out by the API from what has happened. */
 @Component({
-  selector: 'df-go-live',
+  selector: 'hz-go-live',
   imports: [RouterLink],
   templateUrl: './go-live.html'
 })

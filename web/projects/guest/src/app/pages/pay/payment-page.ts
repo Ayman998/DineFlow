@@ -22,7 +22,7 @@ const PATIENCE_MS = 60_000;
  * the bill's status, an offer for the next visit and the e-mail receipt (P1-REC-01/02).
  */
 @Component({
-  selector: 'df-payment-page',
+  selector: 'hz-payment-page',
   imports: [RouterLink, OrderTracker, ReviewFlow],
   templateUrl: './payment-page.html'
 })

@@ -45,7 +45,7 @@
       </section>
 
       <section class="mx-5 mt-3.5 rounded-[18px] border border-line bg-white px-3 pt-3.5 pb-3">
-        <df-order-tracker [stage]="stage()" />
+        <hz-order-tracker [stage]="stage()" />
         <a routerLink="/orders" class="mt-1.5 flex min-h-11 items-center justify-between px-1.5 text-sm font-bold text-brand">
           {{ t.viewOrderSummary }}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="rtl:rotate-180" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
@@ -123,5 +123,5 @@
 </div>
 
 @if (reviewOpen() && payment()?.status === 'Succeeded') {
-  <df-review-flow [paymentId]="id()" (done)="onReviewDone($event)" />
+  <hz-review-flow [paymentId]="id()" (done)="onReviewDone($event)" />
 }

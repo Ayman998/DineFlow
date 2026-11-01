@@ -15,7 +15,7 @@ import { OrderTracker } from '../../shared/order-tracker';
  * cart (P1-ORD-01) every time it changes, and placing the order is safe to retry (P1-ORD-02).
  */
 @Component({
-  selector: 'df-cart-page',
+  selector: 'hz-cart-page',
   imports: [RouterLink, OrderTracker],
   templateUrl: './cart-page.html'
 })

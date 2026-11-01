@@ -14,7 +14,7 @@ type Step = 'rate' | 'public' | 'feedback';
  * leaves the payment and receipt as they are.
  */
 @Component({
-  selector: 'df-review-flow',
+  selector: 'hz-review-flow',
   templateUrl: './review-flow.html'
 })
 export class ReviewFlow {

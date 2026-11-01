@@ -12,7 +12,7 @@ import { DifferenceValues, RECONCILIATION } from './reports.i18n';
  * settlements and the POS, the queue of differences to work through, and the ledger export.
  */
 @Component({
-  selector: 'df-reconciliation-panel',
+  selector: 'hz-reconciliation-panel',
   templateUrl: './reconciliation-panel.html'
 })
 export class ReconciliationPanel implements OnInit {

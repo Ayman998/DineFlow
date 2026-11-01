@@ -14,7 +14,7 @@ const MAX_PEOPLE = 50;
  * items are held on the server straight away so nobody else can pay for them too.
  */
 @Component({
-  selector: 'df-split-sheet',
+  selector: 'hz-split-sheet',
   templateUrl: './split-sheet.html'
 })
 export class SplitSheet implements OnInit {

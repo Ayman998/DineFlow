@@ -12,7 +12,7 @@ import { SETTLEMENTS } from './reports.i18n';
  * settlement report (CSV), each with its lines and what they matched in helloZen.
  */
 @Component({
-  selector: 'df-settlements-panel',
+  selector: 'hz-settlements-panel',
   templateUrl: './settlements-panel.html'
 })
 export class SettlementsPanel implements OnInit {

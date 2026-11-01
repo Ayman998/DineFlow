@@ -17,7 +17,7 @@ const DAY = 24 * 60 * 60 * 1000;
  * filtered list, each review with its visit, and ratings per staff member.
  */
 @Component({
-  selector: 'df-reviews',
+  selector: 'hz-reviews',
   templateUrl: './reviews.html'
 })
 export class Reviews implements OnInit {

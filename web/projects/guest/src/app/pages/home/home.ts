@@ -8,7 +8,7 @@ import { Logo } from '../../shared/logo';
 
 /** Shown when the app is opened without a QR code. */
 @Component({
-  selector: 'df-home',
+  selector: 'hz-home',
   imports: [Logo],
   templateUrl: './home.html'
 })
