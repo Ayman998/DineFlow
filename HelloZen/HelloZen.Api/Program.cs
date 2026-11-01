@@ -34,6 +34,8 @@ builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
+var webApps = WebApps.IsEnabled(builder.Configuration);
+if (webApps) builder.Services.AddWebApps();
 
 var productionChecks = ProductionChecks.Run(builder.Configuration, builder.Environment.IsDevelopment());
 if (productionChecks.Errors.Count > 0)
@@ -206,6 +208,9 @@ app.UseStaticFiles(new StaticFileOptions
         file.Context.Response.Headers.XContentTypeOptions = "nosniff";
     }
 });
+
+// With no reverse proxy in front (IIS on MonsterASP) the API serves both Angular apps itself.
+if (webApps) app.UseWebApps(Path.Combine(app.Environment.ContentRootPath, "wwwroot"));
 
 app.UseCors("web");
 app.UseAuthentication();

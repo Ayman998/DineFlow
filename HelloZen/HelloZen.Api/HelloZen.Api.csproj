@@ -20,4 +20,29 @@
     <ProjectReference Include="..\HelloZen.Infrastructure\HelloZen.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Development keys and local uploads, outboxes and keys never go to a server. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Remove="App_Data\**" />
+  </ItemGroup>
+
+  <!--
+    Publishing with -p:IncludeWebApps=true (the MonsterASP profile sets it) builds both Angular apps and
+    ships them in wwwroot/guest and wwwroot/merchant, for hosts where the API serves them itself
+    (WebApps:Enabled). The Docker image leaves it off: Caddy serves the apps there.
+  -->
+  <PropertyGroup>
+    <WebDir>$(MSBuildProjectDirectory)\..\..\web\</WebDir>
+  </PropertyGroup>
+  <Target Name="PublishWebApps" AfterTargets="ComputeFilesToPublish" Condition="'$(IncludeWebApps)' == 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(WebDir)" Condition="!Exists('$(WebDir)node_modules')" />
+    <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
+    <ItemGroup>
+      <GuestApp Include="$(WebDir)dist\guest\browser\**\*" />
+      <MerchantApp Include="$(WebDir)dist\merchant\browser\**\*" />
+      <ResolvedFileToPublish Include="@(GuestApp)" RelativePath="wwwroot\guest\%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+      <ResolvedFileToPublish Include="@(MerchantApp)" RelativePath="wwwroot\merchant\%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    </ItemGroup>
+  </Target>
+
 </Project>
