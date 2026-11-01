@@ -11,7 +11,7 @@ namespace DineFlow.Application.Finance;
 
 /// <summary>
 /// Reconciles one business day at a venue (blueprint 7.2, 13 "day-end reconciliation"): every
-/// payment and refund DineFlow confirmed that day is matched to the acquirer's settlement lines and,
+/// payment and refund helloZen confirmed that day is matched to the acquirer's settlement lines and,
 /// where the venue has a POS, to what was posted there. What doesn't add up becomes a
 /// <see cref="Discrepancy"/>; what was wrong before and is fine now clears itself. Safe to run again
 /// at any time, e.g. after importing a settlement report.
@@ -89,7 +89,7 @@ public class Reconciler(IAppDbContext db, TimeProvider clock)
                     $"{p.Reference} appears {mine.Count} times in settlements.");
             else if (mine[0].AmountMinor != p.AmountMinor)
                 Found(DiscrepancyKind.AmountMismatch, $"Amount:{p.Id}", p.Id, mine[0].Id, p.Reference, p.AmountMinor, mine[0].AmountMinor,
-                    $"{p.Reference}: DineFlow charged {Money(p.AmountMinor)}, the acquirer settled {Money(mine[0].AmountMinor)}.");
+                    $"{p.Reference}: helloZen charged {Money(p.AmountMinor)}, the acquirer settled {Money(mine[0].AmountMinor)}.");
             else matched++;
         }
 
@@ -106,10 +106,10 @@ public class Reconciler(IAppDbContext db, TimeProvider clock)
             foreach (var line in lineRefs)
             {
                 var payment = known.FirstOrDefault(p => Concerns(line, p));
-                if (payment is not null) { line.MatchTo(payment.Id); continue; } // paid on another day in DineFlow's time zone
+                if (payment is not null) { line.MatchTo(payment.Id); continue; } // paid on another day in helloZen's time zone
                 var label = line.Reference ?? line.ProviderPaymentId ?? "?";
                 Found(DiscrepancyKind.UnknownToDineFlow, $"Unknown:{line.Id}", null, line.Id, label, 0, line.AmountMinor,
-                    $"The acquirer settled {Money(line.AmountMinor)} for {label}, which DineFlow has no successful payment for.");
+                    $"The acquirer settled {Money(line.AmountMinor)} for {label}, which helloZen has no successful payment for.");
             }
         }
 
@@ -134,13 +134,13 @@ public class Reconciler(IAppDbContext db, TimeProvider clock)
             line.MatchTo(payment.Id);
             if (line.AmountMinor != r.AmountMinor)
                 Found(DiscrepancyKind.RefundMismatch, $"RefundAmount:{r.Id}", payment.Id, line.Id, payment.Reference, r.AmountMinor, line.AmountMinor,
-                    $"Refund on {payment.Reference}: DineFlow refunded {Money(r.AmountMinor)}, the acquirer took back {Money(line.AmountMinor)}.");
+                    $"Refund on {payment.Reference}: helloZen refunded {Money(r.AmountMinor)}, the acquirer took back {Money(line.AmountMinor)}.");
         }
         foreach (var line in lines.Where(l => l.Kind == SettlementLineKind.Refund && l.TransactionDate == day && l.PaymentId == null))
         {
             var label = line.Reference ?? line.ProviderPaymentId ?? line.ProviderRefundId ?? "?";
             Found(DiscrepancyKind.RefundMismatch, $"RefundUnknown:{line.Id}", null, line.Id, label, 0, line.AmountMinor,
-                $"The acquirer took back {Money(line.AmountMinor)} for {label}, but DineFlow has no matching refund.");
+                $"The acquirer took back {Money(line.AmountMinor)} for {label}, but helloZen has no matching refund.");
         }
 
         // POS: a payment at a table should be in the venue's POS once it has had time to get there.

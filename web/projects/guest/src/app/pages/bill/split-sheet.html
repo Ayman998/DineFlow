@@ -81,7 +81,7 @@
         <p class="mt-4 mb-3 text-sm leading-relaxed text-ink-muted">{{ t.customIntro }}</p>
         @let parsed = amount();
         <label for="custom-amount" class="mb-1.5 block text-sm font-bold">{{ t.customLabel }} ({{ b.currency }})</label>
-        <input id="custom-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+        <input id="custom-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
                inputmode="decimal" autocomplete="off" maxlength="12" [value]="amountText()" (input)="amountText.set($any($event.target).value)"
                aria-describedby="custom-amount-help" />
         <p id="custom-amount-help" class="mt-1 text-[13px]"
@@ -93,7 +93,7 @@
       }
     }
 
-    <div class="mt-5 rounded-2xl bg-[#F6F7F9] p-4" aria-live="polite">
+    <div class="mt-5 rounded-2xl bg-[#F7F7F7] p-4" aria-live="polite">
       @if (tab() === 'Equal') {
         <div class="sum"><span>{{ t.billTotal }}</span><span>{{ money(b.totalMinor) }}</span></div>
         <div class="sum"><span>{{ t.alreadyPaid }}</span><span>{{ money(b.paidMinor) }}</span></div>
@@ -116,7 +116,7 @@
   <div class="flex gap-3 px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
     <button type="button" class="min-h-14 flex-1 rounded-[14px] border-[1.5px] border-[#FDA29B] bg-[#FEF3F2] font-bold text-[#B42318] disabled:opacity-50"
             [disabled]="busy()" (click)="remove()">{{ t.removeSplit }}</button>
-    <button type="button" class="min-h-14 flex-1 rounded-[14px] bg-brand font-bold text-white disabled:bg-[#D0D5DD] disabled:text-ink-muted"
+    <button type="button" class="min-h-14 flex-1 rounded-[14px] bg-accent font-bold text-ink disabled:bg-[#D4D4D4] disabled:text-ink-muted"
             [disabled]="!canConfirm()" (click)="confirm()">{{ t.confirm }}</button>
   </div>
 </div>

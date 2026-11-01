@@ -147,7 +147,7 @@ const settlementsEn = {
       : 'Everything matched.'),
   importTitle: 'Import a settlement report',
   importIntro:
-    "Download the settlement or payout report from your acquirer's portal as CSV and drop it here. DineFlow matches every line to a payment and reconciles the days it covers. Importing the same batch twice is refused.",
+    "Download the settlement or payout report from your acquirer's portal as CSV and drop it here. helloZen matches every line to a payment and reconciles the days it covers. Importing the same batch twice is refused.",
   simulateHint: 'Settles every unsettled test payment, as an acquirer would',
   simulate: 'Simulate a payout',
   importing: 'Importing…',
@@ -168,7 +168,7 @@ const settlementsEn = {
     orderId: 'Order id',
     orderIdNote: "(the gateway's order id)",
     reference: 'reference',
-    referenceNote: "(DineFlow's payment reference)",
+    referenceNote: "(helloZen's payment reference)",
     amount: 'Amount',
     amountIn: (currency: string) => `in ${currency}, e.g. 12.500, and optionally`,
     fee: 'fee',
@@ -191,7 +191,7 @@ const settlementsEn = {
   date: 'Date',
   type: 'Type',
   acquirerOrder: 'Acquirer order',
-  dineflowPayment: 'DineFlow payment',
+  dineflowPayment: 'helloZen payment',
   amount: 'Amount',
   fee: 'Fee',
   lineKinds: { Payment: 'Sale', Refund: 'Refund', Adjustment: 'Adjustment' } as Record<string, string>,
@@ -211,7 +211,7 @@ export const SETTLEMENTS: Lexicon<typeof settlementsEn> = {
         : 'تطابق كل شيء.'),
     importTitle: 'استيراد تقرير تسوية',
     importIntro:
-      'نزّل تقرير التسوية أو الدفعات المحوّلة من بوابة البنك المستحوذ بصيغة CSV وأفلته هنا. يطابق DineFlow كل سطر مع دفعة ويُجري المطابقة للأيام التي يغطيها. يُرفض استيراد الحزمة نفسها مرتين.',
+      'نزّل تقرير التسوية أو الدفعات المحوّلة من بوابة البنك المستحوذ بصيغة CSV وأفلته هنا. يطابق helloZen كل سطر مع دفعة ويُجري المطابقة للأيام التي يغطيها. يُرفض استيراد الحزمة نفسها مرتين.',
     simulateHint: 'يسوّي كل دفعة تجريبية غير مسوّاة، كما يفعل البنك المستحوذ',
     simulate: 'محاكاة دفعة محوّلة',
     importing: 'جارٍ الاستيراد…',
@@ -232,7 +232,7 @@ export const SETTLEMENTS: Lexicon<typeof settlementsEn> = {
       orderId: 'رقم الطلب',
       orderIdNote: '(رقم الطلب لدى بوابة الدفع)',
       reference: 'المرجع',
-      referenceNote: '(مرجع الدفعة في DineFlow)',
+      referenceNote: '(مرجع الدفعة في helloZen)',
       amount: 'المبلغ',
       amountIn: (currency: string) => `بعملة ${currency}، مثل 12.500، واختيارياً`,
       fee: 'الرسوم (fee)',
@@ -255,7 +255,7 @@ export const SETTLEMENTS: Lexicon<typeof settlementsEn> = {
     date: 'التاريخ',
     type: 'النوع',
     acquirerOrder: 'طلب البنك المستحوذ',
-    dineflowPayment: 'دفعة DineFlow',
+    dineflowPayment: 'دفعة helloZen',
     amount: 'المبلغ',
     fee: 'الرسوم',
     lineKinds: { Payment: 'بيع', Refund: 'استرداد', Adjustment: 'تعديل' },
@@ -282,7 +282,7 @@ export interface DifferenceValues {
 const reconciliationEn = {
   kinds: {
     NotSettled: 'Not settled',
-    UnknownToDineFlow: 'Unknown to DineFlow',
+    UnknownToDineFlow: 'Unknown to helloZen',
     AmountMismatch: 'Amount differs',
     RefundMismatch: 'Refund differs',
     NotInPos: 'Not in POS',
@@ -294,13 +294,13 @@ const reconciliationEn = {
     not_settled: (d: DifferenceValues) => `${d.reference} (${d.expected}) was paid on ${d.day} but isn't in any settlement from the acquirer.`,
     settled_twice: (d: DifferenceValues) =>
       d.count > 1 ? `${d.reference} appears ${d.count} times in settlements.` : `${d.reference} appears more than once in settlements.`,
-    amount_mismatch: (d: DifferenceValues) => `${d.reference}: DineFlow charged ${d.expected}, the acquirer settled ${d.actual}.`,
+    amount_mismatch: (d: DifferenceValues) => `${d.reference}: helloZen charged ${d.expected}, the acquirer settled ${d.actual}.`,
     unknown_to_dineflow: (d: DifferenceValues) =>
-      `The acquirer settled ${d.actual} for ${d.reference}, which DineFlow has no successful payment for.`,
+      `The acquirer settled ${d.actual} for ${d.reference}, which helloZen has no successful payment for.`,
     refund_missing: (d: DifferenceValues) => `A refund of ${d.expected} on ${d.reference} isn't in any settlement.`,
     refund_amount: (d: DifferenceValues) =>
-      `Refund on ${d.reference}: DineFlow refunded ${d.expected}, the acquirer took back ${d.actual}.`,
-    refund_unknown: (d: DifferenceValues) => `The acquirer took back ${d.actual} for ${d.reference}, but DineFlow has no matching refund.`,
+      `Refund on ${d.reference}: helloZen refunded ${d.expected}, the acquirer took back ${d.actual}.`,
+    refund_unknown: (d: DifferenceValues) => `The acquirer took back ${d.actual} for ${d.reference}, but helloZen has no matching refund.`,
     pos_refused: (d: DifferenceValues) => `${d.reference} was refused by the POS: ${d.error}`,
     pos_waiting: (d: DifferenceValues) => `${d.reference} still isn't in the POS (${d.attempts} attempts): ${d.error ?? 'waiting'}`
   },
@@ -309,7 +309,7 @@ const reconciliationEn = {
   resolved: (reference: string) => `Resolved ${reference}.`,
   // Totals
   toLookAt: 'Differences to look at',
-  takenInDineFlow: 'Taken in DineFlow (30 days)',
+  takenInDineFlow: 'Taken in helloZen (30 days)',
   settledByAcquirer: 'Settled by the acquirer',
   feesAmount: (amount: string) => `Fees ${amount}`,
   awaitingSettlement: 'Awaiting settlement',
@@ -317,13 +317,13 @@ const reconciliationEn = {
   // Queue
   differences: 'Differences',
   differencesIntro:
-    "What doesn't add up between DineFlow, the acquirer's settlements and the POS. Most clear by themselves once the settlement arrives or the POS catches up.",
+    "What doesn't add up between helloZen, the acquirer's settlements and the POS. Most clear by themselves once the settlement arrives or the POS catches up.",
   show: 'Show',
   open: 'Open',
   nothingOpen: 'Nothing to look at. Every reconciled day adds up.',
   noDifferences: 'No differences yet.',
   resolvedBy: (who: string | null, note: string) => `Resolved by ${who ?? 'staff'}: ${note}`,
-  comparison: (ours: string, theirs: string) => `DineFlow ${ours} · acquirer ${theirs}`,
+  comparison: (ours: string, theirs: string) => `helloZen ${ours} · acquirer ${theirs}`,
   resolveEllipsis: 'Resolve…',
   notePlaceholder: "Why it's acceptable, e.g. claim #4471 raised with MEPS",
   resolve: 'Resolve',
@@ -335,7 +335,7 @@ const reconciliationEn = {
   noDays: 'No days reconciled yet.',
   day: 'Day',
   payments: 'Payments',
-  dineflow: 'DineFlow',
+  dineflow: 'helloZen',
   settled: 'Settled',
   fees: 'Fees',
   refunds: 'Refunds',
@@ -358,7 +358,7 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
   ar: {
     kinds: {
       NotSettled: 'لم تُسوَّ',
-      UnknownToDineFlow: 'غير معروفة لدى DineFlow',
+      UnknownToDineFlow: 'غير معروفة لدى helloZen',
       AmountMismatch: 'عدم تطابق المبلغ',
       RefundMismatch: 'عدم تطابق الاسترداد',
       NotInPos: 'غير موجودة في نقاط البيع',
@@ -371,13 +371,13 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
         d.count > 1
           ? `${d.reference} تظهر ${arCount(d.count, 'مرة واحدة', 'مرتين', 'مرات', 'مرة')} في التسويات.`
           : `${d.reference} تظهر أكثر من مرة في التسويات.`,
-      amount_mismatch: (d: DifferenceValues) => `${d.reference}: حصّل DineFlow ${d.expected}، بينما سوّى البنك المستحوذ ${d.actual}.`,
+      amount_mismatch: (d: DifferenceValues) => `${d.reference}: حصّل helloZen ${d.expected}، بينما سوّى البنك المستحوذ ${d.actual}.`,
       unknown_to_dineflow: (d: DifferenceValues) =>
-        `سوّى البنك المستحوذ ${d.actual} لـ ${d.reference}، ولا توجد لدى DineFlow دفعة ناجحة مقابلها.`,
+        `سوّى البنك المستحوذ ${d.actual} لـ ${d.reference}، ولا توجد لدى helloZen دفعة ناجحة مقابلها.`,
       refund_missing: (d: DifferenceValues) => `استرداد بقيمة ${d.expected} على ${d.reference} غير موجود في أي تسوية.`,
       refund_amount: (d: DifferenceValues) =>
-        `استرداد على ${d.reference}: ردّ DineFlow ${d.expected}، بينما استرجع البنك المستحوذ ${d.actual}.`,
-      refund_unknown: (d: DifferenceValues) => `استرجع البنك المستحوذ ${d.actual} لـ ${d.reference}، ولا يوجد لدى DineFlow استرداد مطابق.`,
+        `استرداد على ${d.reference}: ردّ helloZen ${d.expected}، بينما استرجع البنك المستحوذ ${d.actual}.`,
+      refund_unknown: (d: DifferenceValues) => `استرجع البنك المستحوذ ${d.actual} لـ ${d.reference}، ولا يوجد لدى helloZen استرداد مطابق.`,
       pos_refused: (d: DifferenceValues) => `رفض نظام نقاط البيع ${d.reference}: ${d.error}`,
       pos_waiting: (d: DifferenceValues) =>
         `${d.reference} لم تُسجَّل في نظام نقاط البيع بعد (${arCount(d.attempts, 'محاولة واحدة', 'محاولتان', 'محاولات', 'محاولة')}): ${d.error ?? 'بانتظار المحاولة'}`
@@ -386,20 +386,20 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
     noteRequired: 'أضف ملاحظة قصيرة توضّح سبب قبول ذلك.',
     resolved: (reference: string) => `تمت معالجة ${reference}.`,
     toLookAt: 'فروقات بحاجة إلى مراجعة',
-    takenInDineFlow: 'المحصّل في DineFlow (آخر 30 يوماً)',
+    takenInDineFlow: 'المحصّل في helloZen (آخر 30 يوماً)',
     settledByAcquirer: 'ما سوّاه البنك المستحوذ',
     feesAmount: (amount: string) => `الرسوم ${amount}`,
     awaitingSettlement: 'بانتظار التسوية',
     acquirersPayLater: 'يحوّل البنك المستحوذ المبالغ بعد يوم أو يومين',
     differences: 'الفروقات',
     differencesIntro:
-      'ما لا يتطابق بين DineFlow وتسويات البنك المستحوذ ونظام نقاط البيع. يزول معظمها تلقائياً عند وصول التسوية أو عند تحديث نظام نقاط البيع.',
+      'ما لا يتطابق بين helloZen وتسويات البنك المستحوذ ونظام نقاط البيع. يزول معظمها تلقائياً عند وصول التسوية أو عند تحديث نظام نقاط البيع.',
     show: 'عرض',
     open: 'المفتوحة',
     nothingOpen: 'لا شيء بحاجة إلى مراجعة. كل الأيام التي تمت مطابقتها متوازنة.',
     noDifferences: 'لا توجد فروقات بعد.',
     resolvedBy: (who: string | null, note: string) => `عالجها ${who ?? 'أحد الموظفين'}: ${note}`,
-    comparison: (ours: string, theirs: string) => `DineFlow ${ours} · البنك المستحوذ ${theirs}`,
+    comparison: (ours: string, theirs: string) => `helloZen ${ours} · البنك المستحوذ ${theirs}`,
     resolveEllipsis: 'معالجة…',
     notePlaceholder: 'سبب القبول، مثلاً: رُفعت المطالبة #4471 لدى MEPS',
     resolve: 'معالجة',
@@ -410,7 +410,7 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
     noDays: 'لم تتم مطابقة أي يوم بعد.',
     day: 'يوم العمل',
     payments: 'الدفعات',
-    dineflow: 'DineFlow',
+    dineflow: 'helloZen',
     settled: 'المسوّى',
     fees: 'الرسوم',
     refunds: 'الاستردادات',

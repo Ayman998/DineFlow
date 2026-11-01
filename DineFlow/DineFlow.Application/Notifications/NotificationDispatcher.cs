@@ -74,7 +74,7 @@ public class NotificationDispatcher(IAppDbContext db, IWhatsAppSender whatsApp, 
 
     private async Task<string?> SendEmailAsync(NotificationDelivery message, CancellationToken ct)
     {
-        await email.SendAsync(new EmailMessage(message.Recipient, message.Subject ?? "DineFlow", message.TextBody,
+        await email.SendAsync(new EmailMessage(message.Recipient, message.Subject ?? "helloZen", message.TextBody,
             message.HtmlBody ?? System.Net.WebUtility.HtmlEncode(message.TextBody)), ct);
         return null;
     }

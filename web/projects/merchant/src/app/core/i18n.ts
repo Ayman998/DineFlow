@@ -73,7 +73,7 @@ const EN = {
   retry: 'Try again',
   comingSoon: (sprint: number) => `Coming in sprint ${sprint}.`,
   // Errors that don't come from the API
-  apiUnreachable: "Can't reach the DineFlow API. Is it running?",
+  apiUnreachable: "Can't reach the helloZen API. Is it running?",
   forbidden: "Your role can't make this change. Ask an owner or manager.",
   requestFailed: (status: number) => `Request failed (${status}).`,
   somethingWrong: 'Something went wrong.',
@@ -138,7 +138,7 @@ const AR: Common = {
   none: 'لا شيء',
   retry: 'حاول مرة أخرى',
   comingSoon: (sprint: number) => `قريباً في المرحلة ${sprint}.`,
-  apiUnreachable: 'تعذّر الوصول إلى خادم DineFlow. هل هو قيد التشغيل؟',
+  apiUnreachable: 'تعذّر الوصول إلى خادم helloZen. هل هو قيد التشغيل؟',
   forbidden: 'صلاحياتك لا تسمح بهذا التغيير. اطلب ذلك من المالك أو المدير.',
   requestFailed: (status: number) => `فشل الطلب (${status}).`,
   somethingWrong: 'حدث خطأ ما.',

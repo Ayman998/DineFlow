@@ -1,12 +1,12 @@
 @let t = i18n.t();
 @let p = payment();
 
-<div class="min-h-dvh bg-[#F6F7F9] pb-8">
+<div class="min-h-dvh bg-[#F7F7F7] pb-8">
   @if (!p) {
     <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
       @if (notFound()) {
         <h1 class="text-xl font-extrabold">{{ t.paymentNotFound }}</h1>
-        <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-brand px-6 font-bold text-white">{{ t.backToBill }}</a>
+        <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-accent px-6 font-bold text-ink">{{ t.backToBill }}</a>
       } @else {
         <p class="text-ink-muted" aria-live="polite">{{ t.confirmingTitle }}</p>
       }
@@ -38,7 +38,7 @@
         @if (p.discountMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.promotion }} {{ p.promoCode }}</span><span>−{{ money(p.discountMinor) }}</span></div> }
         <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.remainingBalance }}</span><span class="font-bold">{{ money(p.remainingMinor ?? 0) }}</span></div>
         <p class="py-1 text-[13px] text-ink-muted">{{ t.paidWith(methodText(p)) }}</p>
-        <div class="mt-2.5 flex justify-between border-t border-dashed border-[#D0D5DD] pt-2.5 text-xs text-ink-muted">
+        <div class="mt-2.5 flex justify-between border-t border-dashed border-[#D4D4D4] pt-2.5 text-xs text-ink-muted">
           <span>{{ t.reference(p.reference) }}</span><span>{{ when(p) }}</span>
         </div>
         <p class="mt-2.5 rounded-[10px] bg-surface px-3 py-2.5 text-center text-[13px] font-semibold">{{ t.showStaff }}</p>
@@ -61,16 +61,16 @@
         <button type="button" class="mx-5 mt-3.5 flex min-h-[52px] w-[calc(100%-2.5rem)] items-center justify-between rounded-[18px] border border-line bg-white px-[18px] text-sm font-bold text-brand"
                 (click)="rateLater()">
           {{ t.rateVisit }}
-          <span class="text-[#D0D5DD]" aria-hidden="true">★★★★★</span>
+          <span class="text-[#D4D4D4]" aria-hidden="true">★★★★★</span>
         </button>
       }
 
       @if (p.nextVisitOffer; as offer) {
-        <section class="mx-5 mt-3.5 flex items-center gap-3.5 rounded-[18px] bg-[#0B3B38] px-[18px] py-4 text-white">
+        <section class="mx-5 mt-3.5 flex items-center gap-3.5 rounded-[18px] bg-ink px-[18px] py-4 text-white">
           <div class="min-w-0 flex-1">
-            <p class="text-xs font-bold tracking-[.04em] text-[#9FD9D2] uppercase">{{ t.nextVisit }}</p>
+            <p class="text-xs font-bold tracking-[.04em] text-accent uppercase">{{ t.nextVisit }}</p>
             <h2 class="mt-1 mb-0.5 text-xl font-extrabold">{{ offer.headline }}</h2>
-            <p class="text-[13px] text-[#CFE8E4]">{{ t.useCodeBefore }}<b class="text-white">{{ offer.code }}</b>{{ t.useCodeAfter }}</p>
+            <p class="text-[13px] text-white/75">{{ t.useCodeBefore }}<b class="text-white">{{ offer.code }}</b>{{ t.useCodeAfter }}</p>
           </div>
           <button type="button" class="min-h-11 shrink-0 rounded-xl border-[1.5px] border-white px-3.5 text-[13px] font-bold" (click)="copy(offer.code)">
             {{ copied() ? t.copied : t.copy }}
@@ -80,12 +80,12 @@
 
       <section class="mx-5 mt-3.5 flex flex-col gap-2.5">
         @if (sentTo(); as to) {
-          <p class="rounded-xl bg-[#E6F4F1] px-4 py-3 text-sm font-semibold text-[#0B3B38]" role="status">{{ t.receiptSent(to) }}</p>
+          <p class="rounded-xl bg-accent-soft px-4 py-3 text-sm font-semibold text-ink" role="status">{{ t.receiptSent(to) }}</p>
         } @else {
           <form class="flex flex-col gap-2.5" (submit)="$event.preventDefault(); sendReceipt()">
             <label for="receipt-email" class="text-sm font-bold">{{ t.receiptTitle }}</label>
             <input id="receipt-email" type="email" autocomplete="email" maxlength="254" required
-                   class="h-[50px] rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                   class="h-[50px] rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
                    [placeholder]="t.emailPlaceholder" [value]="email()" (input)="email.set($any($event.target).value)"
                    [attr.aria-invalid]="!!receiptError()" aria-describedby="receipt-error" />
             @if (receiptError()) { <p id="receipt-error" class="text-[13px] font-semibold text-[#B42318]" role="alert">{{ receiptError() }}</p> }
@@ -94,7 +94,7 @@
             </button>
           </form>
         }
-        <a routerLink="/menu" class="flex min-h-[52px] items-center justify-center rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white font-bold">{{ t.backToMenu }}</a>
+        <a routerLink="/menu" class="flex min-h-[52px] items-center justify-center rounded-[14px] border-[1.5px] border-[#D4D4D4] bg-white font-bold">{{ t.backToMenu }}</a>
       </section>
     </main>
   } @else if (p.status === 'Failed' || p.status === 'Cancelled') {
@@ -105,13 +105,13 @@
       <h1 class="text-xl font-extrabold">{{ p.status === 'Failed' ? t.failedTitle : t.cancelledTitle }}</h1>
       @if (p.status === 'Failed' && t.failureReason(p.failureReason); as reason) { <p class="font-semibold">{{ reason }}</p> }
       <p class="text-ink-muted">{{ p.status === 'Failed' ? t.failedBody : t.cancelledBody }}</p>
-      <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-brand px-6 font-bold text-white">
+      <a routerLink="/bill" class="mt-2 flex min-h-12 items-center rounded-[14px] bg-accent px-6 font-bold text-ink">
         {{ p.status === 'Failed' ? t.tryAgain : t.backToBill }}
       </a>
     </main>
   } @else {
     <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center" aria-live="polite">
-      <div class="size-12 animate-spin rounded-full border-4 border-[#D0D5DD] border-t-brand motion-reduce:animate-none" aria-hidden="true"></div>
+      <div class="size-12 animate-spin rounded-full border-4 border-[#D4D4D4] border-t-accent motion-reduce:animate-none" aria-hidden="true"></div>
       <h1 class="text-xl font-extrabold">{{ t.confirmingTitle }}</h1>
       <p class="text-ink-muted">{{ slow() ? t.stillWaiting : t.confirmingBody }}</p>
       @if (slow() && p.checkoutUrl) {

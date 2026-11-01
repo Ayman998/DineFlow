@@ -2,7 +2,7 @@
 @let it = item();
 
 <div class="fixed inset-0 z-40 flex items-end justify-center">
-  <button type="button" class="absolute inset-0 bg-[#101828]/60" [attr.aria-label]="t.close" tabindex="-1" (click)="closed.emit()"></button>
+  <button type="button" class="absolute inset-0 bg-[#111111]/60" [attr.aria-label]="t.close" tabindex="-1" (click)="closed.emit()"></button>
 
   <div class="relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white"
        role="dialog" aria-modal="true" aria-labelledby="item-sheet-title">
@@ -32,7 +32,7 @@
             <span class="rounded-[10px] bg-[#FEF0C7] px-2.5 py-1 text-[11px] font-bold text-[#93370D]">{{ t.contains(t.allergenNames[a]) }}</span>
           }
           @for (tag of it.tags; track tag) {
-            <span class="rounded-[10px] bg-surface px-2.5 py-1 text-[11px] font-bold text-[#344054]">{{ tag }}</span>
+            <span class="rounded-[10px] bg-surface px-2.5 py-1 text-[11px] font-bold text-[#404040]">{{ tag }}</span>
           }
         </div>
 
@@ -41,7 +41,7 @@
             <legend class="flex w-full items-center justify-between pb-1">
               <span class="text-base font-extrabold">{{ i18n.localize(group.name, group.nameAr) }}</span>
               <span class="rounded-[10px] px-2.5 py-1 text-[11px] font-bold"
-                    [class]="group.minSelect > 0 ? 'bg-ink text-white' : 'bg-surface text-[#344054]'">{{ groupBadge(group) }}</span>
+                    [class]="group.minSelect > 0 ? 'bg-ink text-white' : 'bg-surface text-[#404040]'">{{ groupBadge(group) }}</span>
             </legend>
             @for (option of group.options; track option.id) {
               <label class="flex min-h-13 cursor-pointer items-center gap-3 border-b border-surface px-1 text-[15px] font-semibold"
@@ -67,7 +67,7 @@
         <label class="mt-5 mb-1.5 block text-sm font-bold" for="item-note">{{ t.specialRequests }}</label>
         <textarea
           id="item-note"
-          class="h-[68px] w-full resize-none rounded-xl border-[1.5px] border-[#D0D5DD] p-3 text-sm font-medium outline-none focus:border-brand"
+          class="h-[68px] w-full resize-none rounded-xl border-[1.5px] border-[#D4D4D4] p-3 text-sm font-medium outline-none focus:border-brand"
           maxlength="200"
           [placeholder]="t.specialRequestsPlaceholder"
           [value]="note()"
@@ -77,7 +77,7 @@
 
     <div class="flex items-center gap-3 px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
       @if (it.isAvailable && canOrder()) {
-        <div class="flex h-14 items-center gap-1.5 rounded-[14px] border-[1.5px] border-[#D0D5DD] px-1">
+        <div class="flex h-14 items-center gap-1.5 rounded-[14px] border-[1.5px] border-[#D4D4D4] px-1">
           <button type="button" class="size-11 text-xl font-bold disabled:opacity-30" [attr.aria-label]="t.decreaseQuantity"
                   [disabled]="quantity() <= 1" (click)="setQuantity(quantity() - 1)">−</button>
           <span class="min-w-4 text-center font-bold" aria-live="polite">{{ quantity() }}</span>
@@ -86,7 +86,7 @@
         </div>
       }
       <button type="button"
-              class="h-14 flex-1 rounded-[14px] bg-brand px-3 text-base font-bold text-white disabled:bg-[#D0D5DD] disabled:text-ink-muted"
+              class="h-14 flex-1 rounded-[14px] bg-brand px-3 text-base font-bold text-white disabled:bg-[#D4D4D4] disabled:text-ink-muted"
               [disabled]="!canAdd()"
               (click)="addToOrder()">
         @if (!it.isAvailable) {

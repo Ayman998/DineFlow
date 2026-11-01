@@ -41,7 +41,7 @@ public class PosService(IAppDbContext db, ITenantContext tenant, IPosConnectorRe
     {
         var venue = await VenueAsync(venueId, ct);
         var connector = connectors.Find(request.Provider)
-            ?? throw AppException.BadRequest("unknown_pos", "DineFlow doesn't have a connector for that POS yet.");
+            ?? throw AppException.BadRequest("unknown_pos", "helloZen doesn't have a connector for that POS yet.");
         var now = clock.GetUtcNow();
 
         var connection = await db.PosConnections.SingleOrDefaultAsync(c => c.VenueId == venue.Id, ct);
@@ -73,7 +73,7 @@ public class PosService(IAppDbContext db, ITenantContext tenant, IPosConnectorRe
         var connection = await db.PosConnections.SingleOrDefaultAsync(c => c.VenueId == venue.Id, ct)
             ?? throw AppException.Conflict("pos_not_connected", "Connect a POS first.");
         var connector = connectors.Find(connection.Provider)
-            ?? throw AppException.Conflict("unknown_pos", "DineFlow no longer has a connector for this POS.");
+            ?? throw AppException.Conflict("unknown_pos", "helloZen no longer has a connector for this POS.");
 
         PosHealth health;
         try

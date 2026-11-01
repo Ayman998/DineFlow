@@ -21,7 +21,7 @@ public class Venue : Entity, ITenantOwned
     public string DefaultLocale { get; private set; } = "en";
     public string? LogoUrl { get; private set; }
     /// <summary>Hex colour used for the guest landing background.</summary>
-    public string BrandColor { get; private set; } = "#0B3B38";
+    public string BrandColor { get; private set; } = "#111111";
     public bool MenuEnabled { get; private set; } = true;
     public bool PayAtTableEnabled { get; private set; } = true;
     public bool IsActive { get; private set; } = true;

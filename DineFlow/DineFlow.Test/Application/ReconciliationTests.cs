@@ -106,7 +106,7 @@ public class ReconciliationTests : IDisposable
     [Theory]
     [InlineData("Batch,Payout date,Amount\nB1,2027-03-11,10.000\n", "The file needs an \"order id\" or \"reference\" column.")]
     [InlineData("Batch,Payout date,Order id,Amount\nB1,2027-03-11,df-1,10.0005\n", "Line 2: \"10.0005\" has more decimals than the currency allows.")]
-    [InlineData("Batch,Payout date,Order id,Type,Amount\nB1,2027-03-11,df-1,Chargeback,10\n", "Line 2: \"CHARGEBACK\" isn't a type DineFlow knows (use payment, refund or fee).")]
+    [InlineData("Batch,Payout date,Order id,Type,Amount\nB1,2027-03-11,df-1,Chargeback,10\n", "Line 2: \"CHARGEBACK\" isn't a type helloZen knows (use payment, refund or fee).")]
     [InlineData("Batch,Payout date,Order id,Amount,Currency\nB1,2027-03-11,df-1,10,AED\n", "Line 2: the currency is AED, but this venue uses JOD.")]
     [InlineData("Batch,Payout date,Order id,Amount\nB1,tomorrow,df-1,10\n", "Line 2: \"tomorrow\" isn't a date (use yyyy-MM-dd).")]
     public void A_report_that_cant_be_read_says_where(string csv, string message)

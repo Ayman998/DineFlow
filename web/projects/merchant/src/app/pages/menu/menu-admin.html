@@ -16,7 +16,7 @@
   <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
 }
 @if (notice()) {
-  <p class="mb-4 rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">{{ notice() }}</p>
+  <p class="mb-4 notice" role="status">{{ notice() }}</p>
 }
 
 @if (loading()) {
@@ -51,7 +51,7 @@
           </span>
           @if (m.isPublished) {
             <span class="rounded-full px-2 py-0.5 text-xs font-medium"
-                  [class]="m.availableNow ? 'bg-brand/10 text-brand-dark' : 'bg-amber-50 text-amber-900'">
+                  [class]="m.availableNow ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'">
               {{ m.availableNow ? t.admin.servingNow : t.admin.notServingNow }}
             </span>
           }

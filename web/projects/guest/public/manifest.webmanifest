@@ -1,9 +1,9 @@
 {
-  "name": "DineFlow",
-  "short_name": "DineFlow",
+  "name": "helloZen",
+  "short_name": "helloZen",
   "display": "standalone",
-  "theme_color": "#0f766e",
-  "background_color": "#ffffff",
+  "theme_color": "#111111",
+  "background_color": "#111111",
   "scope": "./",
   "start_url": "./",
   "icons": [

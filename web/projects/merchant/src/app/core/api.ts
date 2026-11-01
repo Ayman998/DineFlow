@@ -1270,7 +1270,7 @@ export type StaffRole = 'Owner' | 'Manager' | 'Staff';
 
 export interface StaffMember { id: string; email: string; displayName: string; role: StaffRole; isActive: boolean; isYou: boolean }
 
-/** temporaryPassword is shown once, to hand over; DineFlow keeps only its hash. */
+/** temporaryPassword is shown once, to hand over; helloZen keeps only its hash. */
 export interface StaffPassword { member: StaffMember; temporaryPassword: string }
 
 export interface GoLiveCheck { key: string; group: string; required: boolean; done: boolean; count: number | null }

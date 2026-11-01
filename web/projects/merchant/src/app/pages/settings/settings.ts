@@ -12,7 +12,7 @@ import { PosSettingsPanel } from './pos-settings';
 import { TeamSettingsPanel } from './team-settings';
 import { SETTINGS } from './settings.i18n';
 
-// Jordan first: DineFlow's venues are in Amman.
+// Jordan first: helloZen's venues are in Amman.
 const CURRENCIES = ['JOD', 'AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'EGP', 'USD', 'EUR', 'GBP'];
 const TIME_ZONES = [
   'Asia/Amman', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Kuwait', 'Asia/Bahrain', 'Asia/Muscat',
@@ -59,7 +59,7 @@ export class Settings implements OnInit {
     timeZone: ['', [Validators.required, Validators.maxLength(64)]],
     defaultLocale: ['en' as 'en' | 'ar', Validators.required],
     logoUrl: ['', Validators.maxLength(500)],
-    brandColor: ['#0B3B38', [Validators.required, Validators.pattern(/^#[0-9A-Fa-f]{6}$/)]],
+    brandColor: ['#111111', [Validators.required, Validators.pattern(/^#[0-9A-Fa-f]{6}$/)]],
     menuEnabled: [true],
     payAtTableEnabled: [true],
     serviceChargePercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],

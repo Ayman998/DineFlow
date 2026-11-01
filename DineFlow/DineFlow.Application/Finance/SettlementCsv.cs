@@ -73,7 +73,7 @@ public static class SettlementCsv
         null or "PAYMENT" or "SALE" or "PURCHASE" or "CAPTURE" or "PAY" => SettlementLineKind.Payment,
         "REFUND" or "CREDIT" or "RETURN" => SettlementLineKind.Refund,
         "FEE" or "ADJUSTMENT" or "CHARGE" => SettlementLineKind.Adjustment,
-        var other => throw new FormatException($"Line {line}: \"{other}\" isn't a type DineFlow knows (use payment, refund or fee).")
+        var other => throw new FormatException($"Line {line}: \"{other}\" isn't a type helloZen knows (use payment, refund or fee).")
     };
 
     /// <summary>"12.500" → 12500 for a 3-decimal currency. Signs are ignored: the type says which way money goes.</summary>

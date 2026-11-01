@@ -185,7 +185,7 @@ public class PosDispatcher(IAppDbContext db, IPosConnectorRegistry connectors, I
         }
     }
 
-    /// <summary>No order was sent from DineFlow (e.g. the POS doesn't take orders): use the table's one open check in the POS.</summary>
+    /// <summary>No order was sent from helloZen (e.g. the POS doesn't take orders): use the table's one open check in the POS.</summary>
     private async Task<string> FindOpenCheckAsync(Check check, IPosConnector connector, PosContext context, CancellationToken ct)
     {
         var table = await TableRefAsync(check.ServiceLocationId, ct);
@@ -194,7 +194,7 @@ public class PosDispatcher(IAppDbContext db, IPosConnectorRegistry connectors, I
         {
             1 => open[0].CheckRef,
             0 => throw new PosRejectedException("The POS has no open check for this table to post the payment to."),
-            _ => throw new PosRejectedException("The POS has more than one open check for this table, so DineFlow can't tell which one this payment is for.")
+            _ => throw new PosRejectedException("The POS has more than one open check for this table, so helloZen can't tell which one this payment is for.")
         };
     }
 

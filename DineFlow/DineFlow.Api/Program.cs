@@ -37,7 +37,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.Co
 
 var productionChecks = ProductionChecks.Run(builder.Configuration, builder.Environment.IsDevelopment());
 if (productionChecks.Errors.Count > 0)
-    throw new InvalidOperationException("DineFlow isn't configured for this environment:" + Environment.NewLine
+    throw new InvalidOperationException("helloZen isn't configured for this environment:" + Environment.NewLine
         + string.Join(Environment.NewLine, productionChecks.Errors.Select(e => " - " + e)));
 
 // Behind a reverse proxy (the bundled Caddy, a load balancer, App Service) the client's address and
@@ -135,7 +135,7 @@ builder.Services.AddControllers(o => o.Filters.Add<AppExceptionFilter>())
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "DineFlow API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "helloZen API", Version = "v1" });
     var bearer = new OpenApiSecurityScheme
     {
         Name = "Authorization",

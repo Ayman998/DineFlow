@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DineFlow.Application.Onboarding;
 
 /// <summary>
-/// What the operator types to bring a restaurant onto DineFlow. The defaults are a venue in Amman:
+/// What the operator types to bring a restaurant onto helloZen. The defaults are a venue in Amman:
 /// JOD, Asia/Amman, Arabic first, Jordan's 16% general sales tax and a 10% service charge, all of
 /// which the owner can change in Settings afterwards.
 /// </summary>
@@ -56,7 +56,7 @@ public class ProvisioningService(IAppDbContext db, IQrTokenService qrTokens, IPa
 
         var email = request.OwnerEmail!.Trim().ToLowerInvariant();
         if (await db.StaffUsers.IgnoreQueryFilters().AnyAsync(u => u.Email == email, ct))
-            throw AppException.Conflict("email_taken", $"{email} already signs in to DineFlow.");
+            throw AppException.Conflict("email_taken", $"{email} already signs in to helloZen.");
 
         var tenant = new Tenant((request.LegalName ?? request.BusinessName).Trim(), request.BusinessName.Trim(), request.Country);
         tenant.Activate();

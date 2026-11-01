@@ -46,7 +46,7 @@
         <div class="relative flex-1">
           <button
             type="button"
-            class="flex min-h-12 w-full items-center justify-between rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-bold disabled:opacity-60"
+            class="flex min-h-12 w-full items-center justify-between rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-[15px] font-bold disabled:opacity-60"
             [attr.aria-label]="t.chooseMenu"
             [attr.aria-expanded]="pickerOpen()"
             [disabled]="!tree() || (tree()?.menus?.length ?? 0) < 2"
@@ -80,7 +80,7 @@
         </div>
 
         <!-- Grid / list toggle (P1-MENU-05) -->
-        <div class="flex overflow-hidden rounded-xl border-[1.5px] border-[#D0D5DD]" role="group">
+        <div class="flex overflow-hidden rounded-xl border-[1.5px] border-[#D4D4D4]" role="group">
           <button type="button" class="flex w-[46px] items-center justify-center" [class]="view() === 'grid' ? 'bg-ink text-white' : 'bg-white'"
                   [attr.aria-label]="t.gridView" [attr.aria-pressed]="view() === 'grid'" (click)="setView('grid')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></svg>
@@ -231,9 +231,9 @@
     <!-- Sticky order bar -->
     @if (cart.count() > 0) {
       <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
-        <a routerLink="/cart" class="flex min-h-14 w-full items-center justify-between rounded-[14px] bg-brand px-4.5 text-base font-bold text-white">
+        <a routerLink="/cart" class="flex min-h-14 w-full items-center justify-between rounded-[14px] bg-accent px-4.5 text-base font-bold text-ink">
           <span class="flex items-center gap-2.5">
-            <span class="flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-sm text-brand">{{ cart.count() }}</span>
+            <span class="flex h-7 min-w-7 items-center justify-center rounded-full bg-ink px-1.5 text-sm text-accent">{{ cart.count() }}</span>
             {{ t.viewOrder }}
           </span>
           <span>{{ money(cart.totalMinor()) }}</span>

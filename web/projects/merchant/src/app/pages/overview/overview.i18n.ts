@@ -68,7 +68,7 @@ const en = {
     }),
     reconciliation: v => ({
       title: v.count === 1 ? '1 reconciliation difference' : `${v.count} reconciliation differences`,
-      detail: "Between DineFlow, the acquirer's settlements and the POS"
+      detail: "Between helloZen, the acquirer's settlements and the POS"
     }),
     orders_waiting: v => ({
       title: v.count === 1 ? '1 order waiting to be accepted' : `${v.count} orders waiting to be accepted`,
@@ -133,7 +133,7 @@ export const OVERVIEW: Lexicon<typeof en> = {
       }),
       reconciliation: v => ({
         title: arCount(v.count, 'فرق واحد في المطابقة', 'فرقان في المطابقة', 'فروقات في المطابقة', 'فرقاً في المطابقة'),
-        detail: 'بين DineFlow وتسويات البنك المستحوذ ونظام نقاط البيع'
+        detail: 'بين helloZen وتسويات البنك المستحوذ ونظام نقاط البيع'
       }),
       orders_waiting: v => ({
         title: arCount(v.count, 'طلب واحد بانتظار القبول', 'طلبان بانتظار القبول', 'طلبات بانتظار القبول', 'طلباً بانتظار القبول'),

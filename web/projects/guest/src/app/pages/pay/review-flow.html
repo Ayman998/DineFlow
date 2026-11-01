@@ -4,7 +4,7 @@
 @switch (step()) {
   @case ('rate') {
     <!-- "Rate your experience": a sheet over the confirmation -->
-    <div class="fixed inset-0 z-30 mx-auto flex max-w-md flex-col justify-end bg-[#101828]/55" (click)="close()">
+    <div class="fixed inset-0 z-30 mx-auto flex max-w-md flex-col justify-end bg-[#111111]/55" (click)="close()">
       <div class="relative rounded-t-3xl bg-white px-5 pt-5 pb-[26px]" role="dialog" aria-modal="true" aria-labelledby="rate-title" (click)="$event.stopPropagation()">
         <button type="button" class="absolute end-3 top-3 flex size-11 items-center justify-center rounded-full bg-surface" [attr.aria-label]="t.skipRating" (click)="close()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
@@ -16,7 +16,7 @@
           @for (n of stars; track n) {
             <button type="button" role="radio" class="flex size-[52px] items-center justify-center" [attr.aria-checked]="r === n"
                     [attr.aria-label]="t.starLabel(n)" (click)="rating.set(n)">
-              <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" [attr.fill]="n <= r ? '#F5A524' : 'none'" [attr.stroke]="n <= r ? '#F5A524' : '#98A2B3'" stroke-width="1.5" stroke-linejoin="round">
+              <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" [attr.fill]="n <= r ? '#F5A524' : 'none'" [attr.stroke]="n <= r ? '#F5A524' : '#A3A3A3'" stroke-width="1.5" stroke-linejoin="round">
                 <path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.13l-5.62 2.97 1.07-6.27L2.9 9.4l6.3-.9z" />
               </svg>
             </button>
@@ -29,11 +29,11 @@
         </div>
 
         <label for="review-comment" class="mt-5 mb-1.5 block text-sm font-bold">{{ t.tellUsMore }}</label>
-        <textarea id="review-comment" class="h-[84px] w-full resize-none rounded-xl border-[1.5px] border-[#D0D5DD] p-3 text-sm font-medium outline-none focus:border-brand"
+        <textarea id="review-comment" class="h-[84px] w-full resize-none rounded-xl border-[1.5px] border-[#D4D4D4] p-3 text-sm font-medium outline-none focus:border-brand"
                   maxlength="1000" [placeholder]="t.writeHere" [value]="comment()" (input)="comment.set($any($event.target).value)"></textarea>
 
         @if (error()) { <p class="mt-2 text-sm font-semibold text-[#B42318]" role="alert">{{ error() }}</p> }
-        <button type="button" class="mt-4 min-h-14 w-full rounded-[14px] bg-brand text-base font-bold text-white disabled:bg-[#D0D5DD] disabled:text-ink-muted"
+        <button type="button" class="mt-4 min-h-14 w-full rounded-[14px] bg-accent text-base font-bold text-ink disabled:bg-[#D4D4D4] disabled:text-ink-muted"
                 [disabled]="!r || busy()" (click)="submit()">{{ busy() ? t.submitting : t.submit }}</button>
       </div>
     </div>
@@ -51,13 +51,13 @@
         <p class="text-[15px] leading-normal text-ink-muted">{{ t.publicBody(venueName()) }}</p>
         <div class="flex gap-1" role="img" [attr.aria-label]="t.yourRating(result()!.rating)">
           @for (n of stars; track n) {
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" [attr.fill]="n <= result()!.rating ? '#F5A524' : '#E4E7EC'"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.13l-5.62 2.97 1.07-6.27L2.9 9.4l6.3-.9z" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" [attr.fill]="n <= result()!.rating ? '#F5A524' : '#E6E6E6'"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.13l-5.62 2.97 1.07-6.27L2.9 9.4l6.3-.9z" /></svg>
           }
         </div>
       </div>
       <div class="flex flex-col gap-2.5 px-5 pb-7">
-        <button type="button" class="min-h-[54px] w-full rounded-[14px] bg-brand text-base font-bold text-white" (click)="openPublic()">{{ t.postOn(t.platformNames[pr.platform]) }}</button>
-        <button type="button" class="min-h-[54px] w-full rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white text-base font-bold" (click)="close()">{{ t.noThanks }}</button>
+        <button type="button" class="min-h-[54px] w-full rounded-[14px] bg-accent text-base font-bold text-ink" (click)="openPublic()">{{ t.postOn(t.platformNames[pr.platform]) }}</button>
+        <button type="button" class="min-h-[54px] w-full rounded-[14px] border-[1.5px] border-[#D4D4D4] bg-white text-base font-bold" (click)="close()">{{ t.noThanks }}</button>
       </div>
     </div>
   }
@@ -74,16 +74,16 @@
       <div class="flex-1 overflow-y-auto px-5 pb-6">
         <div class="mb-2.5 flex gap-1" role="img" [attr.aria-label]="t.yourRating(r)">
           @for (n of stars; track n) {
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" [attr.fill]="n <= r ? '#F5A524' : '#E4E7EC'"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.13l-5.62 2.97 1.07-6.27L2.9 9.4l6.3-.9z" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" [attr.fill]="n <= r ? '#F5A524' : '#E6E6E6'"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.13l-5.62 2.97 1.07-6.27L2.9 9.4l6.3-.9z" /></svg>
           }
         </div>
         <h2 id="feedback-title" class="text-2xl leading-tight font-extrabold">{{ t.feedbackTitle(result()?.feedbackTitle ?? null) }}</h2>
         <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">{{ t.feedbackBody(venueName()) }}</p>
 
         <label for="fb-comment" class="mt-3.5 mb-1.5 block text-sm font-bold">{{ t.whatBetter }}</label>
-        <textarea id="fb-comment" class="h-[110px] w-full resize-none rounded-xl border-[1.5px] border-[#D0D5DD] p-3 text-sm font-medium outline-none focus:border-brand"
+        <textarea id="fb-comment" class="h-[110px] w-full resize-none rounded-xl border-[1.5px] border-[#D4D4D4] p-3 text-sm font-medium outline-none focus:border-brand"
                   maxlength="1000" [placeholder]="t.shareWhat" [value]="comment()" (input)="comment.set($any($event.target).value)"></textarea>
-        <p class="mt-1.5 rounded-xl bg-[#F6F7F9] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">{{ t.contactAsk }}</p>
+        <p class="mt-1.5 rounded-xl bg-[#F7F7F7] px-3.5 py-3 text-[13px] leading-relaxed text-[#404040]">{{ t.contactAsk }}</p>
 
         <label for="fb-name" class="mt-3.5 mb-1.5 block text-sm font-bold">{{ t.nameLabel }}</label>
         <input id="fb-name" class="field-guest" autocomplete="name" maxlength="100" [placeholder]="t.namePlaceholder" [value]="name()" (input)="name.set($any($event.target).value)" />
@@ -103,7 +103,7 @@
         @if (error()) { <p class="mt-3 rounded-xl bg-[#FEE4E2] px-4 py-3 text-sm text-[#B42318]" role="alert">{{ error() }}</p> }
       </div>
       <div class="px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
-        <button type="submit" class="min-h-14 w-full rounded-[14px] bg-brand text-base font-bold text-white disabled:opacity-50" [disabled]="busy()">
+        <button type="submit" class="min-h-14 w-full rounded-[14px] bg-accent text-base font-bold text-ink disabled:opacity-50" [disabled]="busy()">
           {{ busy() ? t.submitting : t.sendFeedback }}
         </button>
       </div>

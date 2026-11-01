@@ -78,8 +78,8 @@ public class AlertService(IAppDbContext db, ITenantContext tenant, IWhatsAppSend
             ? new[] { $"{venue.Tenant.DisplayName} · {venue.NameFor(arabic)}", "تجربة", "تنبيهات الدفع تعمل", "لم يُخصم أي مبلغ" }
             : new[] { $"{venue.Tenant.DisplayName} · {venue.Name}", "Test", "Payment alerts are working", "No money moved" };
         var text = arabic
-            ? $"{parameters[0]}\nهذه رسالة تجريبية لتنبيهات الدفع من DineFlow. ستصلك رسالة مثلها مع كل دفعة."
-            : $"{parameters[0]}\nThis is a test of DineFlow payment alerts. You'll get a message like this for every payment.";
+            ? $"{parameters[0]}\nهذه رسالة تجريبية لتنبيهات الدفع من helloZen. ستصلك رسالة مثلها مع كل دفعة."
+            : $"{parameters[0]}\nThis is a test of helloZen payment alerts. You'll get a message like this for every payment.";
         var template = new WhatsAppTemplate(arabic ? Languages.Arabic : Languages.English, parameters).ToJson();
         foreach (var contact in contacts)
             db.NotificationDeliveries.Add(new NotificationDelivery(venue.TenantId, venue.Id, NotificationChannel.WhatsApp, NotificationKind.Test,
