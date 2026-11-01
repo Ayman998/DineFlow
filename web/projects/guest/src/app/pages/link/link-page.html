@@ -2,9 +2,9 @@
 @let l = link();
 @let r = result();
 
-<div class="flex min-h-dvh flex-col bg-[#F6F7F9]">
+<div class="flex min-h-dvh flex-col bg-[#F7F7F7]">
   <!-- Venue branding -->
-  <header class="px-5 pt-4 pb-6 text-white" [style.background-color]="l?.venue?.brandColor ?? '#0B3B38'">
+  <header class="px-5 pt-4 pb-6 text-white" [style.background-color]="l?.venue?.brandColor ?? '#111111'">
     <div class="flex justify-end">
       <button type="button" class="inline-flex min-h-11 items-center gap-2 rounded-full border-[1.5px] border-white/40 px-3.5 text-sm font-semibold"
               [attr.aria-label]="t.changeLanguage" (click)="i18n.toggle()">
@@ -22,7 +22,7 @@
         </div>
         <div class="min-w-0">
           <p class="truncate text-xl font-extrabold">{{ l.venue.brandName }}</p>
-          <p class="truncate text-sm text-[#CFE8E4]">{{ i18n.localize(l.venue.branchName, l.venue.branchNameAr) }}</p>
+          <p class="truncate text-sm text-white/75">{{ i18n.localize(l.venue.branchName, l.venue.branchNameAr) }}</p>
         </div>
       </div>
     } @else {
@@ -56,19 +56,19 @@
           @if (r.mode === 'Custom') { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.customAmount }}</span><span>{{ money(r.billAmountMinor) }}</span></div> }
           @if (r.tipMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.ofWhichTip }}</span><span>{{ money(r.tipMinor) }}</span></div> }
           <p class="py-1 text-[13px] text-ink-muted">{{ t.paidWith(methodText(r)) }}</p>
-          <div class="mt-2.5 flex justify-between border-t border-dashed border-[#D0D5DD] pt-2.5 text-xs text-ink-muted">
+          <div class="mt-2.5 flex justify-between border-t border-dashed border-[#D4D4D4] pt-2.5 text-xs text-ink-muted">
             <span>{{ t.reference(r.reference) }}</span><span>{{ when(r.succeededAt ?? r.createdAt) }}</span>
           </div>
         </section>
 
         <section class="mx-5 mt-3.5 flex flex-col gap-2.5">
           @if (sentTo(); as to) {
-            <p class="rounded-xl bg-[#E6F4F1] px-4 py-3 text-sm font-semibold text-[#0B3B38]" role="status">{{ t.receiptSent(to) }}</p>
+            <p class="rounded-xl bg-accent-soft px-4 py-3 text-sm font-semibold text-ink" role="status">{{ t.receiptSent(to) }}</p>
           } @else {
             <form class="flex flex-col gap-2.5" (submit)="$event.preventDefault(); sendReceipt()">
               <label for="receipt-email" class="text-sm font-bold">{{ t.receiptTitle }}</label>
               <input id="receipt-email" type="email" autocomplete="email" maxlength="254" required
-                     class="h-[50px] rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                     class="h-[50px] rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
                      [placeholder]="t.emailPlaceholder" [value]="email()" (input)="email.set($any($event.target).value)"
                      [attr.aria-invalid]="!!receiptError()" aria-describedby="receipt-error" />
               @if (receiptError()) { <p id="receipt-error" class="text-[13px] font-semibold text-[#B42318]" role="alert">{{ receiptError() }}</p> }
@@ -78,7 +78,7 @@
             </form>
           }
           @if (!r.fullyPaid && l?.status === 'Active') {
-            <button type="button" class="min-h-[52px] rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white font-bold" (click)="backToPayment()">{{ t.link.backToPayment }}</button>
+            <button type="button" class="min-h-[52px] rounded-[14px] border-[1.5px] border-[#D4D4D4] bg-white font-bold" (click)="backToPayment()">{{ t.link.backToPayment }}</button>
           }
         </section>
       </main>
@@ -90,11 +90,11 @@
         <h1 class="text-xl font-extrabold">{{ t.failedTitle }}</h1>
         @if (t.failureReason(r.failureReason); as reason) { <p class="font-semibold">{{ reason }}</p> }
         <p class="text-ink-muted">{{ t.failedBody }}</p>
-        <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="backToPayment()">{{ t.tryAgain }}</button>
+        <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-accent px-6 font-bold text-ink" (click)="backToPayment()">{{ t.tryAgain }}</button>
       </main>
     } @else {
       <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center" aria-live="polite">
-        <div class="size-12 animate-spin rounded-full border-4 border-[#D0D5DD] border-t-brand motion-reduce:animate-none" aria-hidden="true"></div>
+        <div class="size-12 animate-spin rounded-full border-4 border-[#D4D4D4] border-t-accent motion-reduce:animate-none" aria-hidden="true"></div>
         <h1 class="text-xl font-extrabold">{{ t.confirmingTitle }}</h1>
         <p class="text-ink-muted">{{ slow() ? t.stillWaiting : t.confirmingBody }}</p>
         @if (slow() && r.checkoutUrl) {
@@ -106,7 +106,7 @@
   } @else if (resultMissing()) {
     <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
       <h1 class="text-xl font-extrabold">{{ t.paymentNotFound }}</h1>
-      <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="backToPayment()">{{ t.link.backToPayment }}</button>
+      <button type="button" class="mt-2 min-h-12 rounded-[14px] bg-accent px-6 font-bold text-ink" (click)="backToPayment()">{{ t.link.backToPayment }}</button>
     </main>
   } @else if (loadError(); as code) {
     <main class="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
@@ -118,7 +118,7 @@
         <p class="text-ink-muted">{{ t.link.unavailableBody }}</p>
       } @else {
         <p class="text-ink-muted">{{ t.link.loadFailed }}</p>
-        <button type="button" class="min-h-12 rounded-[14px] bg-brand px-6 font-bold text-white" (click)="load()">{{ t.tryAgain }}</button>
+        <button type="button" class="min-h-12 rounded-[14px] bg-accent px-6 font-bold text-ink" (click)="load()">{{ t.tryAgain }}</button>
       }
     </main>
   } @else if (!l) {
@@ -186,11 +186,11 @@
               <div class="flex items-center justify-between gap-3">
                 <span class="text-sm font-semibold">{{ row.label }}</span>
                 <span class="flex items-center gap-3">
-                  <button type="button" class="flex size-11 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] text-lg font-bold disabled:opacity-40"
+                  <button type="button" class="flex size-11 items-center justify-center rounded-full border-[1.5px] border-[#D4D4D4] text-lg font-bold disabled:opacity-40"
                           [attr.aria-label]="t.link.fewer + ' · ' + row.label" [disabled]="row.value <= row.min"
                           (click)="row.set === 'people' ? setPeople(row.value - 1) : setShares(row.value - 1)">−</button>
                   <span class="w-6 text-center text-lg font-extrabold tabular-nums" aria-live="polite">{{ row.value }}</span>
-                  <button type="button" class="flex size-11 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] text-lg font-bold disabled:opacity-40"
+                  <button type="button" class="flex size-11 items-center justify-center rounded-full border-[1.5px] border-[#D4D4D4] text-lg font-bold disabled:opacity-40"
                           [attr.aria-label]="t.link.more + ' · ' + row.label" [disabled]="row.value >= row.max"
                           (click)="row.set === 'people' ? setPeople(row.value + 1) : setShares(row.value + 1)">+</button>
                 </span>
@@ -200,7 +200,7 @@
           </div>
         } @else if (mode() === 'Custom') {
           <label for="link-amount" class="mt-3 mb-1.5 block text-sm font-bold">{{ t.link.amountLabel(l.currency) }}</label>
-          <input id="link-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+          <input id="link-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
                  inputmode="decimal" autocomplete="off" maxlength="12" [value]="customText()" (input)="customText.set($any($event.target).value)"
                  [attr.aria-invalid]="!!customError()" aria-describedby="link-amount-help" />
           <p id="link-amount-help" class="mt-1 text-[13px]" [class]="customError() ? 'font-semibold text-[#B42318]' : 'text-ink-muted'">
@@ -236,7 +236,7 @@
         } @else {
           @let tip = customTip();
           <label for="link-tip" class="mt-3 mb-1.5 block text-sm font-bold">{{ t.customTipLabel }}</label>
-          <input id="link-tip" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+          <input id="link-tip" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
                  inputmode="decimal" autocomplete="off" maxlength="12" [placeholder]="t.customTipPlaceholder"
                  [value]="customTipText()" (input)="customTipText.set($any($event.target).value)"
                  [attr.aria-invalid]="tip && 'error' in tip" aria-describedby="link-tip-help" />
@@ -272,7 +272,7 @@
         <span class="text-[15px] font-extrabold">{{ t.youPay }}</span>
         <span class="text-xl font-extrabold">{{ money(total()) }}</span>
       </div>
-      <button type="button" class="min-h-14 w-full rounded-[14px] bg-ink text-base font-bold text-white disabled:bg-[#D0D5DD] disabled:text-ink-muted"
+      <button type="button" class="min-h-14 w-full rounded-[14px] bg-accent text-base font-bold text-ink disabled:bg-[#D4D4D4] disabled:text-ink-muted"
               [disabled]="!canPay()" (click)="pay()">
         @if (paying()) { {{ t.redirecting }} }
         @else if (method(); as m) { {{ t.payWith(money(total()), t.methodNames[m]) }} }

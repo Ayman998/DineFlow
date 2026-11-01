@@ -155,11 +155,11 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
                 "pos_stuck", new { refused }));
         }
 
-        // Reconciliation: money that doesn't add up between DineFlow, the acquirer and the POS.
+        // Reconciliation: money that doesn't add up between helloZen, the acquirer and the POS.
         var discrepancies = await db.Discrepancies.AsNoTracking().CountAsync(d => d.VenueId == venueId && d.Status == DiscrepancyStatus.Open, ct);
         if (discrepancies > 0)
             items.Add(new("reconciliation", discrepancies == 1 ? "1 reconciliation difference" : $"{discrepancies} reconciliation differences",
-                "Between DineFlow, the acquirer's settlements and the POS", discrepancies, "reconciliation"));
+                "Between helloZen, the acquirer's settlements and the POS", discrepancies, "reconciliation"));
 
         var waiting = await db.Orders.AsNoTracking().CountAsync(o => o.VenueId == venueId && o.Status == OrderStatus.Submitted
             && o.CreatedAt <= now - TimeSpan.FromMinutes(5), ct);

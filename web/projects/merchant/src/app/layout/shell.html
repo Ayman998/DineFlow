@@ -1,42 +1,59 @@
 <div class="flex min-h-full">
-  <aside class="w-60 shrink-0 border-e border-line bg-white print:hidden">
-    <div class="px-5 py-5 text-lg font-bold text-brand">DineFlow</div>
-    <nav class="flex flex-col gap-1 px-3">
+  <aside class="sticky top-0 flex h-dvh w-64 shrink-0 flex-col overflow-hidden bg-ink print:hidden">
+    <a routerLink="/overview" class="relative z-10 block px-6 pt-6 pb-7">
+      <df-logo class="text-[22px]" />
+    </a>
+    <nav class="relative z-10 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-6">
       @for (item of nav(); track item.path) {
         <a
           [routerLink]="item.path"
           routerLinkActive
           ariaCurrentWhenActive="page"
-          class="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand">
-          {{ t().nav[item.path] }}
+          class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/65 transition-colors hover:bg-white/8 hover:text-white aria-[current=page]:bg-accent aria-[current=page]:font-semibold aria-[current=page]:text-ink">
+          <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path [attr.d]="item.icon" />
+          </svg>
+          <span class="flex-1">{{ t().nav[item.path] }}</span>
           @if (item.path === 'orders' && live.counts().new) {
-            <span class="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-ink" [attr.aria-label]="t().newOrdersBadge(live.counts().new)">
+            <span class="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-ink group-aria-[current=page]:bg-ink group-aria-[current=page]:text-accent"
+                  [attr.aria-label]="t().newOrdersBadge(live.counts().new)">
               {{ live.counts().new }}
             </span>
           }
         </a>
       }
     </nav>
+    <!-- The flowing lines from the brand board. -->
+    <svg class="pointer-events-none absolute inset-x-0 bottom-0 h-36 w-full text-accent/20" viewBox="0 0 256 144" preserveAspectRatio="none" fill="none" stroke="currentColor" aria-hidden="true">
+      <path d="M-8 70C50 40 90 110 150 80S230 40 264 60M-8 82C50 52 90 122 150 92S230 52 264 72M-8 94C50 64 90 134 150 104S230 64 264 84M-8 106C50 76 90 146 150 116S230 76 264 96M-8 118C50 88 90 158 150 128S230 88 264 108M-8 130C50 100 90 170 150 140S230 100 264 120" />
+    </svg>
+    <p class="relative z-10 px-6 pb-5 text-[10px] font-semibold tracking-[0.35em] text-white/40 uppercase" dir="ltr">Pay · Split · Enjoy</p>
   </aside>
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="flex items-center justify-between border-b border-line bg-white px-8 py-3 print:hidden">
+    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-white/95 px-8 py-3 backdrop-blur print:hidden">
       <div class="text-sm">
         <span class="font-semibold">{{ auth.profile()?.tenantName }}</span>
         @if (currentVenue.venue(); as venue) {
           <span class="text-ink-muted"> · {{ venue.name }}</span>
         }
       </div>
-      <div class="flex items-center gap-4 text-sm">
-        <span class="flex items-center gap-1.5 text-xs font-semibold" role="status"
-              [class]="live.state() === 'live' ? 'text-emerald-700' : 'text-amber-800'">
+      <div class="flex items-center gap-3 text-sm">
+        <span class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" role="status"
+              [class]="live.state() === 'live' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'">
           <span class="size-2 rounded-full" [class]="live.state() === 'live' ? 'bg-emerald-500' : 'bg-amber-400'"></span>
           {{ live.state() === 'live' ? t().live : live.state() === 'offline' ? t().offline : t().connecting }}
         </span>
-        <span class="text-ink-muted">{{ auth.profile()?.displayName }} ({{ t().roles[auth.profile()?.role ?? ''] || auth.profile()?.role }})</span>
-        <button type="button" class="font-medium text-brand hover:underline" [attr.aria-label]="t().changeLanguage" (click)="i18n.toggle()"
+        <button type="button" class="rounded-full border border-line px-3 py-1 font-medium hover:border-ink/30 hover:bg-surface" [attr.aria-label]="t().changeLanguage" (click)="i18n.toggle()"
                 [attr.lang]="i18n.lang() === 'en' ? 'ar' : 'en'">{{ t().otherLanguage }}</button>
-        <button type="button" class="font-medium text-brand hover:underline" (click)="signOut()">{{ t().signOut }}</button>
+        <span class="ms-2 flex items-center gap-2.5 border-s border-line ps-4">
+          <span class="flex size-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-ink" aria-hidden="true">{{ initials() }}</span>
+          <span class="leading-tight">
+            <span class="block font-semibold">{{ auth.profile()?.displayName }}</span>
+            <span class="block text-xs text-ink-muted">{{ t().roles[auth.profile()?.role ?? ''] || auth.profile()?.role }}</span>
+          </span>
+        </span>
+        <button type="button" class="btn-ghost" (click)="signOut()">{{ t().signOut }}</button>
       </div>
     </header>
 

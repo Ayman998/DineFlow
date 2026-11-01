@@ -15,14 +15,14 @@
       }
     </div>
     <span class="flex items-center gap-1.5 text-xs font-semibold" [class]="updates.connected() ? 'text-brand' : 'text-ink-muted'" role="status">
-      <span class="size-2 rounded-full" [class]="updates.connected() ? 'bg-brand' : 'bg-[#D0D5DD]'"></span>
+      <span class="size-2 rounded-full" [class]="updates.connected() ? 'bg-brand' : 'bg-[#D4D4D4]'"></span>
       {{ updates.connected() ? t.liveUpdates : t.reconnecting }}
     </span>
   </header>
 
   <main class="flex-1 px-5 pb-32">
     @if (placed()) {
-      <p class="mb-4 rounded-xl bg-brand/10 px-4 py-3 text-sm font-semibold text-brand-dark" role="status">{{ t.orderSent }}</p>
+      <p class="mb-4 rounded-xl bg-accent-soft px-4 py-3 text-sm font-semibold text-ink" role="status">{{ t.orderSent }}</p>
     }
 
     @if (orders() === null) {
@@ -69,9 +69,9 @@
   </main>
 
   <div class="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md gap-3 bg-white px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
-    <a routerLink="/menu" class="flex min-h-14 flex-1 items-center justify-center rounded-[14px] bg-brand font-bold text-white">{{ t.orderMore }}</a>
+    <a routerLink="/menu" class="flex min-h-14 flex-1 items-center justify-center rounded-[14px] bg-accent font-bold text-ink">{{ t.orderMore }}</a>
     @if (ctx?.features?.payAtTable) {
-      <a routerLink="/bill" class="flex min-h-14 flex-1 items-center justify-center rounded-[14px] border-[1.5px] border-[#D0D5DD] font-bold">{{ t.payBill }}</a>
+      <a routerLink="/bill" class="flex min-h-14 flex-1 items-center justify-center rounded-[14px] border-[1.5px] border-[#D4D4D4] font-bold">{{ t.payBill }}</a>
     }
   </div>
 </div>

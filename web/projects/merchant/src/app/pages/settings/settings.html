@@ -174,7 +174,7 @@
       <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
     }
     @if (saved()) {
-      <p class="rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">{{ t.saved }}</p>
+      <p class="notice" role="status">{{ t.saved }}</p>
     }
 
     @if (auth.canManage()) {

@@ -7,7 +7,7 @@ import { OrderCountsStore } from './order-counts';
 
 /**
  * Page titles in the portal's language with the number of new orders in front, e.g.
- * "(2) Tables · DineFlow", so a background tab still shows that orders are waiting.
+ * "(2) Tables · helloZen", so a background tab still shows that orders are waiting.
  */
 @Injectable({ providedIn: 'root' })
 export class OrdersTitleStrategy extends TitleStrategy {
@@ -23,7 +23,7 @@ export class OrdersTitleStrategy extends TitleStrategy {
       const key = this.key();
       const t = this.t();
       const page = key === 'signIn' ? t.signIn : key ? t.nav[key] : null;
-      const base = page ? `${page} · DineFlow` : 'DineFlow Merchant';
+      const base = page ? `${page} · helloZen` : 'helloZen Merchant';
       const newOrders = this.counts().new;
       this.title.setTitle(newOrders ? `(${newOrders}) ${base}` : base);
     });

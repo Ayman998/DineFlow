@@ -100,8 +100,8 @@ public class ReportBuilder(IAppDbContext db)
             ? $"{report.BrandName} · {venueName}: التقرير {frequency} عن {period}"
             : $"{report.BrandName} · {venueName}: {frequency} report, {period}";
         var heading = arabic ? $"تقريرك {frequency} عن {period}" : $"Your {frequency} report for {period}";
-        var footer = T("Amounts include taxes and charges. Sent by DineFlow; change who gets it under Reports.",
-            "تشمل المبالغ الضرائب والرسوم. أرسله DineFlow؛ يمكنك تغيير المستلمين من صفحة التقارير.");
+        var footer = T("Amounts include taxes and charges. Sent by helloZen; change who gets it under Reports.",
+            "تشمل المبالغ الضرائب والرسوم. أرسله helloZen؛ يمكنك تغيير المستلمين من صفحة التقارير.");
 
         var text = new StringBuilder()
             .AppendLine($"{report.BrandName} · {venueName}")

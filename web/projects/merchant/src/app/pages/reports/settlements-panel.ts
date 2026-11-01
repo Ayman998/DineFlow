@@ -9,7 +9,7 @@ import { SETTLEMENTS } from './reports.i18n';
 
 /**
  * Reports → Settlements (blueprint 9.2): the acquirer's payout batches, imported from its
- * settlement report (CSV), each with its lines and what they matched in DineFlow.
+ * settlement report (CSV), each with its lines and what they matched in helloZen.
  */
 @Component({
   selector: 'df-settlements-panel',

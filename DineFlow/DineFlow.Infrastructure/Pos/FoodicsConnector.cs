@@ -16,7 +16,7 @@ public class FoodicsOptions
     /// <summary>Foodics API v5. Sandbox: https://api-sandbox.foodics.com/v5; production: https://api.foodics.com/v5.</summary>
     public string BaseUrl { get; set; } = "https://api-sandbox.foodics.com/v5";
 
-    /// <summary>The Foodics payment method DineFlow tenders are recorded under (create one named "DineFlow" in Foodics).</summary>
+    /// <summary>The Foodics payment method helloZen tenders are recorded under (create one named "helloZen" in Foodics).</summary>
     public string PaymentMethodId { get; set; } = "";
 
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(15);
@@ -100,7 +100,7 @@ public class FoodicsConnector(HttpClient http, IOptions<FoodicsOptions> options)
             ["type"] = DineIn,
             ["status"] = ActiveStatus,
             ["guests"] = 1,
-            ["reference"] = $"DineFlow #{order.Number}",
+            ["reference"] = $"helloZen #{order.Number}",
             ["kitchen_notes"] = order.Note,
             ["products"] = products,
             ["meta"] = new JsonObject { ["dineflow_order_id"] = order.ExternalOrderId }
@@ -112,7 +112,7 @@ public class FoodicsConnector(HttpClient http, IOptions<FoodicsOptions> options)
     public async Task<PosPostingResult> PostPaymentAsync(PosContext context, PosPayment payment, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(options.Value.PaymentMethodId))
-            throw new PosRejectedException("Set Pos:Foodics:PaymentMethodId to the Foodics payment method DineFlow payments are recorded under.");
+            throw new PosRejectedException("Set Pos:Foodics:PaymentMethodId to the Foodics payment method helloZen payments are recorded under.");
 
         var amount = Major(payment.AmountMinor, payment.Currency);
         var posted = await SendAsync(context, HttpMethod.Post, $"orders/{Uri.EscapeDataString(payment.CheckRef)}/payments", new JsonObject

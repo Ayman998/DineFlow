@@ -16,7 +16,7 @@
   <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
 }
 @if (notice()) {
-  <p class="mb-4 rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-dark" role="status">{{ notice() }}</p>
+  <p class="mb-4 notice" role="status">{{ notice() }}</p>
 }
 
 @if (loading()) {
@@ -85,7 +85,7 @@
                 <td class="px-5 py-2">
                   @if (menus.length) {
                     <div class="flex flex-wrap gap-1">
-                      @for (name of menus; track name) { <span class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand-dark">{{ name }}</span> }
+                      @for (name of menus; track name) { <span class="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-ink">{{ name }}</span> }
                     </div>
                   } @else {
                     <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">{{ t.itemsPage.notOnAnyMenu }}</span>

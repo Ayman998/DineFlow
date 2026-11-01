@@ -5,7 +5,7 @@ const RENDER_OPTIONS: QRCode.QRCodeToDataURLOptions = {
   margin: 1,
   width: 360,
   errorCorrectionLevel: 'M',
-  color: { dark: '#101828', light: '#ffffff' }
+  color: { dark: '#111111', light: '#ffffff' }
 };
 
 /** Renders a URL as a QR code image, generated in the browser. */

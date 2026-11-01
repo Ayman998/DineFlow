@@ -103,7 +103,7 @@ public static class DependencyInjection
         services.AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.Section))
             .Validate(o => o.Provider is EmailOptions.File or EmailOptions.Smtp, "Email:Provider must be 'file' or 'smtp'.")
-            .Validate(o => MimeKit.MailboxAddress.TryParse(o.From, out _), "Email:From must be an e-mail address, e.g. DineFlow <receipts@example.com>.")
+            .Validate(o => MimeKit.MailboxAddress.TryParse(o.From, out _), "Email:From must be an e-mail address, e.g. helloZen <receipts@example.com>.")
             .ValidateOnStart();
         if (configuration[$"{EmailOptions.Section}:Provider"] == EmailOptions.Smtp)
         {

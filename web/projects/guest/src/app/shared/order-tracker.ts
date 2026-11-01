@@ -14,13 +14,13 @@ import { I18n } from '../core/i18n';
       @for (label of labels(); track $index; let i = $index; let last = $last) {
         <li class="w-[62px] shrink-0 text-center" [attr.aria-current]="i === stage() ? 'step' : null">
           <span class="mx-auto flex size-[22px] items-center justify-center rounded-full text-[11px] font-extrabold"
-                [class]="i < stage() ? 'bg-brand/15 text-brand' : i === stage() ? 'bg-brand text-white' : 'border-2 border-[#D0D5DD] text-ink-muted'">
+                [class]="i < stage() ? 'bg-brand/15 text-brand' : i === stage() ? 'bg-accent text-ink' : 'border-2 border-[#D4D4D4] text-ink-muted'">
             {{ i < stage() ? '✓' : i + 1 }}
           </span>
           <span class="mt-1.5 block text-[11px] font-semibold" [class]="i <= stage() ? 'text-ink' : 'text-ink-muted'">{{ label }}</span>
         </li>
         @if (!last) {
-          <li aria-hidden="true" class="mx-1 mt-[10px] h-0.5 flex-1" [class]="i < stage() ? 'bg-brand' : 'bg-[#D0D5DD]'"></li>
+          <li aria-hidden="true" class="mx-1 mt-[10px] h-0.5 flex-1" [class]="i < stage() ? 'bg-brand' : 'bg-[#D4D4D4]'"></li>
         }
       }
     </ol>

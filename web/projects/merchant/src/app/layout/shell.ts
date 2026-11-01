@@ -9,6 +9,7 @@ import { Features } from '../core/features';
 import { I18n } from '../core/i18n';
 import { LiveOrders } from '../core/live-orders';
 import { formatMoney } from '../core/money';
+import { Logo } from '../shared/logo';
 import { NAV_ITEMS } from './nav';
 
 type Toast =
@@ -24,7 +25,7 @@ type Toast =
  */
 @Component({
   selector: 'df-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Logo],
   templateUrl: './shell.html'
 })
 export class Shell implements OnInit {
@@ -39,6 +40,9 @@ export class Shell implements OnInit {
   protected readonly toasts = signal<Toast[]>([]);
   protected readonly i18n = inject(I18n);
   protected readonly t = this.i18n.t;
+  /** "Rana Haddad" → "RH", for the avatar in the top bar. */
+  protected readonly initials = computed(() =>
+    (this.auth.profile()?.displayName ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toUpperCase());
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe(() => this.live.start());

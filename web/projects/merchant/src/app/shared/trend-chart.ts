@@ -10,9 +10,9 @@ export interface TrendValue {
   valueMinor: number;
 }
 
-/** Validated against the chart surface (lightness, chroma and 3:1 contrast). */
-const BAR = '#0E9384';
-const BAR_HOVER = '#0B7A6E';
+/** Zen black columns, well over 3:1 on the white chart surface; the hovered one turns Zen yellow. */
+const BAR = '#111111';
+const BAR_HOVER = '#F2C200';
 const HEIGHT = 240;
 const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
 
@@ -29,7 +29,7 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
       <svg [attr.width]="width()" [attr.height]="height" role="img" [attr.aria-label]="label()" direction="ltr" class="block">
         @for (tick of ticks(); track tick.value) {
           <line [attr.x1]="margin.left" [attr.x2]="width() - margin.right" [attr.y1]="tick.y" [attr.y2]="tick.y"
-                [attr.stroke]="tick.value === 0 ? '#D0D5DD' : '#EAECF0'" stroke-width="1" shape-rendering="crispEdges" />
+                [attr.stroke]="tick.value === 0 ? '#D4D4D4' : '#EBEBEB'" stroke-width="1" shape-rendering="crispEdges" />
           <text [attr.x]="margin.left - 8" [attr.y]="tick.y + 4" text-anchor="end" class="fill-ink-muted text-[11px]">{{ tick.text }}</text>
         }
         @for (bar of bars(); track bar.start; let i = $index) {

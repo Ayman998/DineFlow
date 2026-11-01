@@ -1,15 +1,20 @@
 @import "tailwindcss";
 
-/* DineFlow design tokens, taken from the Df3Pay mockups. */
+/* helloZen design tokens, from the brand board: Zen yellow #FFD100, Zen black #111111 and white. */
 @theme {
   --font-sans: "Plus Jakarta Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
-  --color-brand: #0f766e;
-  --color-brand-dark: #115e59;
-  --color-accent: #f5a524;
-  --color-ink: #101828;
-  --color-ink-muted: #475467;
-  --color-line: #e4e7ec;
-  --color-surface: #f2f4f7;
+  --font-logo: "Quicksand", "Plus Jakarta Sans", system-ui, sans-serif;
+  /* Links, selection and secondary actions: Zen black reads on white, and white reads on it. */
+  --color-brand: #111111;
+  --color-brand-dark: #000000;
+  /* Zen yellow: the logo, the main call to action on each page and highlights. Put ink on it, never white. */
+  --color-accent: #ffd100;
+  --color-accent-dark: #f2c200;
+  --color-accent-soft: #fff7d1;
+  --color-ink: #111111;
+  --color-ink-muted: #5c5c5c;
+  --color-line: #e6e6e6;
+  --color-surface: #f5f5f4;
 }
 
 html, body {
@@ -23,48 +28,53 @@ body {
   background: #ffffff;
 }
 
+::selection {
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+
 /* e-Menu pieces, from the "e-Menu home" and "Item customization" mockups. */
 @layer components {
   .chip {
-    @apply inline-flex min-h-11 shrink-0 items-center rounded-full border-[1.5px] border-[#D0D5DD] bg-white px-4.5 text-sm font-semibold whitespace-nowrap text-ink;
+    @apply inline-flex min-h-11 shrink-0 items-center rounded-full border-[1.5px] border-[#D4D4D4] bg-white px-4.5 text-sm font-semibold whitespace-nowrap text-ink;
   }
   .chip-on {
     @apply border-ink bg-ink text-white;
   }
   .tag {
-    @apply inline-block rounded-[10px] bg-surface px-2 py-0.5 text-[11px] font-semibold text-[#344054];
+    @apply inline-block rounded-[10px] bg-surface px-2 py-0.5 text-[11px] font-semibold text-[#404040];
   }
   .photo {
-    @apply flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-linear-gradient(135deg,#EAECF0_0_10px,#F2F4F7_10px_20px)] text-sm font-bold text-ink-muted;
+    @apply flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[repeating-linear-gradient(135deg,#EBEBEB_0_10px,#F4F4F4_10px_20px)] text-sm font-bold text-ink-muted;
   }
   .sum {
     @apply flex justify-between py-1 text-sm text-ink-muted;
   }
   .qty-btn {
-    @apply flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D0D5DD] bg-white text-lg font-bold disabled:cursor-not-allowed disabled:opacity-40;
+    @apply flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D4D4D4] bg-white text-lg font-bold disabled:cursor-not-allowed disabled:opacity-40;
   }
 
   /* Checkout pieces, from the "Checkout" mockup. */
   .tip-chip {
-    @apply inline-flex min-h-[52px] w-full flex-col items-center justify-center rounded-[14px] border-[1.5px] border-[#D0D5DD] bg-white px-1.5 text-[13px] font-bold whitespace-nowrap text-ink;
+    @apply inline-flex min-h-[52px] w-full flex-col items-center justify-center rounded-[14px] border-[1.5px] border-[#D4D4D4] bg-white px-1.5 text-[13px] font-bold whitespace-nowrap text-ink;
   }
   .tip-chip small {
     @apply text-[11px] font-medium text-ink-muted;
   }
   .tip-on {
-    @apply border-brand bg-brand text-white;
+    @apply border-ink bg-ink text-white;
   }
   .tip-on small {
-    @apply text-[#D1FADF];
+    @apply text-accent;
   }
   .pm {
     @apply mt-2 flex min-h-[52px] items-center gap-3 rounded-xl border-[1.5px] border-line px-3.5 text-[15px] font-semibold;
   }
   .pm-on {
-    @apply border-brand bg-[#E6F4F1];
+    @apply border-ink bg-accent-soft;
   }
   .pm-dot {
-    @apply size-[22px] shrink-0 rounded-full border-2 border-[#98A2B3];
+    @apply size-[22px] shrink-0 rounded-full border-2 border-[#A3A3A3];
   }
   .pm-on .pm-dot {
     @apply border-[6px] border-brand bg-white;
@@ -78,12 +88,12 @@ body {
     @apply bg-white text-ink shadow-[0_1px_3px_rgba(16,24,40,0.15)];
   }
   .qty-btn-on {
-    @apply border-brand bg-brand text-white;
+    @apply border-ink bg-ink text-white;
   }
 
   /* Text fields on the feedback form, from the "Private feedback form" mockup. */
   .field-guest {
-    @apply h-[50px] w-full rounded-xl border-[1.5px] border-[#D0D5DD] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand;
+    @apply h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-ink focus:ring-3 focus:ring-accent/40;
   }
 }
 
