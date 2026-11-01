@@ -2,6 +2,8 @@
 
 helloZen runs on one Linux server with Docker: SQL Server, the API, and Caddy, which serves both apps over HTTPS and forwards API calls. The same images run on Azure, AWS or any container host later; only this folder's compose file is specific to a single server.
 
+The pilot is hosted on MonsterASP (Windows hosting, no Docker) instead: see [monsterasp/README.md](monsterasp/README.md). The Mastercard checklist below applies to both.
+
 | Container | What it is | Data |
 |---|---|---|
 | `db` | SQL Server 2022 (Express edition by default) | `db-data` volume |

@@ -7,7 +7,12 @@
     "!/**/*__*",
     "!/**/*__*/**",
     "!/portal",
-    "!/portal/**"
+    "!/portal/**",
+    "!/v1/**",
+    "!/sandbox/**",
+    "!/hubs/**",
+    "!/media/**",
+    "!/health/**"
   ],
   "assetGroups": [
     {
