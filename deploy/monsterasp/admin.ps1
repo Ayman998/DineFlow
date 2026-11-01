@@ -2,8 +2,8 @@
 # MonsterASP has no shell, so these run here with the API's own code. From the repository root:
 #   .\deploy\monsterasp\admin.ps1 migrate
 #   .\deploy\monsterasp\admin.ps1 provision --business "Hashem Kitchen" --venue "Abdoun, Amman" --owner-email owner@example.jo --owner-name "Lina Haddad"
-# It asks for the database's connection string (Databases > your database in MonsterASP) without
-# echoing it, and forgets it when the command ends.
+# It asks for the database's Remote access connection string (Databases > db77252 > Remote access,
+# switched on while you run this) without echoing it, and forgets it when the command ends.
 param([Parameter(ValueFromRemainingArguments = $true)] [string[]] $Command)
 
 if (-not $Command) {
