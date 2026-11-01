@@ -10,7 +10,7 @@ const RENDER_OPTIONS: QRCode.QRCodeToDataURLOptions = {
 
 /** Renders a URL as a QR code image, generated in the browser. */
 @Component({
-  selector: 'df-qr-code',
+  selector: 'hz-qr-code',
   template: `
     @if (dataUrl(); as src) {
       <img [src]="src" [alt]="alt()" class="block size-full" />

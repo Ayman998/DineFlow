@@ -18,7 +18,7 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
  * orders and payments come in.
  */
 @Component({
-  selector: 'df-live-tables',
+  selector: 'hz-live-tables',
   template: `
     @let s = this.s();
     <div class="flex flex-wrap items-center gap-2" role="group" [attr.aria-label]="s.show">

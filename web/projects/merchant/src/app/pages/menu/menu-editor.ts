@@ -7,7 +7,7 @@ import { MENU } from './menu.i18n';
 
 /** Create or edit a menu: names, published flag and when it is served. */
 @Component({
-  selector: 'df-menu-editor',
+  selector: 'hz-menu-editor',
   imports: [FormsModule],
   template: `
     @let t = this.t();

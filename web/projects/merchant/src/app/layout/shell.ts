@@ -24,7 +24,7 @@ type Toast =
  * alerts on every page: new orders (toast, chime, nav badge and tab title) and payments.
  */
 @Component({
-  selector: 'df-shell',
+  selector: 'hz-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, Logo],
   templateUrl: './shell.html'
 })

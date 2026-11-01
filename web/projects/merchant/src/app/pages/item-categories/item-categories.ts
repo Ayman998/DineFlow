@@ -17,7 +17,7 @@ type CategoryDialog = { parentId: string | null; category: CategoryDto | null };
  * them on the Items page, and a menu shows a category when it links any of its items.
  */
 @Component({
-  selector: 'df-item-categories',
+  selector: 'hz-item-categories',
   imports: [NgTemplateOutlet, RouterLink, CategoryEditor],
   templateUrl: './item-categories.html'
 })

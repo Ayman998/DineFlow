@@ -19,9 +19,9 @@
   }
 
   @if (view() === 'reconciliation') {
-    <df-reconciliation-panel />
+    <hz-reconciliation-panel />
   } @else if (view() === 'settlements') {
-    <df-settlements-panel />
+    <hz-settlements-panel />
   } @else if (!features.current().emailReports) {
     <p class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">{{ t.emailOff }}</p>
   } @else {
@@ -117,7 +117,7 @@
         </section>
       </div>
 
-      <df-delivery-log class="h-fit" channel="Email" [title]="t.emailed" />
+      <hz-delivery-log class="h-fit" channel="Email" [title]="t.emailed" />
     </div>
   }
 </div>

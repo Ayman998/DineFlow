@@ -24,7 +24,7 @@ type TipChoice = { kind: 'none' } | { kind: 'preset'; basisPoints: number } | { 
  * secure page, and only the provider's confirmation marks the bill paid.
  */
 @Component({
-  selector: 'df-bill-page',
+  selector: 'hz-bill-page',
   imports: [RouterLink, SplitSheet],
   templateUrl: './bill-page.html'
 })

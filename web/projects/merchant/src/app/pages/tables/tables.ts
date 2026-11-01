@@ -28,7 +28,7 @@ export const LOCATION_TYPES: LocationType[] = ['Table', 'Counter', 'HotelRoom', 
  * QR code. Codes can be rotated, disabled, downloaded and printed as a sheet.
  */
 @Component({
-  selector: 'df-tables',
+  selector: 'hz-tables',
   imports: [ReactiveFormsModule, QrCode, LiveTables],
   templateUrl: './tables.html'
 })

@@ -10,7 +10,7 @@
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.toLookAt }}</p>
       <p class="mt-1 text-2xl font-semibold" [class.text-red-700]="q?.open">{{ q?.open ?? '–' }}</p></div>
-    <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.takenInDineFlow }}</p><p class="mt-1 text-xl font-semibold">{{ money(sum.ledger) }}</p></div>
+    <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.takenInHelloZen }}</p><p class="mt-1 text-xl font-semibold">{{ money(sum.ledger) }}</p></div>
     <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.settledByAcquirer }}</p><p class="mt-1 text-xl font-semibold">{{ money(sum.settled) }}</p>
       <p class="text-xs text-ink-muted">{{ t.feesAmount(money(sum.fees)) }}</p></div>
     <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.awaitingSettlement }}</p><p class="mt-1 text-xl font-semibold">{{ sum.awaiting }}</p>
@@ -88,7 +88,7 @@
             <tr>
               <th scope="col" class="px-5 py-2.5 text-start font-semibold">{{ t.day }}</th>
               <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.payments }}</th>
-              <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.dineflow }}</th>
+              <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.hellozen }}</th>
               <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.settled }}</th>
               <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.fees }}</th>
               <th scope="col" class="px-3 py-2.5 text-end font-semibold">{{ t.refunds }}</th>

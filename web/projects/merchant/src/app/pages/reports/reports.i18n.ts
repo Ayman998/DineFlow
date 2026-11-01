@@ -191,7 +191,7 @@ const settlementsEn = {
   date: 'Date',
   type: 'Type',
   acquirerOrder: 'Acquirer order',
-  dineflowPayment: 'helloZen payment',
+  hellozenPayment: 'helloZen payment',
   amount: 'Amount',
   fee: 'Fee',
   lineKinds: { Payment: 'Sale', Refund: 'Refund', Adjustment: 'Adjustment' } as Record<string, string>,
@@ -255,7 +255,7 @@ export const SETTLEMENTS: Lexicon<typeof settlementsEn> = {
     date: 'التاريخ',
     type: 'النوع',
     acquirerOrder: 'طلب البنك المستحوذ',
-    dineflowPayment: 'دفعة helloZen',
+    hellozenPayment: 'دفعة helloZen',
     amount: 'المبلغ',
     fee: 'الرسوم',
     lineKinds: { Payment: 'بيع', Refund: 'استرداد', Adjustment: 'تعديل' },
@@ -282,7 +282,7 @@ export interface DifferenceValues {
 const reconciliationEn = {
   kinds: {
     NotSettled: 'Not settled',
-    UnknownToDineFlow: 'Unknown to helloZen',
+    UnknownToHelloZen: 'Unknown to helloZen',
     AmountMismatch: 'Amount differs',
     RefundMismatch: 'Refund differs',
     NotInPos: 'Not in POS',
@@ -295,7 +295,7 @@ const reconciliationEn = {
     settled_twice: (d: DifferenceValues) =>
       d.count > 1 ? `${d.reference} appears ${d.count} times in settlements.` : `${d.reference} appears more than once in settlements.`,
     amount_mismatch: (d: DifferenceValues) => `${d.reference}: helloZen charged ${d.expected}, the acquirer settled ${d.actual}.`,
-    unknown_to_dineflow: (d: DifferenceValues) =>
+    unknown_to_hellozen: (d: DifferenceValues) =>
       `The acquirer settled ${d.actual} for ${d.reference}, which helloZen has no successful payment for.`,
     refund_missing: (d: DifferenceValues) => `A refund of ${d.expected} on ${d.reference} isn't in any settlement.`,
     refund_amount: (d: DifferenceValues) =>
@@ -309,7 +309,7 @@ const reconciliationEn = {
   resolved: (reference: string) => `Resolved ${reference}.`,
   // Totals
   toLookAt: 'Differences to look at',
-  takenInDineFlow: 'Taken in helloZen (30 days)',
+  takenInHelloZen: 'Taken in helloZen (30 days)',
   settledByAcquirer: 'Settled by the acquirer',
   feesAmount: (amount: string) => `Fees ${amount}`,
   awaitingSettlement: 'Awaiting settlement',
@@ -335,7 +335,7 @@ const reconciliationEn = {
   noDays: 'No days reconciled yet.',
   day: 'Day',
   payments: 'Payments',
-  dineflow: 'helloZen',
+  hellozen: 'helloZen',
   settled: 'Settled',
   fees: 'Fees',
   refunds: 'Refunds',
@@ -358,7 +358,7 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
   ar: {
     kinds: {
       NotSettled: 'لم تُسوَّ',
-      UnknownToDineFlow: 'غير معروفة لدى helloZen',
+      UnknownToHelloZen: 'غير معروفة لدى helloZen',
       AmountMismatch: 'عدم تطابق المبلغ',
       RefundMismatch: 'عدم تطابق الاسترداد',
       NotInPos: 'غير موجودة في نقاط البيع',
@@ -372,7 +372,7 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
           ? `${d.reference} تظهر ${arCount(d.count, 'مرة واحدة', 'مرتين', 'مرات', 'مرة')} في التسويات.`
           : `${d.reference} تظهر أكثر من مرة في التسويات.`,
       amount_mismatch: (d: DifferenceValues) => `${d.reference}: حصّل helloZen ${d.expected}، بينما سوّى البنك المستحوذ ${d.actual}.`,
-      unknown_to_dineflow: (d: DifferenceValues) =>
+      unknown_to_hellozen: (d: DifferenceValues) =>
         `سوّى البنك المستحوذ ${d.actual} لـ ${d.reference}، ولا توجد لدى helloZen دفعة ناجحة مقابلها.`,
       refund_missing: (d: DifferenceValues) => `استرداد بقيمة ${d.expected} على ${d.reference} غير موجود في أي تسوية.`,
       refund_amount: (d: DifferenceValues) =>
@@ -386,7 +386,7 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
     noteRequired: 'أضف ملاحظة قصيرة توضّح سبب قبول ذلك.',
     resolved: (reference: string) => `تمت معالجة ${reference}.`,
     toLookAt: 'فروقات بحاجة إلى مراجعة',
-    takenInDineFlow: 'المحصّل في helloZen (آخر 30 يوماً)',
+    takenInHelloZen: 'المحصّل في helloZen (آخر 30 يوماً)',
     settledByAcquirer: 'ما سوّاه البنك المستحوذ',
     feesAmount: (amount: string) => `الرسوم ${amount}`,
     awaitingSettlement: 'بانتظار التسوية',
@@ -410,7 +410,7 @@ export const RECONCILIATION: Lexicon<typeof reconciliationEn> = {
     noDays: 'لم تتم مطابقة أي يوم بعد.',
     day: 'يوم العمل',
     payments: 'الدفعات',
-    dineflow: 'helloZen',
+    hellozen: 'helloZen',
     settled: 'المسوّى',
     fees: 'الرسوم',
     refunds: 'الاستردادات',

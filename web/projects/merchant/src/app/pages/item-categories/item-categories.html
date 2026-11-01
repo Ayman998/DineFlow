@@ -68,7 +68,7 @@
 </ng-template>
 
 @if (dialog(); as d) {
-  <df-category-editor
+  <hz-category-editor
     [title]="d.category ? t.categoriesPage.renameCategory : d.parentId ? t.categoriesPage.newSubcategory : t.categoriesPage.newCategory"
     [initial]="d.category"
     (saved)="save($event)"

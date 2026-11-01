@@ -25,7 +25,7 @@ const PATIENCE_MS = 60_000;
  * with ?payment=…, and the page waits for the provider's confirmation.
  */
 @Component({
-  selector: 'df-link-page',
+  selector: 'hz-link-page',
   templateUrl: './link-page.html'
 })
 export class LinkPage implements OnInit {

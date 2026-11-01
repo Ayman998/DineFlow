@@ -22,7 +22,7 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
  * the same numbers are available as a table.
  */
 @Component({
-  selector: 'df-trend-chart',
+  selector: 'hz-trend-chart',
   template: `
     @let t = this.t();
     <div class="relative" (mouseleave)="hovered.set(null)">

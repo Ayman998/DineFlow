@@ -21,7 +21,7 @@ const TIME_ZONES = [
 
 /** Venue profile, branding and guest features (P1-MER-01); the team and passwords; WhatsApp alerts; the audit log for managers. */
 @Component({
-  selector: 'df-settings',
+  selector: 'hz-settings',
   imports: [ReactiveFormsModule, AlertSettingsPanel, AuditLog, PosSettingsPanel, TeamSettingsPanel],
   templateUrl: './settings.html'
 })

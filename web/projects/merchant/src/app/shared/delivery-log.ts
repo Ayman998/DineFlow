@@ -12,7 +12,7 @@ import { DELIVERY_LOG } from './delivery-log.i18n';
  * managers. Refreshes every 15 seconds while it's on screen, since sending happens in the background.
  */
 @Component({
-  selector: 'df-delivery-log',
+  selector: 'hz-delivery-log',
   template: `
     @let t = this.t();
     @let d = data();

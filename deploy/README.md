@@ -1,6 +1,6 @@
 # Running the Amman pilot
 
-DineFlow runs on one Linux server with Docker: SQL Server, the API, and Caddy, which serves both apps over HTTPS and forwards API calls. The same images run on Azure, AWS or any container host later; only this folder's compose file is specific to a single server.
+helloZen runs on one Linux server with Docker: SQL Server, the API, and Caddy, which serves both apps over HTTPS and forwards API calls. The same images run on Azure, AWS or any container host later; only this folder's compose file is specific to a single server.
 
 | Container | What it is | Data |
 |---|---|---|
@@ -13,7 +13,15 @@ DineFlow runs on one Linux server with Docker: SQL Server, the API, and Caddy, w
 - A Linux VPS with 2 vCPU, 4 GB RAM and 40 GB disk is enough for a pilot. SQL Server needs at least 2 GB of RAM. A data centre close to Jordan keeps the guest app fast, for example a Jordanian host or a Gulf region.
 - Install Docker Engine with the Compose plugin.
 - Open ports 80 and 443 only. Keep SSH on a key, not a password.
-- Create two DNS A records pointing at the server, for example `dine.example.jo` for guests (printed on the QR codes) and `portal.example.jo` for staff. Caddy can only get certificates once DNS resolves.
+- Point two names at the server. `hello-zen.com` is registered at Spaceship, which also hosts its DNS (`launch1.spaceship.net` and `launch2.spaceship.net`). In Spaceship, type **Advanced DNS** into the Launchpad search, pick `hello-zen.com`, and add two A records under **Add record → A**:
+
+  | Host | Value | What it serves |
+  |---|---|---|
+  | `dine` | the server's public IPv4 | The guest app, `dine.hello-zen.com`. It's printed on the QR codes, so don't change it later |
+  | `portal` | the server's public IPv4 | The merchant portal, `portal.hello-zen.com` |
+
+  Leave `@` (`hello-zen.com` itself) alone. It still shows Spaceship's parking page and is kept free for a website. Caddy can only get certificates once DNS resolves, so check that `nslookup dine.hello-zen.com` and `nslookup portal.hello-zen.com` return the server's IP before the first start.
+- Receipts are sent from `receipts@hello-zen.com`. Add the domain to the mail provider whose SMTP server you use (Microsoft 365, Google Workspace, Spacemail…). Then add the SPF, DKIM and DMARC records it gives you on the same Advanced DNS page. Without them, receipts land in spam.
 
 ## 2. First start
 
@@ -40,7 +48,7 @@ Check that it's up:
 
 ```bash
 docker compose ps
-curl -s https://portal.example.jo/health/ready
+curl -s https://portal.hello-zen.com/health/ready
 docker compose logs api --tail 50
 ```
 
@@ -60,7 +68,7 @@ The defaults suit Amman: JOD, Asia/Amman, Arabic first, 16% sales tax, 10% servi
 
 The owner then:
 
-1. Signs in at `https://portal.example.jo` and replaces the password under **Settings → Team → Your password**.
+1. Signs in at `https://portal.hello-zen.com` and replaces the password under **Settings → Team → Your password**.
 2. Adds managers and waiters under **Settings → Team**. Each person gets a temporary password shown once.
 3. Builds the menu, prints the QR codes from **Tables**, and works through **Go-live** in the portal.
 
@@ -77,7 +85,7 @@ The acquirer (for example MEPS, Network International or your bank) gives you te
 3. Ask the acquirer to enable the payment methods you'll offer (cards, Apple Pay) and 3-D Secure on the test profile.
 4. Run `docker compose up -d api` to restart with the new settings.
 
-**In DineFlow (each step ticks a Go-live check):**
+**In helloZen (each step ticks a Go-live check):**
 
 | # | Do this | Go-live check |
 |---|---|---|
@@ -106,6 +114,8 @@ docker compose up -d
 ```
 
 Set `TAG=1.0.0` in `.env` to pin a release. Set it back to the previous tag and run `up -d` to roll back. Run a backup first, because migrations don't roll back by themselves.
+
+**Upgrading from a DineFlow release.** The project was renamed to helloZen, and the images are now `hellozen-api` and `hellozen-web`. Push a new tag first so those images exist. Then copy the new `deploy` folder to the server, and remove `IMAGE_PREFIX` from `.env` if it still points at `.../dineflow`. The Compose project, its volumes and the database keep the name `dineflow`/`DineFlow`, so data and Data Protection keys carry over. Sign-in tokens now carry the new issuer, so staff sign in again and guests at a table rescan its QR code. Deploy at a quiet time.
 
 ## 6. Backups
 

@@ -13,7 +13,7 @@ import { POS_SETTINGS } from './settings.i18n';
  * with a retry. With the simulated POS, its checks and a failure switch for trying the hard cases.
  */
 @Component({
-  selector: 'df-pos-settings',
+  selector: 'hz-pos-settings',
   templateUrl: './pos-settings.html'
 })
 export class PosSettingsPanel implements OnInit {

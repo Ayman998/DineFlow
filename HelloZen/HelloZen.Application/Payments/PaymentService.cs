@@ -1,0 +1,591 @@
+using System.Globalization;
+using System.Net;
+using System.Text;
+using HelloZen.Application.Abstractions;
+using HelloZen.Application.Bills;
+using HelloZen.Application.Common;
+using HelloZen.Application.Notifications;
+using HelloZen.Application.PaymentLinks;
+using HelloZen.Application.Pos;
+using HelloZen.Application.Promotions;
+using HelloZen.Domain.Bills;
+using HelloZen.Domain.Common;
+using HelloZen.Domain.Orders;
+using HelloZen.Domain.Payments;
+using HelloZen.Domain.Venues;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+
+namespace HelloZen.Application.Payments;
+
+/// <summary>
+/// Paying all or part of the table's bill (blueprint 3.2, 7.x): the server works out the
+/// guest's share (the rest, equal shares, their items or an amount), applies tip and promotion,
+/// reserves that share so nobody else can pay it too, hands the guest to the provider's hosted
+/// page, and only marks the payment paid when the provider's signed webhook says so.
+/// </summary>
+public class PaymentService(
+    IAppDbContext db,
+    BillService bills,
+    PromotionService promotions,
+    IPaymentProvider provider,
+    IPaymentNotifier notifier,
+    IEmailSender email,
+    PaymentAlerts alerts,
+    PosSync pos,
+    IOptions<PaymentOptions> paymentOptions,
+    IOptions<GuestOptions> guestOptions,
+    TimeProvider clock)
+{
+    public async Task<PaymentDto> CreateAsync(CreatePaymentRequest request, CancellationToken ct)
+    {
+        // A retry of a request that already got through returns the same payment and page.
+        var existing = await FindRequestAsync(request, ct);
+        if (existing is not null && existing.Status != PaymentStatus.Created) return await ToDtoAsync(existing, ct);
+
+        if (!request.AcceptTerms)
+            throw AppException.BadRequest("terms_required", "Please accept the Terms and Conditions to pay.");
+        if (!provider.SupportedMethods.Contains(request.Method))
+            throw AppException.BadRequest("method_unavailable", "That payment method isn't available here.");
+
+        var table = await bills.LoadTableAsync(request.SessionId, ct);
+        var venue = table.Venue;
+        if (request.TipMinor > 0 && !venue.TipsEnabled)
+            throw AppException.BadRequest("tips_disabled", "This venue doesn't take tips through the app.");
+
+        // Reserve this guest's share. If another guest changes the bill at the same moment, the
+        // check's revision makes one save fail, and that guest's numbers are worked out again.
+        var payment = await Concurrency.RetryAsync(db, async () =>
+        {
+            if (await FindRequestAsync(request, ct) is { } again) return again;
+
+            var check = await bills.OpenCheckAsync(table.Location.Id, tracked: true, ct)
+                ?? throw AppException.Conflict("nothing_to_pay", "There's nothing left to pay on this bill.",
+                    await bills.GetForSessionAsync(request.SessionId, ct));
+            var state = await bills.LoadStateAsync(check, ct, trackClaims: true);
+            BillDto Bill() => bills.ToDto(state, request.SessionId, venue, table.Location);
+
+            if (state.Orders.Count == 0 || state.OpenMinor <= 0)
+                throw AppException.Conflict("nothing_to_pay", "There's nothing left to pay on this bill.", Bill());
+
+            var available = state.AvailableFor(request.SessionId);
+            var held = state.HeldBy(request.SessionId);
+            var principal = ShareOf(request, state, available, held, Bill);
+
+            if (principal <= 0)
+                throw AppException.Conflict("payment_in_progress", "Someone at your table is paying the rest of the bill right now. Please wait a moment.", Bill());
+            if (principal != request.ExpectedAmountMinor)
+                throw AppException.Conflict("bill_changed", "The bill has changed. Please check the new amount.", Bill());
+            if (request.TipMinor > Venue.MaxTipMinor(principal))
+                throw AppException.BadRequest("tip_too_high", "A tip can be at most 20% of the amount you're paying.");
+
+            Guid? promoId = null;
+            string? promoCode = null;
+            long discount = 0;
+            if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            {
+                var (promo, evaluation) = await promotions.EvaluateAsync(request.PromoCode, principal, ct);
+                (promoId, promoCode, discount) = (promo.Id, promo.Code, evaluation.DiscountMinor);
+            }
+
+            Payment created;
+            try
+            {
+                created = new Payment(venue.TenantId, venue.Id, check.Id, request.SessionId, request.ClientRequestId,
+                    provider.Name, request.Method, request.Mode, request.Shares, check.SplitPeople, check.Currency,
+                    principal, discount, request.TipMinor, promoId, promoCode, paymentOptions.Value.TermsVersion, state.Now);
+            }
+            catch (DomainException ex)
+            {
+                throw AppException.BadRequest("invalid_payment", ex.Message);
+            }
+
+            if (request.Mode == PaymentMode.Items)
+                foreach (var claim in held) claim.AttachPayment(created.Id, created.PayableUntil);
+            else
+                db.ItemClaims.RemoveRange(held); // paying an amount instead of the items this guest had picked
+
+            check.Touch();
+            db.Payments.Add(created);
+            await db.SaveChangesAsync(ct);
+            return created;
+        });
+
+        if (payment.Status != PaymentStatus.Created) return await ToDtoAsync(payment, ct);
+
+        var guestApp = guestOptions.Value.AppBaseUrl.TrimEnd('/');
+        var checkout = await provider.CreateCheckoutAsync(new ProviderCheckoutRequest(
+            payment.Id, payment.Reference, payment.AmountMinor, payment.Currency, payment.Method,
+            $"{venue.Tenant.DisplayName} · {venue.Name}",
+            ReturnUrl: $"{guestApp}/pay/{payment.Id}",
+            CancelUrl: $"{guestApp}/pay/{payment.Id}?cancelled=1"), ct);
+
+        payment.AttachProvider(checkout.ProviderPaymentId, checkout.RedirectUrl, clock.GetUtcNow());
+        await db.SaveChangesAsync(ct);
+        await notifier.TableBillChangedAsync(payment.TenantId, table.Location.Id, "payment", ct);
+        return await ToDtoAsync(payment, ct);
+    }
+
+    /// <summary>How much of the bill this request pays, before discount and tip.</summary>
+    private static long ShareOf(CreatePaymentRequest request, CheckState state, long available, IReadOnlyList<ItemClaim> held, Func<BillDto> bill)
+    {
+        switch (request.Mode)
+        {
+            case PaymentMode.Full:
+                return available;
+
+            case PaymentMode.Custom:
+                if (request.AmountMinor is not { } amount)
+                    throw AppException.BadRequest("amount_required", "Enter the amount you want to pay.");
+                if (amount > available)
+                    throw AppException.Conflict("amount_too_high", "That's more than is left to pay.", bill());
+                return amount;
+
+            case PaymentMode.Equal:
+                if (!state.CanSplitEquallyFor(request.SessionId))
+                    throw AppException.Conflict("equal_unavailable", "Your table is paying by item, so the bill can't be split equally.", bill());
+                if (state.SharesLeft is not { } left)
+                    throw AppException.Conflict("split_not_set", "Choose how many people are splitting the bill first.", bill());
+                if (request.Shares is not { } shares || shares > left)
+                    throw AppException.Conflict("bill_changed", left switch
+                    {
+                        0 => "Every share has been paid or is being paid.",
+                        1 => "Only one share is left to pay.",
+                        _ => $"Only {left} shares are left to pay."
+                    }, bill());
+                return BillAllocation.EqualShare(available, left, shares);
+
+            case PaymentMode.Items:
+                // Items already held stay payable even if someone has since paid an amount: they were reserved.
+                if (held.Count == 0)
+                    throw AppException.Conflict("no_items_selected", "Your selection has expired. Select the items you're paying for again.", bill());
+                return held.Sum(c => c.AmountMinor);
+
+            default:
+                throw AppException.BadRequest("invalid_payment", "Choose how you want to pay.");
+        }
+    }
+
+    public async Task<PaymentDto> GetAsync(Guid sessionId, Guid paymentId, CancellationToken ct) =>
+        await ToDtoAsync(await FindForSessionAsync(sessionId, paymentId, ct), ct);
+
+    /// <summary>The guest came back from the provider's page without paying.</summary>
+    public async Task<PaymentDto> CancelAsync(Guid sessionId, Guid paymentId, CancellationToken ct)
+    {
+        var payment = await FindForSessionAsync(sessionId, paymentId, ct);
+        var wasFinal = payment.IsFinal;
+        payment.Cancel(clock.GetUtcNow());
+        if (!wasFinal) await ReturnItemsAsync(payment, ct);
+        await db.SaveChangesAsync(ct);
+
+        if (!wasFinal)
+            await notifier.TableBillChangedAsync(payment.TenantId, (await LocationAsync(payment, ct)).Id, "payment", ct);
+        return await ToDtoAsync(payment, ct);
+    }
+
+    /// <summary>
+    /// Whether the provider may still complete this payment. The sandbox page asks before taking
+    /// a card, so a payment that was cancelled or has lapsed can't go through.
+    /// </summary>
+    public async Task<bool> IsAwaitingProviderAsync(string providerName, string providerPaymentId, CancellationToken ct)
+    {
+        var payment = await db.Payments.IgnoreQueryFilters().AsNoTracking()
+            .SingleOrDefaultAsync(p => p.Provider == providerName && p.ProviderPaymentId == providerPaymentId, ct);
+        if (payment is null || !payment.IsInFlight(clock.GetUtcNow())) return false;
+        // A link the merchant has deactivated takes no more money, even from a payment already under way.
+        return payment.PaymentLinkId is not { } linkId
+            || await db.PaymentLinks.IgnoreQueryFilters().AnyAsync(l => l.Id == linkId && l.Status != PaymentLinkStatus.Cancelled, ct);
+    }
+
+    /// <summary>
+    /// Applies a provider webhook (authoritative, blueprint 7.1). Unsigned or tampered events are
+    /// rejected; repeated events are skipped; a success writes the ledger, marks the items paid,
+    /// counts the promotion, closes the bill when nothing is left, and tells staff and the table.
+    /// A failure gives the guest their items back to try again.
+    /// </summary>
+    public async Task HandleWebhookAsync(string providerName, string body, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
+    {
+        if (!string.Equals(providerName, provider.Name, StringComparison.OrdinalIgnoreCase))
+            throw AppException.NotFound("provider_not_found", "Unknown payment provider.");
+
+        ProviderWebhookEvent webhook;
+        try { webhook = provider.ParseWebhook(body, headers); }
+        catch (InvalidWebhookException ex) { throw AppException.BadRequest("invalid_webhook", ex.Message); }
+
+        await ApplyEventAsync(webhook, ct, viaWebhook: true);
+    }
+
+    /// <summary>
+    /// Applies a provider's verdict on a payment or refund, whether it came by webhook or by asking the
+    /// provider (<see cref="IPaymentStatusSource"/>). Each event id is applied once, so the same outcome
+    /// arriving both ways is counted once.
+    /// </summary>
+    /// <param name="viaWebhook">True for the provider's signed webhook, false for a status check.</param>
+    public async Task ApplyEventAsync(ProviderWebhookEvent webhook, CancellationToken ct, bool viaWebhook = false)
+    {
+        // Webhooks carry no tenant, so these lookups bypass the tenant filter.
+        var processed = await db.ProcessedWebhooks.SingleOrDefaultAsync(w => w.Provider == provider.Name && w.EventId == webhook.EventId, ct);
+        if (processed is not null)
+        {
+            // Already applied by a status check: only note that the webhook works too.
+            if (viaWebhook && !processed.ViaWebhook)
+            {
+                processed.MarkWebhookReceived();
+                await db.SaveChangesAsync(ct);
+            }
+            return;
+        }
+
+        var now = clock.GetUtcNow();
+        if (webhook.ProviderRefundId is { } providerRefundId)
+        {
+            await ApplyRefundAsync(webhook, providerRefundId, viaWebhook, now, ct);
+            return;
+        }
+
+        var payment = await db.Payments.IgnoreQueryFilters()
+            .SingleOrDefaultAsync(p => p.Provider == provider.Name && p.ProviderPaymentId == webhook.ProviderPaymentId, ct);
+
+        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, webhook.Status.ToString(), viaWebhook, now));
+        var wasFinal = payment?.IsFinal ?? true;
+        var succeeded = payment?.Apply(webhook.Status, webhook.CardBrand, webhook.CardLast4, webhook.FailureReason, now) ?? false;
+        var failed = !wasFinal && payment!.Status is PaymentStatus.Failed or PaymentStatus.Cancelled;
+
+        if (succeeded)
+        {
+            db.LedgerEntries.AddRange(LedgerEntry.ForSucceededPayment(payment!, now));
+            // If the payment arrived so late that its items had already gone to someone else, the
+            // ledger still records the money; the bill can't go below zero and the extra is refunded.
+            foreach (var claim in await ClaimsOfAsync(payment!, ct)) claim.MarkPaid();
+            if (payment!.PromoCodeId is { } promoId)
+            {
+                var promo = await db.PromoCodes.IgnoreQueryFilters().SingleAsync(p => p.Id == promoId, ct);
+                promo.Redeem();
+            }
+        }
+        else if (failed)
+        {
+            await ReturnItemsAsync(payment!, ct);
+        }
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            if (await IsDuplicateAsync(webhook.EventId, ct)) return; // handled in parallel; that one won
+            throw;
+        }
+
+        if (payment?.PaymentLinkId is { } linkId)
+        {
+            if (succeeded) await SettleLinkAsync(payment, linkId, ct);
+            return;
+        }
+        if (failed)
+        {
+            await notifier.TableBillChangedAsync(payment!.TenantId, (await LocationAsync(payment, ct)).Id, "payment", ct);
+            return;
+        }
+        if (!succeeded) return;
+
+        var totals = await bills.TotalsAsync(payment!.CheckId!.Value, ct);
+        if (totals.RemainingMinor == 0)
+        {
+            var check = await db.Checks.IgnoreQueryFilters().SingleAsync(c => c.Id == payment.CheckId, ct);
+            check.Close(now);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var location = await LocationAsync(payment, ct);
+        var itemCount = await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == payment.Id, ct);
+        await notifier.PaymentSucceededAsync(new PaymentNotice(
+            payment.TenantId, payment.VenueId, location.Id, location.Type.ToString(), location.Label, location.DiningArea?.Name,
+            payment.Id, payment.Reference, payment.Currency, payment.AmountMinor, payment.TipMinor,
+            totals.RemainingMinor, totals.RemainingMinor == 0,
+            payment.Mode, payment.Shares, payment.SplitPeople, itemCount), ct);
+        await pos.PaymentSucceededAsync(payment, ct);
+        await alerts.QueueTableAsync(payment, location, totals.RemainingMinor, ct);
+    }
+
+    /// <summary>
+    /// A payment through a link went through: once nothing is left to pay, the link closes by
+    /// itself (P1-LNK-02), and staff are told either way.
+    /// </summary>
+    private async Task SettleLinkAsync(Payment payment, Guid linkId, CancellationToken ct)
+    {
+        var (link, totals) = await Concurrency.RetryAsync(db, async () =>
+        {
+            var link = await db.PaymentLinks.IgnoreQueryFilters().SingleAsync(l => l.Id == linkId, ct);
+            var totals = await LinkTotals.LoadAsync(db, link, clock.GetUtcNow(), ct);
+            if (totals.RemainingMinor == 0 && link.Status == PaymentLinkStatus.Active)
+            {
+                link.MarkPaid(clock.GetUtcNow());
+                await db.SaveChangesAsync(ct);
+            }
+            return (link, totals);
+        });
+
+        await notifier.PaymentLinkPaidAsync(new PaymentLinkNotice(
+            payment.TenantId, payment.VenueId, link.Id, link.Code, link.Reference, payment.Id, payment.Reference,
+            payment.Currency, payment.AmountMinor, payment.TipMinor, totals.RemainingMinor, totals.RemainingMinor == 0), ct);
+        await alerts.QueueLinkAsync(payment, link, totals.RemainingMinor, ct);
+    }
+
+    /// <summary>The provider's verdict on a refund: a success writes the refund's own ledger entry (blueprint 7.2).</summary>
+    private async Task ApplyRefundAsync(ProviderWebhookEvent webhook, string providerRefundId, bool viaWebhook, DateTimeOffset now, CancellationToken ct)
+    {
+        var refund = await db.Refunds.IgnoreQueryFilters()
+            .SingleOrDefaultAsync(r => r.Provider == provider.Name && r.ProviderRefundId == providerRefundId, ct);
+
+        db.ProcessedWebhooks.Add(new ProcessedWebhook(provider.Name, webhook.EventId, webhook.ProviderPaymentId, $"Refund{webhook.Status}", viaWebhook, now));
+        var wasFinal = refund?.IsFinal ?? true;
+        var status = webhook.Status == PaymentStatus.Succeeded ? RefundStatus.Succeeded : RefundStatus.Failed;
+        var succeeded = refund?.Apply(status, webhook.FailureReason, now) ?? false;
+        if (succeeded) db.LedgerEntries.Add(LedgerEntry.ForRefund(refund!, now));
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            if (await IsDuplicateAsync(webhook.EventId, ct)) return;
+            throw;
+        }
+
+        if (refund is not null && !wasFinal)
+        {
+            var reference = await db.Payments.IgnoreQueryFilters().Where(p => p.Id == refund.PaymentId).Select(p => p.Reference).SingleAsync(ct);
+            await notifier.RefundUpdatedAsync(new RefundNotice(refund.TenantId, refund.VenueId, refund.PaymentId, refund.Id, reference,
+                refund.Currency, refund.AmountMinor, refund.Status), ct);
+        }
+    }
+
+    /// <summary>E-mails the receipt for a successful payment (P1-REC-01/02).</summary>
+    /// <param name="language">The language the guest reads now ("en" or "ar"); null uses the one their session started in.</param>
+    public async Task SendReceiptAsync(Guid sessionId, Guid paymentId, string to, string? language, CancellationToken ct)
+    {
+        var payment = await FindForSessionAsync(sessionId, paymentId, ct);
+        if (payment.Status != PaymentStatus.Succeeded)
+            throw AppException.Conflict("not_paid", "A receipt is available once the payment has gone through.");
+
+        var venue = await db.Venues.Include(v => v.Tenant).SingleAsync(v => v.Id == payment.VenueId, ct);
+        var location = await LocationAsync(payment, ct);
+        var orders = await db.Orders.AsNoTracking()
+            .Where(o => o.CheckId == payment.CheckId && o.Status != OrderStatus.Rejected)
+            .Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
+        var claims = await db.ItemClaims.AsNoTracking().Where(c => c.PaymentId == payment.Id).ToListAsync(ct);
+        language ??= await db.GuestSessions.Where(s => s.Id == sessionId).Select(s => s.Locale).SingleOrDefaultAsync(ct);
+
+        await email.SendAsync(Receipt.Build(to, venue, location, payment, orders, claims, Languages.IsArabic(language)), ct);
+    }
+
+    private Task<Payment?> FindRequestAsync(CreatePaymentRequest request, CancellationToken ct) =>
+        db.Payments.SingleOrDefaultAsync(p => p.GuestSessionId == request.SessionId && p.ClientRequestId == request.ClientRequestId, ct);
+
+    private async Task<List<ItemClaim>> ClaimsOfAsync(Payment payment, CancellationToken ct) =>
+        payment.Mode == PaymentMode.Items
+            ? await db.ItemClaims.IgnoreQueryFilters().Where(c => c.PaymentId == payment.Id).ToListAsync(ct)
+            : [];
+
+    /// <summary>The payment didn't go through: the guest keeps their items selected to try again.</summary>
+    private async Task ReturnItemsAsync(Payment payment, CancellationToken ct)
+    {
+        foreach (var claim in await ClaimsOfAsync(payment, ct)) claim.ReturnToHold(clock.GetUtcNow());
+    }
+
+    private async Task<bool> IsDuplicateAsync(string eventId, CancellationToken ct)
+    {
+        db.ChangeTracker.Clear();
+        return await db.ProcessedWebhooks.AnyAsync(w => w.Provider == provider.Name && w.EventId == eventId, ct);
+    }
+
+    private async Task<Payment> FindForSessionAsync(Guid sessionId, Guid paymentId, CancellationToken ct) =>
+        await db.Payments.SingleOrDefaultAsync(p => p.Id == paymentId && p.GuestSessionId == sessionId, ct)
+        ?? throw AppException.NotFound("payment_not_found", "Payment not found.");
+
+    private async Task<ServiceLocation> LocationAsync(Payment payment, CancellationToken ct)
+    {
+        var locationId = await db.Checks.IgnoreQueryFilters()
+            .Where(c => c.Id == payment.CheckId).Select(c => c.ServiceLocationId).SingleAsync(ct);
+        return await db.ServiceLocations.IgnoreQueryFilters().Include(l => l.DiningArea).SingleAsync(l => l.Id == locationId, ct);
+    }
+
+    private async Task<PaymentDto> ToDtoAsync(Payment p, CancellationToken ct)
+    {
+        var location = await LocationAsync(p, ct);
+        long? remaining = null;
+        bool? fullyPaid = null;
+        NextVisitOfferDto? offer = null;
+
+        if (p.Status == PaymentStatus.Succeeded)
+        {
+            var totals = await bills.TotalsAsync(p.CheckId!.Value, ct);
+            remaining = totals.RemainingMinor;
+            fullyPaid = totals.RemainingMinor == 0;
+            offer = await promotions.NextVisitOfferAsync(ct);
+        }
+
+        var itemCount = p.Mode == PaymentMode.Items
+            ? await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == p.Id, ct)
+            : 0;
+
+        var canReview = false;
+        int? rating = null;
+        if (p.Status == PaymentStatus.Succeeded)
+        {
+            rating = await db.Reviews.IgnoreQueryFilters().Where(r => r.PaymentId == p.Id).Select(r => (int?)r.Rating).SingleOrDefaultAsync(ct);
+            canReview = rating is null && await db.Venues.IgnoreQueryFilters().AnyAsync(v => v.Id == p.VenueId && v.ReviewsEnabled, ct);
+        }
+
+        return new PaymentDto(p.Id, p.Reference, p.Status, p.Method, p.Mode, p.Shares, p.SplitPeople, itemCount,
+            p.Currency, p.BillAmountMinor, p.DiscountMinor, p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4,
+            p.FailureReason, p.Status == PaymentStatus.RequiresAction ? p.CheckoutUrl : null,
+            location.Type.ToString(), location.Label, location.DiningArea?.Name, location.DiningArea?.NameAr,
+            p.CreatedAt, p.SucceededAt, remaining, fullyPaid, offer, canReview, rating);
+    }
+}
+
+/// <summary>
+/// The receipt e-mail: venue, table, reference, what this payment covered and what was paid.
+/// Paying by item lists those items; otherwise it lists the bill and the guest's part of it.
+/// It's in English or, for guests reading Arabic, in Arabic laid out right to left.
+/// </summary>
+internal static class Receipt
+{
+    public static EmailMessage Build(string to, Venue venue, ServiceLocation location, Payment payment,
+        IReadOnlyList<Order> orders, IReadOnlyList<ItemClaim> paidItems, bool arabic)
+    {
+        string T(string english, string ar) => arabic ? ar : english;
+        string Money(long minor) => FormatMoney(minor, payment.Currency);
+        var place = $"{Languages.LocationName(location, arabic)}{(location.DiningArea is { } a ? $" · {Languages.AreaName(a, arabic)}" : "")}";
+        var lines = orders.OrderBy(o => o.Number).SelectMany(o => o.Lines.OrderBy(l => l.Position)).ToList();
+        string Name(OrderLine line) => arabic && line.NameAr is { } nameAr ? nameAr : line.Name;
+
+        var rows = new List<(string Label, string Value)>();
+        var totals = new List<(string Label, string Value)>();
+        if (payment.Mode == PaymentMode.Items)
+        {
+            foreach (var group in paidItems.GroupBy(c => c.OrderLineId))
+            {
+                var name = lines.FirstOrDefault(l => l.Id == group.Key) is { } line ? Name(line) : T("Item", "صنف");
+                rows.Add(($"{group.Count()} × {name}", Money(group.Sum(c => c.AmountMinor))));
+            }
+            totals.Add((T("Your items (incl. service and VAT)", "أصنافك (شاملة رسوم الخدمة والضريبة)"), Money(payment.BillAmountMinor)));
+        }
+        else
+        {
+            foreach (var line in lines)
+                rows.Add(($"{line.Quantity} × {Name(line)}", Money(line.LineTotalMinor)));
+
+            // What the bill is made of, so the receipt shows the service charge and VAT.
+            totals.Add((T("Subtotal", "المجموع الفرعي"), Money(orders.Sum(o => o.SubtotalMinor))));
+            var service = orders.Sum(o => o.ServiceChargeMinor);
+            var tax = orders.Sum(o => o.TaxMinor);
+            if (service > 0) totals.Add((T("Service charge", "رسوم الخدمة"), Money(service)));
+            if (tax > 0)
+                totals.Add((orders.All(o => o.TaxIncluded)
+                    ? T("VAT (included)", "ضريبة القيمة المضافة (مشمولة)")
+                    : T("VAT", "ضريبة القيمة المضافة"), Money(tax)));
+            var billTotal = orders.Sum(o => o.TotalMinor);
+            totals.Add((T("Bill total", "إجمالي الفاتورة"), Money(billTotal)));
+            if (payment.BillAmountMinor != billTotal)
+            {
+                var share = payment.Mode switch
+                {
+                    PaymentMode.Equal => YourShare(payment, arabic),
+                    PaymentMode.Custom => T("Your amount", "المبلغ الذي دفعته"),
+                    _ => T("Your part of the bill", "حصتك من الفاتورة")
+                };
+                totals.Add((share, Money(payment.BillAmountMinor)));
+            }
+        }
+        if (payment.DiscountMinor > 0) totals.Add(($"{T("Promotion", "العرض الترويجي")} {payment.PromoCode}", $"−{Money(payment.DiscountMinor)}"));
+        if (payment.TipMinor > 0) totals.Add((T("Tip", "الإكرامية"), Money(payment.TipMinor)));
+        totals.Add((T("Paid", "المدفوع"), Money(payment.AmountMinor)));
+
+        return Message(to, venue, payment, place, [rows, totals], arabic);
+    }
+
+    /// <summary>The receipt for a payment through a payment link: the link, its reference and what was paid.</summary>
+    public static EmailMessage BuildForLink(string to, Venue venue, PaymentLink link, Payment payment, bool arabic)
+    {
+        string T(string english, string ar) => arabic ? ar : english;
+        string Money(long minor) => FormatMoney(minor, payment.Currency);
+        var place = $"{T("Payment link", "رابط الدفع")} {link.Code}{(link.Reference is { } r ? $" · {T("Reference", "المرجع")} {r}" : "")}";
+
+        var rows = new List<(string Label, string Value)> { (T("Amount requested", "المبلغ المطلوب"), Money(link.AmountMinor)) };
+        if (payment.BillAmountMinor != link.AmountMinor)
+            rows.Add((payment.Mode == PaymentMode.Equal ? YourShare(payment, arabic) : T("Your amount", "المبلغ الذي دفعته"), Money(payment.BillAmountMinor)));
+        if (payment.TipMinor > 0) rows.Add((T("Tip", "الإكرامية"), Money(payment.TipMinor)));
+        rows.Add((T("Paid", "المدفوع"), Money(payment.AmountMinor)));
+
+        return Message(to, venue, payment, place, [rows], arabic);
+    }
+
+    /// <summary>The e-mail around the receipt's tables: who it's from, where, when and how it was paid.</summary>
+    /// <param name="tables">Each table of label/amount rows; the last one's amounts are bold.</param>
+    private static EmailMessage Message(string to, Venue venue, Payment payment, string place,
+        IReadOnlyList<List<(string Label, string Value)>> tables, bool arabic)
+    {
+        var when = Languages.DateTime(TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var zone)
+            ? TimeZoneInfo.ConvertTime(payment.SucceededAt ?? payment.CreatedAt, zone)
+            : payment.SucceededAt ?? payment.CreatedAt, arabic);
+        var method = Method(payment, arabic);
+        var receipt = arabic ? "إيصال" : "Receipt";
+        var paidWith = arabic ? $"تم الدفع عبر {method}. يشمل المبلغ جميع الضرائب والرسوم." : $"Paid with {method}. Includes all taxes and charges.";
+        var brand = venue.Tenant.DisplayName;
+        var branch = venue.NameFor(arabic);
+
+        var text = new StringBuilder()
+            .AppendLine($"{brand} · {branch}")
+            .AppendLine(place)
+            .AppendLine($"{receipt} {payment.Reference} · {when}")
+            .AppendLine();
+        foreach (var table in tables)
+        {
+            foreach (var (label, value) in table) text.AppendLine($"{label,-40} {value}");
+            if (table != tables[^1]) text.AppendLine();
+        }
+        text.AppendLine().AppendLine(paidWith);
+
+        // Arabic reads right to left: labels on the right, amounts on the left.
+        var (dir, end) = arabic ? ("rtl", "left") : ("ltr", "right");
+        static string E(string s) => WebUtility.HtmlEncode(s);
+        string Rows(IEnumerable<(string Label, string Value)> items, bool bold) => string.Concat(items.Select(r =>
+            $"<tr><td style=\"padding:4px 0\">{E(r.Label)}</td><td style=\"padding:4px 0;text-align:{end}{(bold ? ";font-weight:700" : "")}\">{E(r.Value)}</td></tr>"));
+        var body = string.Join("\n  <hr style=\"border:0;border-top:1px solid #E4E7EC\">\n  ", tables.Select(table =>
+            $"<table style=\"width:100%;border-collapse:collapse\">{Rows(table, bold: table == tables[^1])}</table>"));
+
+        var html = $"""
+            <div dir="{dir}" lang="{(arabic ? Languages.Arabic : Languages.English)}" style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;color:#101828">
+              <h2 style="margin:0">{E(brand)} · {E(branch)}</h2>
+              <p style="color:#475467;margin:4px 0 16px">{E(place)} · {receipt} {E(payment.Reference)} · {E(when)}</p>
+              {body}
+              <p style="color:#475467">{E(paidWith)}</p>
+            </div>
+            """;
+
+        var subject = arabic ? $"إيصالك من {brand} ({payment.Reference})" : $"Your receipt from {brand} ({payment.Reference})";
+        return new EmailMessage(to, subject, text.ToString(), html);
+    }
+
+    private static string YourShare(Payment payment, bool arabic) => arabic
+        ? $"حصتك ({payment.Shares} من {payment.SplitPeople} أشخاص)"
+        : $"Your share ({payment.Shares} of {payment.SplitPeople} people)";
+
+    /// <summary>"Visa •••• 4242", or the method when there's no card, e.g. "ApplePay" (بطاقة for a card in Arabic).</summary>
+    private static string Method(Payment payment, bool arabic)
+    {
+        var method = arabic && payment.Method == PaymentMethod.Card ? "بطاقة" : payment.Method.ToString();
+        return payment.CardLast4 is { } last4 ? $"{payment.CardBrand ?? method} •••• {last4}" : method;
+    }
+
+    private static string FormatMoney(long minor, string currency)
+    {
+        var digits = currency is "KWD" or "BHD" or "OMR" or "JOD" ? 3 : 2;
+        return $"{currency} {(minor / (decimal)Math.Pow(10, digits)).ToString($"N{digits}", CultureInfo.InvariantCulture)}";
+    }
+}

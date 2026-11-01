@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "API + Web",
+    "Projects": [
+      {
+        "Path": "HelloZen\\HelloZen.Api\\HelloZen.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "web\\HelloZen.Web.esproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

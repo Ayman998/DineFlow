@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/HelloZen/">
+    <Project Path="HelloZen/HelloZen.Api/HelloZen.Api.csproj" />
+    <Project Path="HelloZen/HelloZen.Application/HelloZen.Application.csproj" />
+    <Project Path="HelloZen/HelloZen.Domain/HelloZen.Domain.csproj" />
+    <Project Path="HelloZen/HelloZen.Infrastructure/HelloZen.Infrastructure.csproj" />
+    <Project Path="HelloZen/HelloZen.Test/HelloZen.Test.csproj" />
+  </Folder>
+  <Project Path="web/HelloZen.Web.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

@@ -10,7 +10,7 @@ import { MenuItem, ModifierGroup, ModifierOption, formatMoney } from '../../core
  * quantity and the price updating as options change.
  */
 @Component({
-  selector: 'df-item-sheet',
+  selector: 'hz-item-sheet',
   templateUrl: './item-sheet.html',
   host: { '(document:keydown.escape)': 'closed.emit()' }
 })

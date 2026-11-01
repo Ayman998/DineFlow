@@ -10,7 +10,7 @@ const AREAS = ['', 'payment', 'review', 'alerts', 'report', 'notification', 'set
 
 /** Settings → Activity: the audit log for owners and managers (blueprint section 11, E15). */
 @Component({
-  selector: 'df-audit-log',
+  selector: 'hz-audit-log',
   template: `
     @let d = data();
     @let t = this.t();

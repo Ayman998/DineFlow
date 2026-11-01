@@ -4,7 +4,7 @@ import { I18n } from '../../core/i18n';
 
 /** Stand-in page for a merchant area that a later sprint will build. */
 @Component({
-  selector: 'df-placeholder',
+  selector: 'hz-placeholder',
   template: `
     <h1 class="text-2xl font-bold">{{ title() }}</h1>
     <div class="mt-6 rounded-xl border border-dashed border-line bg-white p-10 text-center text-ink-muted">

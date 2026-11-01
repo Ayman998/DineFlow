@@ -8,7 +8,7 @@ import { Component, computed, input } from '@angular/core';
  * above the wordmark, as in the primary logo.
  */
 @Component({
-  selector: 'df-logo',
+  selector: 'hz-logo',
   template: `
     <span class="flex shrink-0 items-center justify-center" [class]="markClass()">
       <svg viewBox="0 0 65 83" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"

@@ -8,7 +8,7 @@
 
 @if (view() === 'live') {
   <h1 class="mb-4 text-2xl font-bold">{{ t.tables }}</h1>
-  <df-live-tables />
+  <hz-live-tables />
 } @else {
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4 print:hidden">
   <div>
@@ -164,7 +164,7 @@
             </div>
 
             @if (qr) {
-              <df-qr-code class="mx-auto my-3 aspect-square w-full max-w-44" [url]="qr.url" [alt]="t.qrFor(name)" />
+              <hz-qr-code class="mx-auto my-3 aspect-square w-full max-w-44" [url]="qr.url" [alt]="t.qrFor(name)" />
               <div class="text-center text-xs text-ink-muted print:hidden">{{ t.version(qr.version) }}</div>
               <div class="hidden text-center text-xs print:block">{{ t.scanToPay }}</div>
 

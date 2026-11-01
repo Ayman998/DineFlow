@@ -12,7 +12,7 @@ import { ALERT_SETTINGS } from './settings.i18n';
  * numbers that get them, a test message, and what was delivered.
  */
 @Component({
-  selector: 'df-alert-settings',
+  selector: 'hz-alert-settings',
   imports: [DeliveryLog],
   template: `
     @let s = settings();
@@ -65,7 +65,7 @@ import { ALERT_SETTINGS } from './settings.i18n';
         }
       </section>
 
-      <df-delivery-log channel="WhatsApp" [title]="t.logTitle" />
+      <hz-delivery-log channel="WhatsApp" [title]="t.logTitle" />
     </div>
   `
 })

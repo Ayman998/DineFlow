@@ -18,7 +18,7 @@ import { SettlementsPanel } from './settlements-panel';
  * report and when, a preview of the latest one, and what was e-mailed.
  */
 @Component({
-  selector: 'df-reports',
+  selector: 'hz-reports',
   imports: [DeliveryLog, NgTemplateOutlet, ReconciliationPanel, SettlementsPanel],
   templateUrl: './reports.html'
 })

@@ -1151,7 +1151,7 @@ export class PosApi {
 
 // ---- Settlements and reconciliation (Sprint 11) ----
 
-export type DiscrepancyKind = 'NotSettled' | 'UnknownToDineFlow' | 'AmountMismatch' | 'RefundMismatch' | 'NotInPos' | 'SettledTwice';
+export type DiscrepancyKind = 'NotSettled' | 'UnknownToHelloZen' | 'AmountMismatch' | 'RefundMismatch' | 'NotInPos' | 'SettledTwice';
 export type DiscrepancyStatus = 'Open' | 'Cleared' | 'Resolved';
 
 export interface Settlement {

@@ -35,7 +35,7 @@ const ACTIONS: Record<OrderStatus, Action[]> = {
  * the guest sees.
  */
 @Component({
-  selector: 'df-orders',
+  selector: 'hz-orders',
   imports: [FormsModule, NgTemplateOutlet],
   templateUrl: './orders.html'
 })

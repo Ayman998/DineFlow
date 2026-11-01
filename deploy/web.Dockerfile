@@ -1,7 +1,7 @@
 # The guest and merchant apps, served by Caddy with automatic HTTPS. Caddy also forwards the API's
 # paths to the api container, so each app calls the API on its own origin (no CORS involved).
 # Build from the repository root:
-#   docker build -f deploy/web.Dockerfile -t dineflow-web .
+#   docker build -f deploy/web.Dockerfile -t hellozen-web .
 
 FROM node:22-alpine AS build
 WORKDIR /web

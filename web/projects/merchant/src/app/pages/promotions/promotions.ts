@@ -14,7 +14,7 @@ import { PROMOTIONS } from './promotions.i18n';
  * the server; each successful payment that used one counts as a redemption.
  */
 @Component({
-  selector: 'df-promotions',
+  selector: 'hz-promotions',
   imports: [ReactiveFormsModule],
   templateUrl: './promotions.html'
 })

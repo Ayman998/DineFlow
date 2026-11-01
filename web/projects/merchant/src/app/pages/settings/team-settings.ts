@@ -13,7 +13,7 @@ const MIN_PASSWORD = 10;
  * given); owners and managers add people, change roles, switch accounts off and reset passwords.
  */
 @Component({
-  selector: 'df-team-settings',
+  selector: 'hz-team-settings',
   templateUrl: './team-settings.html'
 })
 export class TeamSettingsPanel implements OnInit {

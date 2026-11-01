@@ -1,4 +1,4 @@
-# DineFlow
+# helloZen
 
 Scan, order and pay at the table. Guests scan a table QR, browse a branded e-menu, order, split the bill, tip, pay, and rate the visit. Restaurants see live orders, payments and reviews.
 
@@ -15,12 +15,12 @@ The spec is the Df3Pay Developer Blueprint v1.1, and the screen designs are the 
 ## Layout
 
 ```
-DineFlow/
-  DineFlow.Api/             controllers, auth policies, rate limits, error responses
-  DineFlow.Application/     use cases (guests, venues, tables, menus, orders, bills, payments, promotions)
-  DineFlow.Domain/          entities: tenant, venue, location, QR, session, menu, order, check, payment, ledger, promo
-  DineFlow.Infrastructure/  EF Core + SQL Server, migrations, QR/JWT/password services, sandbox PSP, e-mail, demo seed
-  DineFlow.Test/            xUnit (services run against in-memory SQLite)
+HelloZen/
+  HelloZen.Api/             controllers, auth policies, rate limits, error responses
+  HelloZen.Application/     use cases (guests, venues, tables, menus, orders, bills, payments, promotions)
+  HelloZen.Domain/          entities: tenant, venue, location, QR, session, menu, order, check, payment, ledger, promo
+  HelloZen.Infrastructure/  EF Core + SQL Server, migrations, QR/JWT/password services, sandbox PSP, e-mail, demo seed
+  HelloZen.Test/            xUnit (services run against in-memory SQLite)
 web/
   projects/guest/           guest PWA       → http://localhost:4200
   projects/merchant/        merchant portal → http://localhost:4300
@@ -30,16 +30,16 @@ deploy/                     Docker images, Caddy, Compose, backups and the pilot
 ## Prerequisites
 
 - .NET SDK 10 (pinned in `global.json`). It builds the `net8.0` projects, and the .NET 8 runtime runs them.
-- SQL Server 2022 on `localhost`, with Windows sign-in. Change `ConnectionStrings:DineFlow` in `appsettings.json` to use another server.
+- SQL Server 2022 on `localhost`, with Windows sign-in. Change `ConnectionStrings:HelloZen` in `appsettings.json` to use another server.
 - Node 20.19+ and npm
 
 ## Run locally
 
 ```bash
-dotnet run --project DineFlow/DineFlow.Api --launch-profile http
+dotnet run --project HelloZen/HelloZen.Api --launch-profile http
 ```
 
-In Development, the API creates the `DineFlow` database, applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Abdoun, Amman**, in JOD (3 decimals) and Arabic by default: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, a 10% service charge with Jordan's 16% sales tax included in prices, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `DineFlow/DineFlow.Api/appsettings.Development.json`.
+In Development, the API creates the `DineFlow` database (it keeps its name from before the helloZen rename), applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Abdoun, Amman**, in JOD (3 decimals) and Arabic by default: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, a 10% service charge with Jordan's 16% sales tax included in prices, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `HelloZen/HelloZen.Api/appsettings.Development.json`.
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (SQL Server) is at `/health/ready`.
 
@@ -70,14 +70,14 @@ Apple Pay, Google Pay and STC Pay show Approve and Decline buttons. The sandbox 
 
 #### Real payments: Mastercard Gateway
 
-DineFlow's venues are in Jordan. Jordanian acquirers (MEPS, Network International Jordan and the banks) give merchants a **Mastercard Gateway (MPGS)** account, so that's the real provider. Set `Payments:Provider` to `mastercard`.
+helloZen's venues are in Jordan. Jordanian acquirers (MEPS, Network International Jordan and the banks) give merchants a **Mastercard Gateway (MPGS)** account, so that's the real provider. Set `Payments:Provider` to `mastercard`.
 
 How a payment works:
 
-1. **INITIATE_CHECKOUT** opens a Hosted Checkout session. It carries the amount in the currency's decimals (JOD `12.500`), DineFlow's return and cancel URLs, and the webhook URL.
-2. The guest goes to DineFlow's small launcher page, `/v1/public/checkout/mastercard`. It loads the gateway's `checkout.js` and shows the gateway's own payment page. Card details never touch DineFlow.
+1. **INITIATE_CHECKOUT** opens a Hosted Checkout session. It carries the amount in the currency's decimals (JOD `12.500`), helloZen's return and cancel URLs, and the webhook URL.
+2. The guest goes to helloZen's small launcher page, `/v1/public/checkout/mastercard`. It loads the gateway's `checkout.js` and shows the gateway's own payment page. Card details never touch helloZen.
 3. The result arrives as a webhook to `/v1/webhooks/payments/mastercard`. It's accepted only with the merchant's secret in `X-Notification-Secret`, compared in constant time.
-4. Mastercard says its webhooks aren't guaranteed to arrive, so DineFlow also asks the gateway (**Retrieve Order**) every 15 seconds about any payment or refund still waiting. A result that arrives both ways is counted once.
+4. Mastercard says its webhooks aren't guaranteed to arrive, so helloZen also asks the gateway (**Retrieve Order**) every 15 seconds about any payment or refund still waiting. A result that arrives both ways is counted once.
 5. Refunds are **REFUND** transactions on the gateway order. Their result comes back the same two ways.
 
 Settings, all from your acquirer or Merchant Administration:
@@ -88,13 +88,13 @@ Settings, all from your acquirer or Merchant Administration:
 | `Payments:Mastercard:MerchantId` | Gateway merchant id |
 | `Payments:Mastercard:ApiPassword` | **Secret.** Admin → Integration Settings |
 | `Payments:Mastercard:WebhookSecret` | **Secret.** Admin → Webhook Notifications (also turn webhooks on there) |
-| `Payments:Mastercard:NotificationUrl` | DineFlow's public **https** webhook URL |
+| `Payments:Mastercard:NotificationUrl` | helloZen's public **https** webhook URL |
 | `Payments:Mastercard:ApiVersion` | REST API version of your merchant profile (default 100) |
 | `Payments:Mastercard:Methods` | What guests can pick before the gateway page (default Card, ApplePay; Apple Pay must be enabled by your acquirer) |
 
 Set the two secrets with user-secrets or a key vault, never in `appsettings.json`. The provider is built from Mastercard's public API documentation and tested against a fake gateway. Confirm it with your acquirer's test credentials before going live: the API version, Apple Pay and 3-D Secure settings vary by merchant profile.
 
-Receipts aren't sent in Development. Each one is written as an `.eml` file to `DineFlow/DineFlow.Api/App_Data/outbox` (git-ignored), and any mail app can open it.
+Receipts aren't sent in Development. Each one is written as an `.eml` file to `HelloZen/HelloZen.Api/App_Data/outbox` (git-ignored), and any mail app can open it.
 
 ### Splitting the bill
 
@@ -113,7 +113,7 @@ Guests can act at the same time without paying the same money twice. Each bill h
 
 After a successful payment, the confirmation asks the guest to rate the visit from 1 to 5 stars, with an optional comment. They can skip it, and the payment and receipt are unaffected.
 
-- **4–5 stars:** the guest is invited to post a public review on the venue's page (Google, Tripadvisor or Foursquare). DineFlow records whether they opened it.
+- **4–5 stars:** the guest is invited to post a public review on the venue's page (Google, Tripadvisor or Foursquare). helloZen records whether they opened it.
 - **1–3 stars:** the feedback stays private. The guest sees a form, with a heading the venue can change, where they can say what went wrong and leave a name, e-mail and phone number. Contact details are kept only if the guest ticks the consent box.
 
 Set this up under **Settings → Reviews**: turn ratings on or off, choose the platform, add your review page link (https only) and set the feedback heading. The demo venue starts with ratings on and no public link.
@@ -203,7 +203,7 @@ Messages aren't sent while the request or webhook is being handled. They're writ
 - Both pages show a delivery log. Managers can resend a failed message.
 - If two API instances run, a version column on each message and schedule stops them sending the same one twice.
 
-WhatsApp goes through the **WhatsApp Cloud API** (Meta). Development needs no account: `WhatsApp:Provider` is `outbox`, and each message is written as JSON to `DineFlow/DineFlow.Api/App_Data/whatsapp` (git-ignored). Report e-mails go to the e-mail outbox like receipts. To send for real:
+WhatsApp goes through the **WhatsApp Cloud API** (Meta). Development needs no account: `WhatsApp:Provider` is `outbox`, and each message is written as JSON to `HelloZen/HelloZen.Api/App_Data/whatsapp` (git-ignored). Report e-mails go to the e-mail outbox like receipts. To send for real:
 
 1. Create a template in WhatsApp Manager with four body parameters, e.g. `{{1}}: {{2}} paid. {{3}}. {{4}}`. Name it `payment_alert`, or set `WhatsApp:MetaApi:TemplateName`.
 2. Set `WhatsApp:Provider` to `meta`.
@@ -226,7 +226,7 @@ WhatsApp goes through the **WhatsApp Cloud API** (Meta). Development needs no ac
 2. Map each table to its table id in the POS.
 3. If the POS only takes its own items (Foodics does), map menu items to its product ids.
 
-Every connector implements the blueprint's adapter contract (section 6): health check, open checks, check details, create order, post payment and close check. Each connector declares what its POS can do (`PaymentPosting`, `AutoClose`, `TipPosting`, `OrderCreate`, …), and DineFlow only asks for those.
+Every connector implements the blueprint's adapter contract (section 6): health check, open checks, check details, create order, post payment and close check. Each connector declares what its POS can do (`PaymentPosting`, `AutoClose`, `TipPosting`, `OrderCreate`, …), and helloZen only asks for those.
 
 While the connection is active, the order of events is:
 
@@ -239,38 +239,38 @@ Nothing here holds up the guest. Each step is queued and a background worker sen
 When things go wrong:
 
 - **The POS is down or slow:** the step waits (`POSTING_PENDING`) and is retried after 30 seconds, then 1, 2, 5 and 10 minutes, then every 15 minutes until the POS is back. The guest isn't charged again.
-- **An answer is lost after the POS may have applied the step:** the next attempt asks the POS whether the tender is already on the check before posting again, so a payment is posted exactly once. Orders carry DineFlow's order id for the same reason.
+- **An answer is lost after the POS may have applied the step:** the next attempt asks the POS whether the tender is already on the check before posting again, so a payment is posted exactly once. Orders carry helloZen's order id for the same reason.
 - **The POS refuses a step** (e.g. a table that isn't mapped): it's marked **Refused** with the reason, and later steps for that bill wait. Fix the cause and press **Retry**.
 
 Anything waiting more than 15 minutes, or refused, shows in the Overview's **Needs attention** and on the POS tab. Transactions show each payment's POS state ("In the POS", "Waiting for the POS", "POS refused it") and a timeline entry.
 
-Access tokens are encrypted with ASP.NET Core Data Protection before they're stored, and are never returned. The keys live in `DineFlow/DineFlow.Api/App_Data/keys` (git-ignored); production should keep them in shared, protected storage.
+Access tokens are encrypted with ASP.NET Core Data Protection before they're stored, and are never returned. The keys live in `HelloZen/HelloZen.Api/App_Data/keys` (git-ignored); production should keep them in shared, protected storage.
 
 Two connectors are built in:
 
 - **Simulated POS** keeps checks in memory and needs no account. The POS tab shows its checks and can switch it to **Offline**, **Time out after applying** (once) or **Refuse everything**, to try the failure cases from blueprint 13.1. These controls exist in Development only.
-- **Foodics** uses Foodics API v5. Set `Pos:Foodics:BaseUrl` (sandbox by default), and set `Pos:Foodics:PaymentMethodId` to a payment method created for DineFlow in Foodics. It's built from Foodics' public documentation and tested against a fake Foodics. The calls that add products and payments to an existing order still need confirming with a Foodics sandbox account.
+- **Foodics** uses Foodics API v5. Set `Pos:Foodics:BaseUrl` (sandbox by default), and set `Pos:Foodics:PaymentMethodId` to a payment method created for helloZen in Foodics. It's built from Foodics' public documentation and tested against a fake Foodics. The calls that add products and payments to an existing order still need confirming with a Foodics sandbox account.
 
 To apply migrations without starting the API:
 
 ```bash
-dotnet ef database update -p DineFlow/DineFlow.Infrastructure -s DineFlow/DineFlow.Api
+dotnet ef database update -p HelloZen/HelloZen.Infrastructure -s HelloZen/HelloZen.Api
 ```
 
 ### Settlements and reconciliation
 
-**Reports → Reconciliation** answers whether every payment reached the bank. For each business day (in the venue's time zone) DineFlow compares three things:
+**Reports → Reconciliation** answers whether every payment reached the bank. For each business day (in the venue's time zone) helloZen compares three things:
 
-1. **The ledger:** succeeded payments and refunds in DineFlow.
+1. **The ledger:** succeeded payments and refunds in helloZen.
 2. **The acquirer's settlements:** the payout batches it reports, line by line.
 3. **The POS:** whether each table payment was posted to its check.
 
-Payments are matched to settlement lines by the gateway's order id or by DineFlow's payment reference. Whatever doesn't add up lands in a queue of **differences**:
+Payments are matched to settlement lines by the gateway's order id or by helloZen's payment reference. Whatever doesn't add up lands in a queue of **differences**:
 
 | Difference | Meaning |
 |---|---|
 | Not settled | A payment has no settlement line 3 days after the day it was taken. Before that it counts as **awaiting settlement**, because acquirers pay a day or two later. |
-| Unknown to DineFlow | A settlement line matches no payment. |
+| Unknown to helloZen | A settlement line matches no payment. |
 | Amount differs | The settled amount isn't what the guest paid. |
 | Refund differs | A refund is missing from the settlement, or settled for a different amount. |
 | Settled twice | Two lines settle the same payment. |
@@ -282,7 +282,7 @@ A day is reconciled again every hour for the last week, whenever a settlement is
 
 - batch or payout id, and payout date
 - transaction date and type (sale, refund or fee)
-- the gateway's order id, or DineFlow's payment reference
+- the gateway's order id, or helloZen's payment reference
 - amount in major units (e.g. `12.500` for JOD), and optionally fee, refund id and currency
 
 A batch that's already been imported is refused, so importing the same file twice changes nothing. In Development, **Simulate a payout** settles every unsettled sandbox payment as an acquirer would, with a 2.25% + 0.100 fee, so you can see a clean day.
@@ -303,16 +303,16 @@ The webhook check only counts the provider's signed webhook. A payment the statu
 
 ### Deploying
 
-[`deploy/README.md`](deploy/README.md) is the pilot runbook. It covers one Linux server with Docker Compose: SQL Server, the API, and Caddy serving both apps on their own domains with automatic HTTPS and forwarding the API's paths. It also covers creating a venue, the Mastercard Gateway test checklist, going live, updates and backups. Pushing a `v*` tag builds the `dineflow-api` and `dineflow-web` images to GitHub Container Registry.
+[`deploy/README.md`](deploy/README.md) is the pilot runbook. It covers one Linux server with Docker Compose: SQL Server, the API, and Caddy serving both apps on their own domains with automatic HTTPS and forwarding the API's paths. It also covers creating a venue, the Mastercard Gateway test checklist, going live, updates and backups. Pushing a `v*` tag builds the `hellozen-api` and `hellozen-web` images to GitHub Container Registry.
 
 The API has two one-off commands, run with its own configuration:
 
 ```bash
-dotnet DineFlow/DineFlow.Api/bin/Debug/net8.0/DineFlow.Api.dll migrate
+dotnet HelloZen/HelloZen.Api/bin/Debug/net8.0/HelloZen.Api.dll migrate
 ```
 
 ```bash
-dotnet DineFlow/DineFlow.Api/bin/Debug/net8.0/DineFlow.Api.dll provision --business "Hashem Kitchen" --venue "Abdoun, Amman" --owner-email owner@example.jo --owner-name "Lina Haddad"
+dotnet HelloZen/HelloZen.Api/bin/Debug/net8.0/HelloZen.Api.dll provision --business "Hashem Kitchen" --venue "Abdoun, Amman" --owner-email owner@example.jo --owner-name "Lina Haddad"
 ```
 
 `provision` creates the business, a venue with Amman defaults (JOD, Asia/Amman, Arabic, 16% tax, 10% service), numbered tables with QR codes, and the owner. It prints the owner's temporary password once. In Docker, these are `docker compose run --rm api migrate` and `… provision …`.
@@ -328,7 +328,7 @@ It logs warnings at startup for settings to double-check, such as Mastercard's t
 
 ### From Visual Studio
 
-`DineFlow.slnx` includes the Angular workspace as `DineFlow.Web` (`web/DineFlow.Web.esproj`). Pick the **API + Web** launch profile in the toolbar's startup dropdown and press F5. That starts the API and runs `npm start`, which serves both Angular apps.
+`HelloZen.slnx` includes the Angular workspace as `HelloZen.Web` (`web/HelloZen.Web.esproj`). Pick the **API + Web** launch profile in the toolbar's startup dropdown and press F5. That starts the API and runs `npm start`, which serves both Angular apps.
 
 ### Keys and secrets
 
@@ -336,12 +336,12 @@ It logs warnings at startup for settings to double-check, such as Mastercard's t
 
 ### Uploaded images
 
-Menu photos (JPEG, PNG or WebP, up to 5 MB, checked by file content) are saved under `Storage:LocalRoot`, which defaults to `DineFlow/DineFlow.Api/App_Data/media`. The API serves them at `/media/...` with year-long caching, and that folder is git-ignored. Production should swap `LocalFileStorage` for S3-compatible storage behind the same `IFileStorage` interface.
+Menu photos (JPEG, PNG or WebP, up to 5 MB, checked by file content) are saved under `Storage:LocalRoot`, which defaults to `HelloZen/HelloZen.Api/App_Data/media`. The API serves them at `/media/...` with year-long caching, and that folder is git-ignored. Production should swap `LocalFileStorage` for S3-compatible storage behind the same `IFileStorage` interface.
 
 ## Test
 
 ```bash
-dotnet test DineFlow.slnx
+dotnet test HelloZen.slnx
 ```
 
 ```bash
@@ -442,7 +442,7 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 7 | Merchant overview, live table status, transactions with timeline, refunds ✅ | E11, E12 |
 | 8 | Payment links: create, share (QR, WhatsApp, e-mail), split and tip options, expiry, status tracking, export ✅ | E16 |
 | 9a | WhatsApp payment alerts, scheduled e-mail reports, notification outbox with retries, audit log, correlation ids, security headers, health checks, feature flags ✅ | E15, E28 |
-| 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |
+| 9b | POS connector framework and capability matrix, orders and payment posting with POSTING_PENDING retries and exactly-once tenders, auto-close, simulated POS, Foodics connector (to verify with a sandbox account) ✅ | E3, E9 |
 | 10 | Real payments for Jordan: Mastercard Gateway (MPGS) Hosted Checkout, verified webhooks plus status checks, refunds, JOD defaults (to verify with acquirer test credentials) ✅ | E8 |
 | 11 | Settlements and reconciliation: settlement CSV import, daily ledger vs settlement vs POS reconciliation, differences queue with resolve and audit, sandbox payout, ledger export ✅ | E12, E14 |
 | 12 | Pilot readiness for Amman: Docker + Caddy deployment, release images, production settings guard, SMTP e-mail, venue provisioning, team and passwords, go-live checklist with the Mastercard test script, backups ✅ | E15 |

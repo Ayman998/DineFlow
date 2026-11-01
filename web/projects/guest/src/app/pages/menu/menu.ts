@@ -23,7 +23,7 @@ const VIEW_KEY = 'df.menuView';
  * grid/list toggle, search, category chips, items and a sticky order bar.
  */
 @Component({
-  selector: 'df-menu',
+  selector: 'hz-menu',
   imports: [RouterLink, ItemSheet],
   templateUrl: './menu.html'
 })

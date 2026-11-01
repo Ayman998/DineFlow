@@ -16,7 +16,7 @@ import { MENU } from './menu.i18n';
  * items each one shows. Items and their categories are managed on their own pages and linked here.
  */
 @Component({
-  selector: 'df-menu-admin',
+  selector: 'hz-menu-admin',
   imports: [NgTemplateOutlet, MenuEditor, LinkItems],
   templateUrl: './menu-admin.html'
 })

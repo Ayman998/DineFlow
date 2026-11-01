@@ -10,13 +10,13 @@
 </div>
 
 @if (view() === 'team') {
-  <df-team-settings />
+  <hz-team-settings />
 } @else if (view() === 'pos') {
-  <df-pos-settings />
+  <hz-pos-settings />
 } @else if (view() === 'notifications') {
-  <df-alert-settings />
+  <hz-alert-settings />
 } @else if (view() === 'activity') {
-  <df-audit-log />
+  <hz-audit-log />
 } @else {
 
 @if (!auth.canManage()) {

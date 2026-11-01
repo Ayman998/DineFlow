@@ -22,7 +22,7 @@ interface Group {
  * subcategories; a search narrows both the list and what a category tick covers.
  */
 @Component({
-  selector: 'df-link-items',
+  selector: 'hz-link-items',
   imports: [FormsModule, RouterLink],
   template: `
     @let t = this.t();
