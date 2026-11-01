@@ -1,5 +1,5 @@
-# Two sites, one per app. Caddy gets and renews their Let's Encrypt certificates by itself once the
-# domains' DNS points at this server and ports 80 and 443 are open.
+# One site per app, plus www in front of the guest app. Caddy gets and renews their Let's Encrypt
+# certificates by itself once the domains' DNS points at this server and ports 80 and 443 are open.
 {
 	email {$ACME_EMAIL}
 }
@@ -39,6 +39,11 @@
 	import api
 	root * /srv/guest
 	import app
+}
+
+# People type www.hello-zen.com too; send them to the one address the QR codes use.
+www.{$GUEST_DOMAIN} {
+	redir https://{$GUEST_DOMAIN}{uri} permanent
 }
 
 {$MERCHANT_DOMAIN} {

@@ -6,21 +6,22 @@ helloZen runs on one Linux server with Docker: SQL Server, the API, and Caddy, w
 |---|---|---|
 | `db` | SQL Server 2022 (Express edition by default) | `db-data` volume |
 | `api` | The .NET API, port 8080 inside the network only | `api-data` volume: photos, Data Protection keys |
-| `web` | Caddy: the guest app on `GUEST_DOMAIN`, the merchant portal on `MERCHANT_DOMAIN`, with automatic HTTPS | `caddy-data` volume: certificates |
+| `web` | Caddy: the guest app on `GUEST_DOMAIN` (with `www.` redirecting to it), the merchant portal on `MERCHANT_DOMAIN`, with automatic HTTPS | `caddy-data` volume: certificates |
 
 ## 1. Server
 
 - A Linux VPS with 2 vCPU, 4 GB RAM and 40 GB disk is enough for a pilot. SQL Server needs at least 2 GB of RAM. A data centre close to Jordan keeps the guest app fast, for example a Jordanian host or a Gulf region.
 - Install Docker Engine with the Compose plugin.
 - Open ports 80 and 443 only. Keep SSH on a key, not a password.
-- Point two names at the server. `hello-zen.com` is registered at Spaceship, which also hosts its DNS (`launch1.spaceship.net` and `launch2.spaceship.net`). In Spaceship, type **Advanced DNS** into the Launchpad search, pick `hello-zen.com`, and add two A records under **Add record → A**:
+- Point the domain at the server. `hello-zen.com` is registered at Spaceship, which also hosts its DNS (`launch1.spaceship.net` and `launch2.spaceship.net`). In Spaceship, type **Advanced DNS** into the Launchpad search and pick `hello-zen.com`. First delete the two `@` A records Spaceship made for its parking page, and turn off parking or URL forwarding if they're on. Then add these under **Add record**:
 
-  | Host | Value | What it serves |
-  |---|---|---|
-  | `dine` | the server's public IPv4 | The guest app, `dine.hello-zen.com`. It's printed on the QR codes, so don't change it later |
-  | `portal` | the server's public IPv4 | The merchant portal, `portal.hello-zen.com` |
+  | Type | Host | Value | What it serves |
+  |---|---|---|---|
+  | A | `@` | the server's public IPv4 | The guest app, `https://hello-zen.com`. QR codes (`/q/…`) and payment links (`/l/…`) point here, so don't change it once codes are printed |
+  | A | `portal` | the server's public IPv4 | The merchant portal, `https://portal.hello-zen.com` |
+  | CNAME | `www` | `hello-zen.com` | Redirects to `https://hello-zen.com` |
 
-  Leave `@` (`hello-zen.com` itself) alone. It still shows Spaceship's parking page and is kept free for a website. Caddy can only get certificates once DNS resolves, so check that `nslookup dine.hello-zen.com` and `nslookup portal.hello-zen.com` return the server's IP before the first start.
+  Caddy can only get certificates once DNS resolves, so check that `nslookup hello-zen.com`, `nslookup www.hello-zen.com` and `nslookup portal.hello-zen.com` return only the server's IP before the first start.
 - Receipts are sent from `receipts@hello-zen.com`. Add the domain to the mail provider whose SMTP server you use (Microsoft 365, Google Workspace, Spacemail…). Then add the SPF, DKIM and DMARC records it gives you on the same Advanced DNS page. Without them, receipts land in spam.
 
 ## 2. First start
