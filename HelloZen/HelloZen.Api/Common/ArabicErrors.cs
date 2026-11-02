@@ -110,6 +110,7 @@ public static class ArabicErrors
     /// <summary>A generic Arabic message for every AppException code the API throws.</summary>
     public static readonly IReadOnlyDictionary<string, string> ByCode = new Dictionary<string, string>
     {
+        ["account_switched_off"] = "هذا الحساب موقوف. يمكن للمالك إعادة تفعيله من الإعدادات ← الفريق.",
         ["already_done"] = "وصل هذا الأمر إلى نظام نقاط البيع مسبقًا.",
         ["already_resolved"] = "تمت معالجة هذا الفرق مسبقًا.",
         ["amount_changed"] = "تغيّر المبلغ المطلوب دفعه. يُرجى مراجعة المبلغ الجديد.",

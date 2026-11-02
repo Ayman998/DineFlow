@@ -92,6 +92,50 @@ public class PilotReadinessTests : IDisposable
         Assert.Equal("account.password_changed", (await _host.Db.AuditEntries.IgnoreQueryFilters().SingleAsync()).Action);
     }
 
+    [Fact]
+    public async Task Operator_lets_an_owner_who_lost_the_temporary_password_back_in()
+    {
+        var (result, _) = await ProvisionAsync();
+        _host.CurrentTenant = null;
+
+        var temporary = await _host.Provisioning.ResetPasswordAsync(" OWNER@hashem.test ", "a password I chose", default);
+
+        Assert.Null(temporary);
+        await Assert.ThrowsAsync<AppException>(() => _host.Auth.LoginAsync(new LoginRequest(result.OwnerEmail, result.TemporaryPassword), default));
+        Assert.NotNull(await _host.Auth.LoginAsync(new LoginRequest(result.OwnerEmail, "a password I chose"), default));
+        Assert.Equal("account.password_reset_by_operator", (await _host.Db.AuditEntries.IgnoreQueryFilters().SingleAsync()).Action);
+
+        // Without a chosen password the operator gets a temporary one to hand over.
+        var another = await _host.Provisioning.ResetPasswordAsync(result.OwnerEmail, null, default);
+        Assert.Equal(14, another!.Length);
+        Assert.NotNull(await _host.Auth.LoginAsync(new LoginRequest(result.OwnerEmail, another), default));
+    }
+
+    [Fact]
+    public async Task Provision_can_take_the_owners_password_instead_of_a_temporary_one()
+    {
+        var result = await _host.Provisioning.ProvisionAsync(Hashem() with { OwnerPassword = "the owner's own password" }, default);
+
+        Assert.NotNull(await _host.Auth.LoginAsync(new LoginRequest(result.OwnerEmail, "the owner's own password"), default));
+        var weak = await Assert.ThrowsAsync<AppException>(() =>
+            _host.Provisioning.ProvisionAsync(Hashem("other@hashem.test") with { OwnerPassword = "short" }, default));
+        Assert.Equal("weak_password", weak.Code);
+        Assert.Equal(1, await _host.Db.Tenants.CountAsync());
+    }
+
+    [Fact]
+    public async Task Operator_reset_refuses_unknown_accounts_and_short_passwords()
+    {
+        var (result, _) = await ProvisionAsync();
+
+        var unknown = await Assert.ThrowsAsync<AppException>(() => _host.Provisioning.ResetPasswordAsync("nobody@hashem.test", "long enough password", default));
+        var weak = await Assert.ThrowsAsync<AppException>(() => _host.Provisioning.ResetPasswordAsync(result.OwnerEmail, "short", default));
+
+        Assert.Equal(("staff_not_found", "weak_password"), (unknown.Code, weak.Code));
+        Assert.Equal("owner@hashem.test", AdminCommands.ParseResetPassword(["--email", "owner@hashem.test"]));
+        Assert.Throws<ArgumentException>(() => AdminCommands.ParseResetPassword(["--mail", "owner@hashem.test"]));
+    }
+
     // ── Team ─────────────────────────────────────────────────────────────────────────────
 
     [Fact]

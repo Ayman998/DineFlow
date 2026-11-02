@@ -94,7 +94,7 @@ public sealed class TestHost : IDisposable
         Reconciler = new Reconciler(Db, Clock);
         Finance = new FinanceService(Db, _tenant, Reconciler, Sandbox, Clock);
         Team = new TeamService(Db, _tenant, Passwords, Clock);
-        Provisioning = new ProvisioningService(Db, QrTokens, Passwords);
+        Provisioning = new ProvisioningService(Db, QrTokens, Passwords, Clock);
     }
 
     /// <summary>Runs something just before the main context's next save, e.g. another guest's request.</summary>

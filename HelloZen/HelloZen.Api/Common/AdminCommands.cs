@@ -10,6 +10,7 @@ namespace HelloZen.Api.Common;
 /// <code>
 /// dotnet HelloZen.Api.dll migrate
 /// dotnet HelloZen.Api.dll provision --business "Demo Bistro" --venue "Abdoun, Amman" --owner-email owner@example.com --owner-name "Owner Name"
+/// dotnet HelloZen.Api.dll reset-password --email owner@example.com
 /// </code>
 /// In the Docker deployment: <c>docker compose run --rm api migrate</c> (see deploy/README.md).
 /// </summary>
@@ -29,7 +30,17 @@ public static class AdminCommands
                       --tax <basis points>     Sales tax, 1600 = 16% (default 1600)
                       --service <basis points> Service charge, 1000 = 10% (default 1000)
                       --prices-exclude-tax     Menu prices are before tax (default: they include it)
+          reset-password  Give someone who can't sign in a new password.
+                      --email <address>        Their sign-in (required)
+        Both take the password from the HELLOZEN_NEW_PASSWORD environment variable; without it a
+        temporary one is printed once.
         """;
+
+    /// <summary>
+    /// Where provision and reset-password take a chosen password from, so it never appears on a command
+    /// line or in shell history. deploy/monsterasp/admin.ps1 asks for it without echoing.
+    /// </summary>
+    public const string NewPasswordVariable = "HELLOZEN_NEW_PASSWORD";
 
     /// <returns>The exit code when <paramref name="args"/> names a command; null to start the web server.</returns>
     public static async Task<int?> TryRunAsync(WebApplication app, string[] args)
@@ -50,16 +61,40 @@ public static class AdminCommands
             case "provision":
                 try
                 {
-                    var request = ParseProvision(args.Skip(1).ToArray());
+                    var request = ParseProvision(args.Skip(1).ToArray()) with { OwnerPassword = ChosenPassword() };
                     var result = await sp.GetRequiredService<ProvisioningService>().ProvisionAsync(request, CancellationToken.None);
                     Console.WriteLine($"""
                         Created {request.BusinessName}, venue {request.VenueName} with {result.Tables} table(s).
                           Tenant id: {result.TenantId}
                           Venue id:  {result.VenueId}
                           Owner:     {result.OwnerEmail}
-                          Temporary password: {result.TemporaryPassword}
-                        Hand the password over privately. The owner changes it under Settings > Team > Your password.
                         """);
+                    Console.WriteLine(request.OwnerPassword is not null
+                        ? "The owner signs in with the password you chose."
+                        : $"""
+                            Temporary password: {result.TemporaryPassword}
+                          Hand the password over privately. The owner changes it under Settings > Team > Your password.
+                          """);
+                    return 0;
+                }
+                catch (Exception ex) when (ex is AppException or ArgumentException)
+                {
+                    Console.Error.WriteLine(ex.Message);
+                    Console.Error.WriteLine(Usage);
+                    return 2;
+                }
+
+            case "reset-password":
+                try
+                {
+                    var email = ParseResetPassword(args.Skip(1).ToArray());
+                    var temporary = await sp.GetRequiredService<ProvisioningService>().ResetPasswordAsync(email, ChosenPassword(), CancellationToken.None);
+                    Console.WriteLine(temporary is null
+                        ? $"Done: {email.Trim().ToLowerInvariant()} now signs in with the new password."
+                        : $"""
+                          Done: {email.Trim().ToLowerInvariant()} has a new temporary password: {temporary}
+                          Hand it over privately. They change it under Settings > Team > Your password.
+                          """);
                     return 0;
                 }
                 catch (Exception ex) when (ex is AppException or ArgumentException)
@@ -75,6 +110,14 @@ public static class AdminCommands
                 return 2;
         }
     }
+
+    private static string? ChosenPassword() =>
+        Environment.GetEnvironmentVariable(NewPasswordVariable) is { Length: > 0 } password ? password : null;
+
+    /// <returns>The address after --email.</returns>
+    public static string ParseResetPassword(string[] args) =>
+        args is ["--email", { Length: > 0 } email] ? email
+            : throw new ArgumentException("reset-password takes exactly one option: --email <address>.");
 
     public static ProvisionRequest ParseProvision(string[] args)
     {
