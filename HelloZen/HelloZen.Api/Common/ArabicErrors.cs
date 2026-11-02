@@ -110,6 +110,7 @@ public static class ArabicErrors
     /// <summary>A generic Arabic message for every AppException code the API throws.</summary>
     public static readonly IReadOnlyDictionary<string, string> ByCode = new Dictionary<string, string>
     {
+        ["account_switched_off"] = "هذا الحساب موقوف. يمكن للمالك إعادة تفعيله من الإعدادات ← الفريق.",
         ["already_done"] = "وصل هذا الأمر إلى نظام نقاط البيع مسبقًا.",
         ["already_resolved"] = "تمت معالجة هذا الفرق مسبقًا.",
         ["amount_changed"] = "تغيّر المبلغ المطلوب دفعه. يُرجى مراجعة المبلغ الجديد.",
@@ -165,6 +166,7 @@ public static class ArabicErrors
         ["menu_not_found"] = "القائمة غير موجودة.",
         ["menu_unavailable"] = "هذا المكان لا يوفّر القائمة الرقمية.",
         ["method_unavailable"] = "طريقة الدفع هذه غير متاحة هنا.",
+        ["mixed_currencies"] = "تستخدم فروعك عملات مختلفة. اختر فرعًا لعرض أرقامه.",
         ["no_contact"] = "لم يترك الضيف بيانات للتواصل.",
         ["no_contacts"] = "أضف رقمًا أولًا.",
         ["no_items_selected"] = "انتهت صلاحية اختيارك. اختر الأصناف التي تدفع ثمنها مرة أخرى.",

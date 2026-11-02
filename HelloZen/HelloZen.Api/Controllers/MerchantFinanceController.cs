@@ -37,6 +37,11 @@ public class MerchantDashboardController(OverviewService overview, TableStatusSe
     public Task<OverviewDto> Overview(Guid venueId, [FromQuery] OverviewPeriod period, [FromQuery] TrendGranularity? granularity, CancellationToken ct) =>
         overview.GetAsync(venueId, period, granularity, ct);
 
+    /// <summary>The overview for all the tenant's branches together.</summary>
+    [HttpGet("/v1/merchant/overview")]
+    public Task<OverviewDto> AllBranchesOverview([FromQuery] OverviewPeriod period, [FromQuery] TrendGranularity? granularity, CancellationToken ct) =>
+        overview.GetAsync(null, period, granularity, ct);
+
     [HttpGet("table-status")]
     public Task<IReadOnlyList<TableStatusDto>> TableStatus(Guid venueId, CancellationToken ct) => tables.ListAsync(venueId, ct);
 }

@@ -352,6 +352,54 @@ public class FinanceTests : IDisposable
         Assert.Equal(TrendGranularity.Hourly, overview.Granularity);
     }
 
+    [Fact]
+    public async Task The_overview_adds_up_all_branches_or_shows_one()
+    {
+        var f = await CreateAsync();
+        var (abdoun, burger, table) = await BranchAsync("Abdoun");
+        var here = await GuestAsync(f, f.Table7);
+        await OrderAsync(here, (f.Burger, 1));
+        await PayAsync(here);
+        var there = await GuestAsync(f, table);
+        await OrderAsync(there, (burger, 2));
+        await PayAsync(there, outcome: PaymentStatus.Failed);
+
+        var all = await _host.Overview.GetAsync(null, OverviewPeriod.Today, null, default);
+        var marina = await _host.Overview.GetAsync(f.Venue.Id, OverviewPeriod.Today, null, default);
+
+        Assert.Equal(new OverviewKpisDto(5000, 0, 2, 0, 1, 1), all.Today);
+        Assert.Equal(new OverviewKpisDto(5000, 0, 1, 0, 1, 0), marina.Today);
+        Assert.Equal(all.Selected.RevenueMinor, all.Trend.Sum(p => p.RevenueMinor));
+        var failures = Assert.Single(all.Attention, a => a.Kind == "payment");
+        Assert.StartsWith("Last: Table 1, Abdoun", failures.Detail);
+        Assert.Equal(abdoun.Id, JsonSerializer.SerializeToElement(failures.Params).GetProperty("venueId").GetGuid());
+        Assert.Contains(all.Attention, a => a.Code == "tables_unpaid");
+        Assert.DoesNotContain(marina.Attention, a => a.Kind == "payment" || a.Code == "tables_unpaid");
+    }
+
+    [Fact]
+    public async Task All_branches_together_need_one_currency()
+    {
+        await CreateAsync();
+        await _host.Venues.CreateAsync(new VenueSettingsRequest("Riyadh", "SAR", "Asia/Riyadh", "en", null, "#0B3B38", true, true), default);
+
+        var error = await Assert.ThrowsAsync<AppException>(() => _host.Overview.GetAsync(null, OverviewPeriod.Today, null, default));
+
+        Assert.Equal("mixed_currencies", error.Code);
+    }
+
+    /// <summary>Another branch of the same tenant, with a burger on its menu and one table.</summary>
+    private async Task<(VenueDto Venue, ItemDto Burger, LocationDto Table)> BranchAsync(string name)
+    {
+        var venue = await _host.CreateVenueAsync(name);
+        var menu = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("All day", null, true, Enum.GetValues<DayOfWeek>(), null, null), default);
+        var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", null), default);
+        var burger = await _host.Menus.CreateItemAsync(new ItemRequest(mains.Id, "Burger", null, null, null, 5000, null, true, [], [], []), default);
+        await _host.Menus.SetMenuItemsAsync(menu.Id, new MenuItemsRequest([burger.Id]), default);
+        var table = await _host.Tables.CreateLocationAsync(new CreateLocationRequest(venue.Id, null, ServiceLocationType.Table, "1"), default);
+        return (venue, burger, table);
+    }
+
     // ---- Live tables ----
 
     [Fact]

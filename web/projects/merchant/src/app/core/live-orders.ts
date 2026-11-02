@@ -30,6 +30,8 @@ export class LiveOrders {
   readonly reviewed = new Subject<ReviewNotice>();
   readonly refunded = new Subject<RefundNotice>();
   readonly linkPaid = new Subject<PaymentLinkNotice>();
+  /** The venue of every order, payment, refund or review in any branch, for views that cover more than the current one. */
+  readonly activity = new Subject<string>();
   /** Fires after a reconnect, so pages can reload anything they missed. */
   readonly reconnected = new Subject<void>();
 
@@ -43,28 +45,34 @@ export class LiveOrders {
       .build();
 
     connection.on('orderPlaced', (order: OrderDto) => {
+      this.activity.next(order.venueId);
       if (!this.isMine(order)) return;
       this.chime();
       this.refreshCounts();
       this.placed.next(order);
     });
     connection.on('orderChanged', (order: OrderDto) => {
+      this.activity.next(order.venueId);
       if (!this.isMine(order)) return;
       this.refreshCounts();
       this.changed.next(order);
     });
     connection.on('refundUpdated', (refund: RefundNotice) => {
+      this.activity.next(refund.venueId);
       if (refund.venueId === this.venue.venue()?.id) this.refunded.next(refund);
     });
     connection.on('reviewSubmitted', (review: ReviewNotice) => {
+      this.activity.next(review.venueId);
       if (review.venueId === this.venue.venue()?.id) this.reviewed.next(review);
     });
     connection.on('paymentLinkPaid', (notice: PaymentLinkNotice) => {
+      this.activity.next(notice.venueId);
       if (notice.venueId !== this.venue.venue()?.id) return;
       this.chime();
       this.linkPaid.next(notice);
     });
     connection.on('paymentReceived', (payment: PaymentNotice) => {
+      this.activity.next(payment.venueId);
       if (payment.venueId !== this.venue.venue()?.id) return;
       this.chime();
       this.paid.next(payment);

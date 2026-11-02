@@ -28,13 +28,15 @@ The database has two connection strings. Open **Databases → db77252 → Overvi
 Create the tables from your PC, since MonsterASP has no shell:
 
 1. Switch **Remote access** to **Enabled**.
-2. From the repository root, run the command below and paste the **Remote access** connection string when asked:
+2. From the repository root, run the command below. When it asks for the **Database password**, click the copy icon next to **Password** on the **Remote access** tab and paste. The script fills in the rest of the Remote access connection string itself:
 
    ```powershell
    .\deploy\monsterasp\admin.ps1 migrate
    ```
 
-3. Switch **Remote access** back to **Disabled** when you're done (and after `provision` in step 5). The website never needs it. Repeated failed sign-ins block your IP for a while (**Automated Security Protection**).
+3. Switch **Remote access** back to **Disabled** when you're done (and after `provision` or `reset-password` in step 5). The website never needs it. Repeated failed sign-ins block your IP for a while (**Automated Security Protection**).
+
+A "Login failed for user 'db77252'" error means the password was wrong, for example copied while it still showed `*****`.
 
 ## 3. Settings (once)
 
@@ -95,7 +97,21 @@ There's no public sign-up during the pilot. Create each restaurant from your PC:
 .\deploy\monsterasp\admin.ps1 provision --business "Hashem Kitchen" --venue "Abdoun, Amman" --venue-ar "عبدون، عمّان" --owner-email owner@example.jo --owner-name "Lina Haddad" --tables 20
 ```
 
-With **Remote access** enabled again (step 2), it asks for the **Remote access** connection string and for `Qr__TokenKey`. Paste exactly the `Qr__TokenKey` value set in step 3, or the venue's QR codes won't open. The owner then signs in at `https://app.hello-zen.com/portal/`. The rest is the same as [Add the venue](../README.md#3-add-the-venue) in the Docker guide.
+With **Remote access** enabled again (step 2), it asks three things, without showing what you type:
+
+1. **The owner's portal password**, twice, at least 10 characters. Nothing is printed for the owner to lose, so tell them the password privately. (Running `provision` some other way prints a temporary password once instead.)
+2. **The database password**, as in step 2.
+3. **`Qr__TokenKey`**: paste exactly the value set in step 3, or the venue's QR codes won't open.
+
+It should end with `Created …` and `The owner signs in with the password you chose.` The owner then signs in at `https://app.hello-zen.com/portal/`. The rest is the same as [Add the venue](../README.md#3-add-the-venue) in the Docker guide.
+
+If someone can't sign in any more, for example an owner who lost their password, give them a new one the same way:
+
+```powershell
+.\deploy\monsterasp\admin.ps1 reset-password --email owner@example.jo
+```
+
+Owners can also reset their staff's passwords themselves, under **Settings → Team**.
 
 ## 6. Keep it running
 

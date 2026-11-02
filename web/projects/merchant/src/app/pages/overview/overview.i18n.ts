@@ -18,6 +18,8 @@ export interface AttentionValues {
   /** payment_failures: where the last one was, e.g. "Table 4", unless it was a payment link. */
   place: string;
   linkCode: string | null;
+  /** payment_failures: the branch it was in, when the overview covers several. */
+  branch: string | null;
   time: string;
   /** pos_stuck: how many of them the POS refused. */
   refused: number;
@@ -29,16 +31,18 @@ export interface AttentionValues {
 type Attention = (v: AttentionValues) => { title: string; detail: string };
 
 const en = {
-  title: 'Overview',
+  title: 'Dashboard',
   updatedLive: 'Updated live as orders and payments come in',
   period: 'Period',
+  branch: 'Branch',
+  allBranches: 'All branches',
   periods: { Today: 'Today', Week: 'Last 7 days', Month: 'This month', Quarter: 'This quarter' } as Record<OverviewPeriod, string>,
   /** Follows a card title: "Revenue this month". */
   periodNames: { Today: 'today', Week: 'last 7 days', Month: 'this month', Quarter: 'this quarter' } as Record<OverviewPeriod, string>,
   revenue: 'Revenue',
   tips: 'Tips',
   orders: 'Orders',
-  refunds: 'Refunds',
+  refunds: 'Refund',
   revenueToday: 'Revenue today',
   tipsToday: 'Tips today',
   ordersToday: 'Orders today',
@@ -58,7 +62,7 @@ const en = {
   attention: {
     payment_failures: v => ({
       title: v.count === 1 ? '1 payment failure today' : `${v.count} payment failures today`,
-      detail: `Last: ${v.linkCode ? `Payment link ${v.linkCode}` : v.place} · ${v.time}`
+      detail: `Last: ${v.linkCode ? `Payment link ${v.linkCode}` : v.place}${v.branch ? `, ${v.branch}` : ''} · ${v.time}`
     }),
     pos_stuck: v => ({
       title: v.count === 1 ? '1 item not in the POS yet' : `${v.count} items not in the POS yet`,
@@ -96,9 +100,11 @@ const en = {
 export const OVERVIEW: Lexicon<typeof en> = {
   en,
   ar: {
-    title: 'نظرة عامة',
+    title: 'لوحة التحكم',
     updatedLive: 'تُحدَّث مباشرةً مع وصول الطلبات والدفعات',
     period: 'الفترة',
+    branch: 'الفرع',
+    allBranches: 'كل الفروع',
     periods: { Today: 'اليوم', Week: 'آخر 7 أيام', Month: 'هذا الشهر', Quarter: 'هذا الربع' },
     periodNames: { Today: 'اليوم', Week: 'خلال آخر 7 أيام', Month: 'هذا الشهر', Quarter: 'هذا الربع' },
     revenue: 'الإيرادات',
@@ -122,7 +128,7 @@ export const OVERVIEW: Lexicon<typeof en> = {
     attention: {
       payment_failures: v => ({
         title: arCount(v.count, 'دفعة فاشلة واحدة اليوم', 'دفعتان فاشلتان اليوم', 'دفعات فاشلة اليوم', 'دفعة فاشلة اليوم'),
-        detail: `آخرها: ${v.linkCode ? `رابط الدفع ${v.linkCode}` : v.place} · ${v.time}`
+        detail: `آخرها: ${v.linkCode ? `رابط الدفع ${v.linkCode}` : v.place}${v.branch ? `، ${v.branch}` : ''} · ${v.time}`
       }),
       pos_stuck: v => ({
         title: arCount(v.count, 'عملية واحدة لم تصل إلى نظام نقاط البيع بعد', 'عمليتان لم تصلا إلى نظام نقاط البيع بعد',

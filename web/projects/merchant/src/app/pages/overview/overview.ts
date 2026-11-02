@@ -1,9 +1,9 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { merge } from 'rxjs';
+import { filter } from 'rxjs';
 
-import { FinanceApi, Overview as OverviewData, OverviewPeriod, TrendGranularity } from '../../core/api';
+import { FinanceApi, Overview as OverviewData, OverviewPeriod, TrendGranularity, Venue } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
@@ -15,9 +15,9 @@ import { OVERVIEW } from './overview.i18n';
 type AttentionItem = OverviewData['attention'][number];
 
 /**
- * The merchant overview (blueprint 4.4, P1-MER-08/09, mockup "Merchant overview"): the chosen
+ * The merchant dashboard (blueprint 4.4, P1-MER-08/09, mockup "Merchant overview"): the chosen
  * period and today at a glance, the last week against the week before, a revenue or tips trend,
- * and what needs attention. Updates live as orders and payments come in.
+ * and what needs attention, for one branch or all of them. Updates live as orders and payments come in.
  */
 @Component({
   selector: 'hz-overview',
@@ -31,12 +31,18 @@ export class Overview implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly i18n = inject(I18n);
   protected readonly t = this.i18n.use(OVERVIEW);
+  /** The tenant's branches; the filter shows once there's more than one. */
+  protected readonly branches = this.venue.venues;
 
   protected readonly periods: OverviewPeriod[] = ['Today', 'Week', 'Month', 'Quarter'];
   protected readonly granularities: TrendGranularity[] = ['Hourly', 'Daily', 'Weekly', 'Monthly'];
   protected readonly period = signal<OverviewPeriod>('Month');
   protected readonly granularity = signal<TrendGranularity | null>(null);
   protected readonly series = signal<'revenue' | 'tips'>('revenue');
+  /** The branch shown, or null for all of them together. */
+  protected readonly branch = signal<string | null>(null);
+  /** All branches together only add up when they share a currency. */
+  protected readonly canCombine = computed(() => new Set(this.branches().map(b => b.currency)).size === 1);
   protected readonly data = signal<OverviewData | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -46,10 +52,25 @@ export class Overview implements OnInit {
     (this.data()?.trend ?? []).map(p => ({ start: p.start, valueMinor: this.series() === 'revenue' ? p.revenueMinor : p.tipsMinor })));
 
   ngOnInit(): void {
-    this.venue.load().subscribe({ next: () => this.load(), error: error => this.error.set(errorMessage(error)) });
-    merge(this.live.placed, this.live.changed, this.live.paid, this.live.refunded, this.live.reviewed, this.live.linkPaid)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    this.venue.load().subscribe({
+      next: venue => {
+        this.branch.set(this.branches().length > 1 && this.canCombine() ? null : venue?.id ?? null);
+        this.load();
+      },
+      error: error => this.error.set(errorMessage(error))
+    });
+    this.live.activity
+      .pipe(filter(venueId => (this.branch() ?? venueId) === venueId), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.load());
+  }
+
+  protected setBranch(value: string): void {
+    this.branch.set(value || null);
+    this.load();
+  }
+
+  protected branchName(b: Venue): string {
+    return this.i18n.lang() === 'ar' && b.nameAr ? b.nameAr : b.name;
   }
 
   protected setPeriod(value: string): void {
@@ -69,10 +90,12 @@ export class Overview implements OnInit {
     if (!word) return { title: a.title, detail: a.detail };
     const p = a.params ?? {};
     const type = String(p['locationType'] ?? '');
+    const branch = this.branches().find(b => b.id === p['venueId']);
     return word({
       count: a.count,
       place: `${this.i18n.t().locationTypes[type] ?? type} ${p['label'] ?? ''}`.trim(),
       linkCode: typeof p['linkCode'] === 'string' ? p['linkCode'] : null,
+      branch: branch ? this.branchName(branch) : null,
       time: String(p['time'] ?? ''),
       refused: Number(p['refused'] ?? 0),
       open: this.money(Number(p['openMinor'] ?? 0)),
@@ -101,10 +124,9 @@ export class Overview implements OnInit {
   }
 
   private load(): void {
-    const venueId = this.venue.venue()?.id;
-    if (!venueId) return;
+    if (!this.venue.venue()) return;
     this.loading.set(true);
-    this.api.overview(venueId, this.period(), this.granularity() ?? undefined).subscribe({
+    this.api.overview(this.branch(), this.period(), this.granularity() ?? undefined).subscribe({
       next: d => {
         this.loading.set(false);
         this.error.set(null);
