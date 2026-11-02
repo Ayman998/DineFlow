@@ -57,7 +57,7 @@ public class PosTests : IDisposable
     private Task<PosSettingsDto> MapTableAsync(VenueDto venue, LocationDto table, StaffUser manager, string? posRef) =>
         _host.Pos.MapAsync(venue.Id, new PosMappingRequest([new PosTableMappingRequest(table.Id, posRef)], null), manager.Id, default);
 
-    /// <summary>A guest at table 7 orders; staff accept it (unless told not to).</summary>
+    /// <summary>A guest at table 7 orders; staff take it on by marking it ready (unless told not to).</summary>
     private async Task<(Guid Session, OrderDto Order)> OrderAsync(Fixture f, int burgers = 1, bool accept = true)
     {
         _host.CurrentTenant = null;
@@ -66,7 +66,7 @@ public class PosTests : IDisposable
         var lines = new List<CartLineRequest> { new(f.Burger.Id, burgers, [], null) };
         var quote = await _host.CartQuotes.QuoteAsync(session, new CartRequest(lines), default);
         var order = await _host.GuestOrders.PlaceAsync(session, new PlaceOrderRequest(Guid.NewGuid(), lines, null, quote.TotalMinor), default);
-        if (accept) await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Accepted, null), default, f.Manager.Id);
+        if (accept) await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default, f.Manager.Id);
         return (session, order);
     }
 

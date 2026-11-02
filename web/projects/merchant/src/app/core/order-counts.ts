@@ -8,5 +8,5 @@ import { OrderCounts } from './api';
  */
 @Injectable({ providedIn: 'root' })
 export class OrderCountsStore {
-  readonly counts = signal<OrderCounts>({ new: 0, accepted: 0, preparing: 0, ready: 0 });
+  readonly counts = signal<OrderCounts>({ new: 0, ready: 0 });
 }

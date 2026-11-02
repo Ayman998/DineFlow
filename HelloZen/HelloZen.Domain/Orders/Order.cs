@@ -149,8 +149,9 @@ public class Order : Entity, ITenantOwned
     }
 
     /// <summary>
-    /// Moves the order along the kitchen flow. Allowed: Submitted → Accepted or Rejected;
-    /// Accepted → Preparing, Ready or Completed; Preparing → Ready or Completed; Ready → Completed.
+    /// Moves the order along the kitchen flow. The portal uses New → Ready → Served
+    /// (Submitted → Ready → Completed) or Submitted → Rejected. The longer Submitted → Accepted →
+    /// Preparing → Ready → Completed flow is still allowed, so orders already accepted can finish.
     /// </summary>
     public void TransitionTo(OrderStatus next, string? reason, DateTimeOffset now, Guid? staffUserId = null)
     {
@@ -160,15 +161,16 @@ public class Order : Entity, ITenantOwned
         if (next == OrderStatus.Rejected)
             RejectReason = Text.Required(reason, 200, "A reason for the guest");
 
+        // Whoever takes a new order on (accepting it, or marking it ready) accepted it.
+        if (Status == OrderStatus.Submitted && next is OrderStatus.Accepted or OrderStatus.Ready) AcceptedByStaffId = staffUserId;
+        if (next == OrderStatus.Completed) ServedByStaffId = staffUserId;
         Status = next;
         UpdatedAt = now;
-        if (next == OrderStatus.Accepted) AcceptedByStaffId = staffUserId;
-        if (next == OrderStatus.Completed) ServedByStaffId = staffUserId;
     }
 
     public bool CanTransitionTo(OrderStatus next) => (Status, next) switch
     {
-        (OrderStatus.Submitted, OrderStatus.Accepted or OrderStatus.Rejected) => true,
+        (OrderStatus.Submitted, OrderStatus.Accepted or OrderStatus.Ready or OrderStatus.Rejected) => true,
         (OrderStatus.Accepted, OrderStatus.Preparing or OrderStatus.Ready or OrderStatus.Completed) => true,
         (OrderStatus.Preparing, OrderStatus.Ready or OrderStatus.Completed) => true,
         (OrderStatus.Ready, OrderStatus.Completed) => true,

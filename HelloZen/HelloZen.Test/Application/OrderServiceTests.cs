@@ -185,17 +185,24 @@ public class OrderServiceTests : IDisposable
         var order = await _host.GuestOrders.PlaceAsync(f.SessionId, new PlaceOrderRequest(Guid.NewGuid(), [f.TwoBurgersWithCheese], null, null), default);
 
         var counts = await _host.MerchantOrders.CountsAsync(f.Venue.Id, default);
-        await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Accepted, null), default);
-        var again = await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Accepted, null), default);
+        await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
+        var again = await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
+        var ready = await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Ready, default);
         var skip = await Assert.ThrowsAsync<AppException>(() =>
             _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Rejected, "Too late"), default));
         await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Completed, null), default);
+        var board = await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Active, default);
+        _host.Clock.Advance(TimeSpan.FromDays(1));
 
-        Assert.Equal(new OrderCountsDto(1, 0, 0, 0), counts);
-        Assert.Equal(OrderStatus.Accepted, again.Status); // a second tap is harmless
+        Assert.Equal(new OrderCountsDto(1, 0), counts);
+        Assert.Equal(OrderStatus.Ready, again.Status); // a second tap is harmless
+        Assert.Equal(order.Id, Assert.Single(ready).Id);
         Assert.Equal("invalid_transition", skip.Code);
+        Assert.Equal(OrderStatus.Completed, Assert.Single(board).Status); // in the Served column for the rest of the day
         Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Active, default));
-        Assert.Single(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Completed, default));
+        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.New, default));
+        Assert.Single(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Served, default));
+        Assert.Equal(new OrderCountsDto(0, 0), await _host.MerchantOrders.CountsAsync(f.Venue.Id, default));
         Assert.Equal(["placed", "changed", "changed"], _host.Notifier.Events.Select(e => e.Event));
     }
 

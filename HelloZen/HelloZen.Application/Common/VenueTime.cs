@@ -10,4 +10,12 @@ public static class VenueTime
             ? TimeZoneInfo.ConvertTime(utcNow, zone).DateTime
             : utcNow.UtcDateTime;
     }
+
+    /// <summary>Midnight at the venue today, e.g. for "served today".</summary>
+    public static DateTimeOffset StartOfToday(TimeProvider clock, string timeZoneId)
+    {
+        var zone = TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out var found) ? found : TimeZoneInfo.Utc;
+        var midnight = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), zone).Date;
+        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(midnight, zone), TimeSpan.Zero);
+    }
 }

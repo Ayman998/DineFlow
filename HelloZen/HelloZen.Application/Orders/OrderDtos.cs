@@ -99,10 +99,13 @@ public record ChangeOrderStatusRequest(
 /// <summary>Which orders the merchant queue shows.</summary>
 public enum OrderFilter
 {
-    /// <summary>Submitted, accepted, preparing or ready: the live kitchen queue, oldest first.</summary>
+    /// <summary>The board: every order not served yet, oldest first, then those served today.</summary>
     Active,
+    /// <summary>Not ready yet (submitted, or accepted or preparing under the older flow).</summary>
     New,
-    Completed,
+    Ready,
+    /// <summary>Completed orders, newest first.</summary>
+    Served,
     Rejected
 }
 

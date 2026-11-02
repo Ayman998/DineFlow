@@ -11,28 +11,36 @@ import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
 import { ORDERS } from './orders.i18n';
 
-/** The kanban columns; their titles are in the lexicon. */
-const COLUMNS: OrderStatus[] = ['Submitted', 'Accepted', 'Preparing', 'Ready'];
+/** The kanban columns; their titles are in the lexicon. Each one is also a filter. */
+type Column = 'New' | 'Ready' | 'Served';
+const COLUMNS: Column[] = ['New', 'Ready', 'Served'];
 
-/** Where an order can go next; each button is labelled by the status it moves the order to. */
-interface Action {
-  status: OrderStatus;
-  primary: boolean;
-}
-
-const ACTIONS: Record<OrderStatus, Action[]> = {
-  Submitted: [{ status: 'Accepted', primary: true }],
-  Accepted: [{ status: 'Preparing', primary: true }, { status: 'Ready', primary: false }],
-  Preparing: [{ status: 'Ready', primary: true }],
-  Ready: [{ status: 'Completed', primary: true }],
-  Completed: [],
-  Rejected: []
+/** Accepted and Preparing are only on orders taken on before the three-step flow; they wait in New. */
+const COLUMN_OF: Partial<Record<OrderStatus, Column>> = {
+  Submitted: 'New',
+  Accepted: 'New',
+  Preparing: 'New',
+  Ready: 'Ready',
+  Completed: 'Served'
 };
+
+/** Where an order goes next; its button is labelled by that status. */
+const NEXT: Record<OrderStatus, OrderStatus | null> = {
+  Submitted: 'Ready',
+  Accepted: 'Ready',
+  Preparing: 'Ready',
+  Ready: 'Completed',
+  Completed: null,
+  Rejected: null
+};
+
+/** Served and rejected orders are looked back on, newest first; the kitchen works oldest first. */
+const isDone = (order: OrderDto) => order.status === 'Completed' || order.status === 'Rejected';
 
 /**
  * The live order queue (blueprint 4.4 "Orders", P1-ORD-03/04): new orders arrive in real time
- * and staff move them New → Accepted → Preparing → Ready → served, or reject them with a reason
- * the guest sees.
+ * and staff move them New → Ready → Served, or reject them with a reason the guest sees. The
+ * Served column shows what was served today.
  */
 @Component({
   selector: 'hz-orders',
@@ -48,7 +56,7 @@ export class Orders implements OnInit {
   protected readonly t = this.i18n.use(ORDERS);
 
   protected readonly columns = COLUMNS;
-  protected readonly filters: OrderFilter[] = ['Active', 'New', 'Completed', 'Rejected'];
+  protected readonly filters: OrderFilter[] = ['Active', 'New', 'Ready', 'Served', 'Rejected'];
   protected readonly filter = signal<OrderFilter>('Active');
   protected readonly orders = signal<OrderDto[] | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -60,9 +68,12 @@ export class Orders implements OnInit {
   /** Re-renders "x min ago" every 30 seconds. */
   protected readonly now = signal(Date.now());
 
-  protected readonly byStatus = computed(() => {
-    const groups = new Map<OrderStatus, OrderDto[]>();
-    for (const order of this.orders() ?? []) groups.set(order.status, [...(groups.get(order.status) ?? []), order]);
+  protected readonly byColumn = computed(() => {
+    const groups = new Map<Column, OrderDto[]>();
+    for (const order of this.orders() ?? []) {
+      const column = COLUMN_OF[order.status];
+      if (column) groups.set(column, [...(groups.get(column) ?? []), order]);
+    }
     return groups;
   });
 
@@ -87,8 +98,8 @@ export class Orders implements OnInit {
     this.load();
   }
 
-  protected actions(order: OrderDto): Action[] {
-    return ACTIONS[order.status];
+  protected next(order: OrderDto): OrderStatus | null {
+    return NEXT[order.status];
   }
 
   protected move(order: OrderDto, status: OrderStatus, reason: string | null = null): void {
@@ -159,18 +170,17 @@ export class Orders implements OnInit {
     this.orders.update(list => {
       const others = (list ?? []).filter(o => o.id !== order.id);
       if (!fits) return others;
-      const merged = [...others, order];
-      const newestFirst = this.filter() === 'Completed' || this.filter() === 'Rejected';
-      return merged.sort((a, b) => (newestFirst ? b.number - a.number : a.number - b.number));
+      return [...others, order].sort((a, b) =>
+        Number(isDone(a)) - Number(isDone(b)) || (isDone(a) ? b.number - a.number : a.number - b.number));
     });
   }
 
   private fitsFilter(order: OrderDto): boolean {
-    switch (this.filter()) {
-      case 'Active': return COLUMNS.includes(order.status);
-      case 'New': return order.status === 'Submitted';
-      case 'Completed': return order.status === 'Completed';
-      default: return order.status === 'Rejected';
+    const filter = this.filter();
+    switch (filter) {
+      case 'Active': return COLUMN_OF[order.status] !== undefined;
+      case 'Rejected': return order.status === 'Rejected';
+      default: return COLUMN_OF[order.status] === filter;
     }
   }
 

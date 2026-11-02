@@ -56,7 +56,19 @@ public class OrderStatusTests
     }
 
     [Fact]
-    public void Happy_path_runs_from_submitted_to_completed()
+    public void Happy_path_runs_from_new_to_ready_to_served()
+    {
+        var order = Create();
+        var (cook, waiter) = (Guid.NewGuid(), Guid.NewGuid());
+
+        order.TransitionTo(OrderStatus.Ready, null, DateTimeOffset.UtcNow, cook);
+        order.TransitionTo(OrderStatus.Completed, null, DateTimeOffset.UtcNow, waiter);
+
+        Assert.Equal((OrderStatus.Completed, cook, waiter), (order.Status, order.AcceptedByStaffId, order.ServedByStaffId));
+    }
+
+    [Fact]
+    public void Orders_accepted_under_the_older_flow_can_still_finish()
     {
         var order = Create();
 
@@ -68,9 +80,8 @@ public class OrderStatusTests
 
     [Theory]
     [InlineData(OrderStatus.Preparing)]
-    [InlineData(OrderStatus.Ready)]
     [InlineData(OrderStatus.Completed)]
-    public void A_new_order_must_be_accepted_or_rejected_first(OrderStatus next)
+    public void A_new_order_must_be_made_ready_or_rejected_first(OrderStatus next)
     {
         Assert.Throws<DomainException>(() => Create().TransitionTo(next, null, DateTimeOffset.UtcNow));
     }

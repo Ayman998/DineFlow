@@ -312,7 +312,7 @@ export class MenuAdminApi {
 // ---- Orders (Sprint 3) ----
 
 export type OrderStatus = 'Submitted' | 'Accepted' | 'Preparing' | 'Ready' | 'Completed' | 'Rejected';
-export type OrderFilter = 'Active' | 'New' | 'Completed' | 'Rejected';
+export type OrderFilter = 'Active' | 'New' | 'Ready' | 'Served' | 'Rejected';
 
 export interface OrderModifierDto {
   optionId: string;
@@ -355,8 +355,6 @@ export interface OrderDto {
 
 export interface OrderCounts {
   new: number;
-  accepted: number;
-  preparing: number;
   ready: number;
 }
 

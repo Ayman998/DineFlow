@@ -51,7 +51,7 @@ npm --prefix web ci
 npm --prefix web start
 ```
 
-That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (Accept → Preparing → Ready → Served) updates the guest's tracker live. Group items under **Item Categories**, manage items with their prices, modifiers and photos under **Items**, and choose what each menu shows with **Link items** under **Menu** (one item can be on several menus), and service charge, VAT and tips under **Settings**. The Angular dev servers proxy `/v1`, `/health`, `/hubs`, `/media` and `/sandbox` to the API, so both apps call relative URLs.
+That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (New → Ready → Served) updates the guest's tracker live. Group items under **Item Categories**, manage items with their prices, modifiers and photos under **Items**, and choose what each menu shows with **Link items** under **Menu** (one item can be on several menus), and service charge, VAT and tips under **Settings**. The Angular dev servers proxy `/v1`, `/health`, `/hubs`, `/media` and `/sandbox` to the API, so both apps call relative URLs.
 
 ### Paying the bill
 
@@ -370,7 +370,7 @@ npm --prefix web test
 | `POST /v1/merchant/menu/reorder`, `POST /v1/merchant/menu/images` | manager | Reordering and photo upload |
 | `POST /v1/public/sessions/{id}/cart/validate` | guest token | Server prices for a cart, with service charge, VAT and any problems per line |
 | `POST /v1/public/sessions/{id}/orders`, `GET …/orders` | guest token | Place an order (idempotent per `clientRequestId`); the table's orders |
-| `GET /v1/merchant/venues/{id}/orders?filter=Active\|New\|Completed\|Rejected`, `GET …/orders/counts` | merchant | The order queue and badge counts |
+| `GET /v1/merchant/venues/{id}/orders?filter=Active\|New\|Ready\|Served\|Rejected`, `GET …/orders/counts` | merchant | The order queue and badge counts |
 | `POST /v1/merchant/orders/{id}/status` | merchant | Accept, reject (with reason), preparing, ready, served |
 | `GET /v1/public/sessions/{id}/bill` | guest token | The table's bill: orders, items with who holds or paid them, paid, left, what others are paying, what this guest can pay, tip options, payment methods |
 | `PUT /v1/public/sessions/{id}/split` | guest token | Set how many people split equally (`people`), or remove the split (`null`) |

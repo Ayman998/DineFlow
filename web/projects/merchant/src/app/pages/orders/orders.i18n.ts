@@ -4,12 +4,12 @@ import { Lexicon } from '../../core/i18n';
 const en = {
   title: 'Orders',
   intro: 'New orders appear here instantly, with a chime. Click anywhere once to allow the sound.',
-  filters: { Active: 'Active', New: 'New', Completed: 'Completed', Rejected: 'Rejected' } as Record<OrderFilter, string>,
+  filters: { Active: 'Active', New: 'New', Ready: 'Ready', Served: 'Served', Rejected: 'Rejected' } as Record<OrderFilter, string>,
   noOrders: (filter: OrderFilter) => `No ${filter.toLowerCase()} orders.`,
-  /** Kanban columns, by order status. */
-  columns: { Submitted: 'New', Accepted: 'Accepted', Preparing: 'Preparing', Ready: 'Ready' } as Record<string, string>,
+  /** Kanban columns. */
+  columns: { New: 'New', Ready: 'Ready', Served: 'Served' } as Record<string, string>,
   /** Buttons that move an order on, by the status they move it to. */
-  actions: { Accepted: 'Accept', Preparing: 'Start preparing', Ready: 'Mark ready', Completed: 'Mark served' } as Record<string, string>,
+  actions: { Ready: 'Mark ready', Completed: 'Mark served' } as Record<string, string>,
   nothingHere: 'Nothing here',
   justNow: 'just now',
   minutesAgo: (minutes: number) => `${minutes} min ago`,
@@ -30,11 +30,11 @@ export const ORDERS: Lexicon<typeof en> = {
   ar: {
     title: 'الطلبات',
     intro: 'تظهر الطلبات الجديدة هنا فوراً مع تنبيه صوتي. انقر في أي مكان مرة واحدة للسماح بالصوت.',
-    filters: { Active: 'النشطة', New: 'الجديدة', Completed: 'المكتملة', Rejected: 'المرفوضة' },
+    filters: { Active: 'النشطة', New: 'الجديدة', Ready: 'الجاهزة', Served: 'المُقدَّمة', Rejected: 'المرفوضة' },
     noOrders: (filter: OrderFilter) =>
-      `لا توجد طلبات ${({ Active: 'نشطة', New: 'جديدة', Completed: 'مكتملة', Rejected: 'مرفوضة' } as const)[filter]}.`,
-    columns: { Submitted: 'جديد', Accepted: 'مقبول', Preparing: 'قيد التحضير', Ready: 'جاهز' },
-    actions: { Accepted: 'قبول', Preparing: 'بدء التحضير', Ready: 'تحديد كجاهز', Completed: 'تأكيد التقديم' },
+      `لا توجد طلبات ${({ Active: 'نشطة', New: 'جديدة', Ready: 'جاهزة', Served: 'مُقدَّمة', Rejected: 'مرفوضة' } as const)[filter]}.`,
+    columns: { New: 'جديد', Ready: 'جاهز', Served: 'تم التقديم' },
+    actions: { Ready: 'تحديد كجاهز', Completed: 'تأكيد التقديم' },
     nothingHere: 'لا توجد طلبات',
     justNow: 'الآن',
     minutesAgo: (minutes: number) =>
