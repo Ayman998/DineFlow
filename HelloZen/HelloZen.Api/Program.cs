@@ -13,6 +13,7 @@ using HelloZen.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -168,6 +169,14 @@ if (app.Environment.IsDevelopment())
     {
         app.Logger.LogError(ex, "Database initialisation failed. Is SQL Server running and reachable?");
     }
+}
+else if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    // Hosts with no shell (MonsterASP, deployed from GitHub Actions) apply pending migrations as the new
+    // version starts, so a deploy needs no separate step and the database stays closed to the internet.
+    // Elsewhere `migrate` runs before the new version starts (see AdminCommands). A failure stops startup.
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
 }
 
 if (app.Configuration.GetValue<bool>("ReverseProxy:Enabled")) app.UseForwardedHeaders();
