@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
 
@@ -6,6 +6,7 @@ import { FloorPlan, Location, LocationType, MerchantApi } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { QrCode, qrDataUrl } from '../../shared/qr-code';
 import { LiveTables } from './live-tables';
 import { TABLES } from './tables.i18n';
@@ -29,7 +30,7 @@ export const LOCATION_TYPES: LocationType[] = ['Table', 'Counter', 'HotelRoom', 
  */
 @Component({
   selector: 'hz-tables',
-  imports: [ReactiveFormsModule, QrCode, LiveTables],
+  imports: [ReactiveFormsModule, QrCode, LiveTables, ConfirmDialog],
   templateUrl: './tables.html'
 })
 export class Tables implements OnInit {
@@ -52,6 +53,12 @@ export class Tables implements OnInit {
   protected readonly busy = signal<ReadonlySet<string>>(new Set());
   /** The area the area form renames; null while it adds a new one. */
   protected readonly editingArea = signal<Section | null>(null);
+  /** The location waiting for the user to confirm a new QR code. */
+  protected readonly rotateDialog = signal<Location | null>(null);
+  /** The area waiting for the user to confirm closing it. */
+  protected readonly closeAreaDialog = signal<Section | null>(null);
+
+  private readonly confirmDialog = viewChild(ConfirmDialog);
 
   protected readonly areaForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(80)]],
@@ -151,12 +158,15 @@ export class Tables implements OnInit {
     }
   }
 
-  protected rotate(location: Location): void {
-    if (!confirm(this.t().confirmRotate(this.place(location)))) return;
+  /** Runs once the user confirms in the rotate dialog. */
+  protected rotate(): void {
+    const location = this.rotateDialog();
+    if (!location) return;
 
-    this.runFor(location, this.api.rotateQr(location.id), updated =>
-      this.notice.set(this.t().rotated(this.place(updated), updated.qr?.version ?? 1))
-    );
+    this.runFor(location, this.api.rotateQr(location.id), updated => {
+      this.rotateDialog.set(null);
+      this.notice.set(this.t().rotated(this.place(updated), updated.qr?.version ?? 1));
+    }, message => this.confirmDialog()?.showError(message));
   }
 
   protected setEnabled(location: Location, enabled: boolean): void {
@@ -165,11 +175,22 @@ export class Tables implements OnInit {
     );
   }
 
+  /** Reopens an area straight away; closing one asks first. */
+  protected toggleArea(section: Section): void {
+    if (section.active) this.closeAreaDialog.set(section);
+    else this.setAreaActive(section, true);
+  }
+
+  /** Runs once the user confirms in the close-area dialog. */
+  protected closeArea(): void {
+    const section = this.closeAreaDialog();
+    if (section) this.setAreaActive(section, false, message => this.confirmDialog()?.showError(message));
+  }
+
   /** Closes or reopens every table in an area at once, e.g. the terrace for the winter. */
-  protected setAreaActive(section: Section, active: boolean): void {
+  private setAreaActive(section: Section, active: boolean, showInDialog?: (message: string) => void): void {
     const venue = this.currentVenue.venue();
     if (!venue || !section.id) return;
-    if (!active && !confirm(this.t().confirmCloseArea(section.title, section.locations.length))) return;
 
     const id = section.id;
     this.busy.update(ids => new Set(ids).add(id));
@@ -180,9 +201,10 @@ export class Tables implements OnInit {
     });
 
     this.run(this.api.setAreaActive(venue.id, id, active), area => {
+      this.closeAreaDialog.set(null);
       this.plan.update(plan => plan && { ...plan, areas: plan.areas.map(a => (a.id === area.id ? area : a)) });
       this.notice.set(active ? this.t().areaOpened(area.name) : this.t().areaClosed(area.name));
-    }, finish);
+    }, finish, showInDialog);
   }
 
   protected isAreaBusy(section: Section): boolean {
@@ -227,7 +249,8 @@ export class Tables implements OnInit {
     });
   }
 
-  private run<T>(request: Observable<T>, done: (result: T) => void, always?: () => void): void {
+  /** Errors go to `showInDialog` when the action came from a dialog, otherwise to the page. */
+  private run<T>(request: Observable<T>, done: (result: T) => void, always?: () => void, showInDialog?: (message: string) => void): void {
     this.error.set(null);
     this.notice.set(null);
     request.subscribe({
@@ -237,13 +260,14 @@ export class Tables implements OnInit {
       },
       error: error => {
         always?.();
-        this.error.set(errorMessage(error));
+        (showInDialog ?? (message => this.error.set(message)))(errorMessage(error));
       }
     });
   }
 
   /** Runs a per-location action and swaps the updated location into the plan. */
-  private runFor(location: Location, request: Observable<Location>, done: (updated: Location) => void): void {
+  private runFor(location: Location, request: Observable<Location>, done: (updated: Location) => void,
+                 showInDialog?: (message: string) => void): void {
     this.busy.update(ids => new Set(ids).add(location.id));
     const finish = () => this.busy.update(ids => {
       const next = new Set(ids);
@@ -254,7 +278,7 @@ export class Tables implements OnInit {
     this.run(request, updated => {
       this.replace(updated);
       done(updated);
-    }, finish);
+    }, finish, showInDialog);
   }
 
   private replace(updated: Location): void {

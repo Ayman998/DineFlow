@@ -131,7 +131,7 @@
             {{ section.active ? '● ' + t.open : '◐ ' + t.closed }}
           </span>
           @if (auth.canManage()) {
-            <button type="button" class="link text-sm" [disabled]="isAreaBusy(section)" (click)="setAreaActive(section, !section.active)">
+            <button type="button" class="link text-sm" [disabled]="isAreaBusy(section)" (click)="toggleArea(section)">
               {{ section.active ? t.closeArea : t.openArea }}
             </button>
             <button type="button" class="link text-sm" (click)="renameArea(section)">{{ t.renameArea }}</button>
@@ -177,7 +177,7 @@
                   } @else {
                     <button type="button" class="link" [disabled]="isBusy(location)" (click)="setEnabled(location, true)">{{ t.enable }}</button>
                   }
-                  <button type="button" class="link" [disabled]="isBusy(location)" (click)="rotate(location)">{{ t.rotate }}</button>
+                  <button type="button" class="link" [disabled]="isBusy(location)" (click)="rotateDialog.set(location)">{{ t.rotate }}</button>
                 }
               </div>
             } @else {
@@ -189,4 +189,23 @@
     </section>
   }
 }
+}
+
+@if (rotateDialog(); as location) {
+  <hz-confirm-dialog
+    [title]="t.rotateTitle"
+    [message]="t.confirmRotate(place(location))"
+    [confirmLabel]="t.rotate"
+    [busyLabel]="t.rotating"
+    (confirmed)="rotate()"
+    (cancelled)="rotateDialog.set(null)" />
+}
+@if (closeAreaDialog(); as section) {
+  <hz-confirm-dialog
+    [title]="t.closeArea"
+    [message]="t.confirmCloseArea(section.title, section.locations.length)"
+    [confirmLabel]="t.closeArea"
+    [busyLabel]="t.closingArea"
+    (confirmed)="closeArea()"
+    (cancelled)="closeAreaDialog.set(null)" />
 }

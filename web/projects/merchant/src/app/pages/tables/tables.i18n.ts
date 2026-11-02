@@ -34,6 +34,7 @@ const en = {
   open: 'Open',
   closed: 'Closed',
   closeArea: 'Close area',
+  closingArea: 'Closing…',
   openArea: 'Open area',
   areaClosedNote: "This area is closed: its QR codes don't open and its tables take no new orders.",
   confirmCloseArea: (area: string, count: number) =>
@@ -58,6 +59,8 @@ const en = {
   addedTables: (count: number) => (count === 1 ? 'Added 1 table with a QR code.' : `Added ${count} tables with QR codes.`),
   tablesExist: 'Those table numbers already exist.',
   addedLocation: (place: string) => `Added ${place} with a QR code.`,
+  rotateTitle: 'Rotate QR code',
+  rotating: 'Rotating…',
   confirmRotate: (place: string) =>
     `Issue a new QR code for ${place}?\n\nThe printed code stops working straight away, so print and place the new one.`,
   rotated: (place: string, version: number) => `${place} now has QR version ${version}. Print it to replace the old one.`,
@@ -138,6 +141,7 @@ export const TABLES: Lexicon<typeof en> = {
     open: 'مفتوحة',
     closed: 'مغلقة',
     closeArea: 'إغلاق المنطقة',
+    closingArea: 'جارٍ الإغلاق…',
     openArea: 'فتح المنطقة',
     areaClosedNote: 'هذه المنطقة مغلقة: رموز QR فيها لا تعمل وطاولاتها لا تستقبل طلبات جديدة.',
     confirmCloseArea: (area: string, count: number) =>
@@ -162,6 +166,8 @@ export const TABLES: Lexicon<typeof en> = {
         : count <= 10 ? `تمت إضافة ${count} طاولات مع رموز QR.` : `تمت إضافة ${count} طاولة مع رموز QR.`,
     tablesExist: 'أرقام الطاولات هذه موجودة بالفعل.',
     addedLocation: (place: string) => `تمت إضافة ${place} مع رمز QR.`,
+    rotateTitle: 'تجديد رمز QR',
+    rotating: 'جارٍ التجديد…',
     confirmRotate: (place: string) =>
       `إصدار رمز QR جديد لـ ${place}؟\n\nسيتوقف الرمز المطبوع عن العمل فوراً، لذا اطبع الرمز الجديد وضعه مكانه.`,
     rotated: (place: string, version: number) => `أصبح لـ ${place} رمز QR بالإصدار ${version}. اطبعه ليحل محل الرمز القديم.`,

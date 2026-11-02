@@ -3,8 +3,9 @@ import { Component, ElementRef, afterNextRender, inject, input, output, signal, 
 import { I18n } from '../core/i18n';
 
 /**
- * Asks before a delete. The page runs the delete on `confirmed`, closes the dialog when it's
- * done, and shows a failure here with `showError` so staff can try again or cancel.
+ * Asks before something that can't be undone, such as a delete or rotating a QR code. The page
+ * runs it on `confirmed`, closes the dialog when it's done, and shows a failure here with
+ * `showError` so staff can try again or cancel.
  */
 @Component({
   selector: 'hz-confirm-dialog',
@@ -14,14 +15,14 @@ import { I18n } from '../core/i18n';
     <div class="modal max-w-md" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message"
          (keydown.escape)="cancel()">
       <h2 id="confirm-title" class="text-lg font-bold">{{ title() }}</h2>
-      <p id="confirm-message" class="mt-2 text-sm text-ink-muted">{{ message() }}</p>
+      <p id="confirm-message" class="mt-2 text-sm whitespace-pre-line text-ink-muted">{{ message() }}</p>
 
       @if (error()) { <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{ error() }}</p> }
 
       <div class="mt-6 flex justify-end gap-2">
         <button #cancelButton type="button" class="btn-ghost" [disabled]="busy()" (click)="cancel()">{{ common.cancel }}</button>
         <button type="button" class="btn-primary bg-red-700 text-white hover:bg-red-800" [disabled]="busy()" (click)="confirm()">
-          {{ busy() ? common.deleting : common.delete }}
+          {{ busy() ? (busyLabel() ?? common.deleting) : (confirmLabel() ?? common.delete) }}
         </button>
       </div>
     </div>
@@ -32,6 +33,9 @@ export class ConfirmDialog {
 
   readonly title = input.required<string>();
   readonly message = input.required<string>();
+  /** The confirm button and its label while the page works; "Delete" and "Deleting…" by default. */
+  readonly confirmLabel = input<string>();
+  readonly busyLabel = input<string>();
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();
 
