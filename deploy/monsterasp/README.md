@@ -121,7 +121,13 @@ Premium lists an **AlwaysRunning** feature, but the website's Scripting and Proc
 
 ## 7. Updates
 
-If the release adds database migrations, run `.\deploy\monsterasp\admin.ps1 migrate` first. Then publish again (step 4).
+Updates deploy themselves. Every push to `main` runs **CI** on GitHub (the .NET and Angular builds and tests). When CI passes, the **Deploy** workflow (`.github/workflows/deploy.yml`) publishes the API, the guest app and `/portal` to `https://app.hello-zen.com`, the same way step 4 does by hand. It ends by checking that `/health/ready` reports Healthy. Pull requests never deploy.
+
+The site applies any new database migrations itself as it starts (`Database:MigrateOnStartup` in `appsettings.MonsterAsp.json`), so updates need no `migrate` step and Remote access can stay off. If a migration fails, the site doesn't start: look at **Logs**, fix it, and push again.
+
+Setting it up once: in GitHub, open the repository's **Settings → Secrets and variables → Actions → New repository secret**. Name it `MONSTERASP_WEBDEPLOY_PASSWORD`, and set its value to the WebDeploy password (step 4). If that password is ever changed in MonsterASP, update the secret too.
+
+To deploy without pushing, for example after changing a setting, open **Actions → Deploy → Run workflow**. Step 4 still works from your PC as a fallback.
 
 MonsterASP backs up the website's files every day and keeps 14 days. Check the database's backup options under **Databases**. Keep a copy of the environment variables somewhere safe: without `Qr__TokenKey` the printed QR codes stop working.
 

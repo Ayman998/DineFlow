@@ -1,0 +1,71 @@
+name: Deploy
+
+# Every push to main that passes CI goes live on https://app.hello-zen.com: the API, the guest app and
+# the merchant portal under /portal/, published to MonsterASP (site103877) with Web Deploy exactly like
+# deploy/monsterasp/publish.ps1 does by hand. The site applies new database migrations itself as it
+# starts (Database:MigrateOnStartup). Needs the repository secret MONSTERASP_WEBDEPLOY_PASSWORD
+# (website > Overview > Visual Studio access > Password). See deploy/monsterasp/README.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time; a newer one waits instead of cutting an upload short.
+concurrency:
+  group: deploy-app-hello-zen
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Only after a green CI run for a push to this repository's main, never for a pull request (a fork's
+    # branch can be called main too), or when started by hand from the Actions tab.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: windows-latest
+    environment:
+      name: production
+      url: https://app.hello-zen.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: 8.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: Make sure Web Deploy is installed
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "$env:ProgramFiles\IIS\Microsoft Web Deploy V3\msdeploy.exe")) {
+            choco install webdeploy -y --no-progress
+          }
+      - name: Publish to MonsterASP
+        run: dotnet publish HelloZen/HelloZen.Api -c Release -p:PublishProfile=MonsterASP
+        env:
+          # MSBuild reads environment variables as properties, so the password needs no escaping and
+          # never appears on the command line.
+          Password: ${{ secrets.MONSTERASP_WEBDEPLOY_PASSWORD }}
+      - name: Check the site is up
+        shell: bash
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS https://app.hello-zen.com/health/ready; then echo; exit 0; fi
+            sleep 10
+          done
+          echo "https://app.hello-zen.com/health/ready didn't answer Healthy within 2 minutes."
+          exit 1
