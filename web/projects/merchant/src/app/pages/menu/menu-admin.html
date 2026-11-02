@@ -64,7 +64,7 @@
           <button type="button" class="btn-secondary" (click)="menuDialog.set({ menu: m })">{{ t.admin.editMenu }}</button>
           <button type="button" class="btn-ghost" [disabled]="menuIndex() === 0" (click)="moveMenu(m, -1)" [attr.aria-label]="t.admin.moveMenuEarlier">{{ t.admin.earlierArrow }}</button>
           <button type="button" class="btn-ghost" [disabled]="menuIndex() === tree()!.menus.length - 1" (click)="moveMenu(m, 1)" [attr.aria-label]="t.admin.moveMenuLater">{{ t.admin.laterArrow }}</button>
-          <button type="button" class="btn-ghost text-red-700" (click)="deleteMenu(m)">{{ common.delete }}</button>
+          <button type="button" class="btn-ghost text-red-700" (click)="deleteDialog.set(m)">{{ common.delete }}</button>
         </div>
       }
     </section>
@@ -147,4 +147,7 @@
 }
 @if (priceDialog(); as dialog) {
   <hz-menu-price-editor [menu]="dialog.menu" [item]="dialog.item" [currency]="currency()" (saved)="savePrice($event)" (cancelled)="priceDialog.set(null)" />
+}
+@if (deleteDialog(); as menu) {
+  <hz-confirm-dialog [title]="t.admin.deleteMenu" [message]="t.admin.confirmDeleteMenu(menu.name)" (confirmed)="deleteMenu()" (cancelled)="deleteDialog.set(null)" />
 }

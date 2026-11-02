@@ -61,7 +61,7 @@
         <button type="button" class="link ms-3" (click)="dialog.set({ parentId: category.parentId, category })">{{ t.categoriesPage.rename }}</button>
         <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="move(category, siblings, -1)" [attr.aria-label]="t.categoriesPage.moveUp">↑</button>
         <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="move(category, siblings, 1)" [attr.aria-label]="t.categoriesPage.moveDown">↓</button>
-        <button type="button" class="btn-ghost px-2 text-red-700" (click)="delete(category)" [attr.aria-label]="t.categoriesPage.delete">✕</button>
+        <button type="button" class="btn-ghost px-2 text-red-700" (click)="deleteDialog.set(category)" [attr.aria-label]="t.categoriesPage.delete">✕</button>
       </div>
     }
   </div>
@@ -73,4 +73,11 @@
     [initial]="d.category"
     (saved)="save($event)"
     (cancelled)="dialog.set(null)" />
+}
+@if (deleteDialog(); as category) {
+  <hz-confirm-dialog
+    [title]="t.categoriesPage.delete"
+    [message]="t.categoriesPage.confirmDelete(category.name, itemTotal(category))"
+    (confirmed)="delete()"
+    (cancelled)="deleteDialog.set(null)" />
 }

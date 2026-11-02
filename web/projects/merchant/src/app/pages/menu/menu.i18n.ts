@@ -73,6 +73,7 @@ const en = {
     hours: (days: string, start: string, end: string) => `${days}, ${start}–${end}`,
     // Notices and confirmations
     savedMenu: (name: string) => `Saved menu "${name}".`,
+    deleteMenu: 'Delete menu',
     confirmDeleteMenu: (name: string) => `Delete the "${name}" menu? Its items stay under Items.`,
     deletedMenu: (name: string) => `Deleted menu "${name}".`,
     linked: (menu: string, n: number) => `"${menu}" now shows ${count(n, 'item', 'items')}.`,
@@ -289,6 +290,7 @@ export const MENU: Lexicon<typeof en> = {
       allDay: (days: string) => `${days}، طوال اليوم`,
       hours: (days: string, start: string, end: string) => `${days}، ${start}–${end}`,
       savedMenu: (name: string) => `تم حفظ القائمة "${name}".`,
+      deleteMenu: 'حذف القائمة',
       confirmDeleteMenu: (name: string) => `هل تريد حذف قائمة "${name}"؟ ستبقى أصنافها في صفحة الأصناف.`,
       deletedMenu: (name: string) => `تم حذف القائمة "${name}".`,
       linked: (menu: string, n: number) => `أصبحت قائمة "${menu}" تعرض ${arCount(n, 'صنفاً واحداً', 'صنفين', 'أصناف', 'صنفاً')}.`,

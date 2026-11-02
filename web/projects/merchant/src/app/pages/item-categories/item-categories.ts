@@ -7,6 +7,7 @@ import { CatalogDto, CategoryDto, MenuAdminApi } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { CategoryEditor, CategoryNames } from '../menu/category-editor';
 import { MENU } from '../menu/menu.i18n';
 
@@ -18,7 +19,7 @@ type CategoryDialog = { parentId: string | null; category: CategoryDto | null };
  */
 @Component({
   selector: 'hz-item-categories',
-  imports: [NgTemplateOutlet, RouterLink, CategoryEditor],
+  imports: [NgTemplateOutlet, RouterLink, CategoryEditor, ConfirmDialog],
   templateUrl: './item-categories.html'
 })
 export class ItemCategories implements OnInit {
@@ -33,8 +34,11 @@ export class ItemCategories implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly dialog = signal<CategoryDialog | null>(null);
+  /** The category waiting for the user to confirm its delete. */
+  protected readonly deleteDialog = signal<CategoryDto | null>(null);
 
   private readonly editor = viewChild(CategoryEditor);
+  private readonly confirmDialog = viewChild(ConfirmDialog);
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe({
@@ -62,9 +66,14 @@ export class ItemCategories implements OnInit {
     }, message => this.editor()?.showError(message));
   }
 
-  protected delete(category: CategoryDto): void {
-    if (!confirm(this.t().categoriesPage.confirmDelete(category.name, this.itemTotal(category)))) return;
-    this.submit(this.api.deleteCategory(category.id), () => this.notice.set(this.t().deleted(category.name)));
+  /** Runs once the user confirms in the delete dialog. */
+  protected delete(): void {
+    const category = this.deleteDialog();
+    if (!category) return;
+    this.submit(this.api.deleteCategory(category.id), () => {
+      this.deleteDialog.set(null);
+      this.notice.set(this.t().deleted(category.name));
+    }, message => this.confirmDialog()?.showError(message));
   }
 
   protected move(category: CategoryDto, siblings: CategoryDto[], step: -1 | 1): void {

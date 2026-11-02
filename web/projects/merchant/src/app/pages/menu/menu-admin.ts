@@ -7,6 +7,7 @@ import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { LinkItems } from './link-items';
 import { MenuEditor } from './menu-editor';
 import { MenuPriceEditor } from './menu-price-editor';
@@ -19,7 +20,7 @@ import { MENU } from './menu.i18n';
  */
 @Component({
   selector: 'hz-menu-admin',
-  imports: [NgTemplateOutlet, MenuEditor, LinkItems, MenuPriceEditor],
+  imports: [NgTemplateOutlet, MenuEditor, LinkItems, MenuPriceEditor, ConfirmDialog],
   templateUrl: './menu-admin.html'
 })
 export class MenuAdmin implements OnInit {
@@ -38,10 +39,13 @@ export class MenuAdmin implements OnInit {
   protected readonly menuDialog = signal<{ menu: MenuDto | null } | null>(null);
   protected readonly linkDialog = signal<{ menu: MenuDto; catalog: CatalogDto } | null>(null);
   protected readonly priceDialog = signal<{ menu: MenuDto; item: MenuItemDto } | null>(null);
+  /** The menu waiting for the user to confirm its delete. */
+  protected readonly deleteDialog = signal<MenuDto | null>(null);
 
   private readonly menuEditor = viewChild(MenuEditor);
   private readonly linkItems = viewChild(LinkItems);
   private readonly priceEditor = viewChild(MenuPriceEditor);
+  private readonly confirmDialog = viewChild(ConfirmDialog);
 
   protected readonly menu = computed(() => this.tree()?.menus.find(m => m.id === this.menuId()) ?? null);
   protected readonly menuIndex = computed(() => this.tree()?.menus.findIndex(m => m.id === this.menuId()) ?? -1);
@@ -82,12 +86,15 @@ export class MenuAdmin implements OnInit {
     }, message => this.menuEditor()?.showError(message));
   }
 
-  protected deleteMenu(menu: MenuDto): void {
-    if (!confirm(this.t().admin.confirmDeleteMenu(menu.name))) return;
+  /** Runs once the user confirms in the delete dialog. */
+  protected deleteMenu(): void {
+    const menu = this.deleteDialog();
+    if (!menu) return;
     this.submit(this.api.deleteMenu(menu.id), () => {
+      this.deleteDialog.set(null);
       this.menuId.set(null);
       this.notice.set(this.t().admin.deletedMenu(menu.name));
-    });
+    }, message => this.confirmDialog()?.showError(message));
   }
 
   protected moveMenu(menu: MenuDto, step: -1 | 1): void {

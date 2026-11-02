@@ -8,6 +8,7 @@ import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { CategoryChoice, ItemEditor } from '../menu/item-editor';
 import { MENU } from '../menu/menu.i18n';
 
@@ -24,7 +25,7 @@ interface ItemGroup {
  */
 @Component({
   selector: 'hz-items',
-  imports: [FormsModule, RouterLink, ItemEditor],
+  imports: [FormsModule, RouterLink, ItemEditor, ConfirmDialog],
   templateUrl: './items.html'
 })
 export class Items implements OnInit {
@@ -42,12 +43,15 @@ export class Items implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly dialog = signal<{ item: MenuItemDto | null } | null>(null);
+  /** The item waiting for the user to confirm its delete. */
+  protected readonly deleteDialog = signal<MenuItemDto | null>(null);
 
   protected readonly query = signal('');
   protected readonly categoryFilter = linkedSignal(() => this.category() ?? '');
   protected readonly searching = computed(() => !!this.query().trim());
 
   private readonly editor = viewChild(ItemEditor);
+  private readonly confirmDialog = viewChild(ConfirmDialog);
 
   protected readonly currency = computed(() => this.catalog()?.currency ?? 'AED');
 
@@ -120,9 +124,14 @@ export class Items implements OnInit {
       this.notice.set(this.t().availabilityChanged(saved.name, saved.isAvailable)));
   }
 
-  protected delete(item: MenuItemDto): void {
-    if (!confirm(this.t().itemsPage.confirmDelete(item.name))) return;
-    this.submit(this.api.deleteItem(item.id), () => this.notice.set(this.t().deleted(item.name)));
+  /** Runs once the user confirms in the delete dialog. */
+  protected delete(): void {
+    const item = this.deleteDialog();
+    if (!item) return;
+    this.submit(this.api.deleteItem(item.id), () => {
+      this.deleteDialog.set(null);
+      this.notice.set(this.t().deleted(item.name));
+    }, message => this.confirmDialog()?.showError(message));
   }
 
   protected move(item: MenuItemDto, siblings: MenuItemDto[], step: -1 | 1): void {

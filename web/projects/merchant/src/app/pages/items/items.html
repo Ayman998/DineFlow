@@ -106,7 +106,7 @@
                       <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="move(item, group.category.items, -1)" [attr.aria-label]="t.itemsPage.moveUp">↑</button>
                       <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="move(item, group.category.items, 1)" [attr.aria-label]="t.itemsPage.moveDown">↓</button>
                     }
-                    <button type="button" class="btn-ghost px-2 text-red-700" (click)="delete(item)" [attr.aria-label]="t.itemsPage.delete">✕</button>
+                    <button type="button" class="btn-ghost px-2 text-red-700" (click)="deleteDialog.set(item)" [attr.aria-label]="t.itemsPage.delete">✕</button>
                   }
                 </td>
               </tr>
@@ -126,4 +126,11 @@
     [currency]="currency()"
     (saved)="save($event)"
     (cancelled)="dialog.set(null)" />
+}
+@if (deleteDialog(); as item) {
+  <hz-confirm-dialog
+    [title]="t.itemsPage.delete"
+    [message]="t.itemsPage.confirmDelete(item.name)"
+    (confirmed)="delete()"
+    (cancelled)="deleteDialog.set(null)" />
 }
