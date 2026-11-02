@@ -8,6 +8,13 @@
       <p class="text-sm text-ink-muted">{{ d ? t.updatedLive : i18n.t().loading }}</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      @if (branches().length > 1) {
+        <label class="sr-only" for="overview-branch">{{ t.branch }}</label>
+        <select id="overview-branch" class="field w-auto" (change)="setBranch($any($event.target).value)">
+          @if (canCombine()) { <option value="" [selected]="branch() === null">{{ t.allBranches }}</option> }
+          @for (b of branches(); track b.id) { <option [value]="b.id" [selected]="branch() === b.id">{{ branchName(b) }}</option> }
+        </select>
+      }
       <label class="sr-only" for="overview-period">{{ t.period }}</label>
       <select id="overview-period" class="field w-auto" [value]="period()" (change)="setPeriod($any($event.target).value)">
         <option value="Today">{{ t.periods.Today }}</option>
@@ -69,8 +76,8 @@
                       [class]="series() === 'tips' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="series.set('tips')">{{ t.tips }}</button>
             </div>
             <label class="flex items-center gap-2 text-sm text-ink-muted">{{ t.by }}
-              <select class="field w-auto py-1" [value]="d.granularity" (change)="setGranularity($any($event.target).value)">
-                @for (g of granularities; track g) { <option [value]="g">{{ t.granularities[g] }}</option> }
+              <select class="field w-auto py-1" (change)="setGranularity($any($event.target).value)">
+                @for (g of granularities; track g) { <option [value]="g" [selected]="g === d.granularity">{{ t.granularities[g] }}</option> }
               </select>
             </label>
           </div>

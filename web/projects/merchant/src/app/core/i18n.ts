@@ -19,7 +19,7 @@ const EN = {
   otherLanguage: 'العربية',
   changeLanguage: 'Change language',
   nav: {
-    overview: 'Overview', orders: 'Orders', tables: 'Tables', transactions: 'Transactions', menu: 'Menu',
+    overview: 'Dashboard', orders: 'Orders', tables: 'Tables', transactions: 'Transactions', menu: 'Menu',
     'item-categories': 'Item Categories', items: 'Items',
     promotions: 'Promotions', 'payment-links': 'Payment Links', reviews: 'Reviews', reports: 'Reports', 'go-live': 'Go-live', settings: 'Settings'
   } as Record<string, string>,
@@ -87,7 +87,7 @@ const AR: Common = {
   otherLanguage: 'English',
   changeLanguage: 'تغيير اللغة',
   nav: {
-    overview: 'نظرة عامة', orders: 'الطلبات', tables: 'الطاولات', transactions: 'المعاملات', menu: 'القائمة',
+    overview: 'لوحة التحكم', orders: 'الطلبات', tables: 'الطاولات', transactions: 'المعاملات', menu: 'القائمة',
     'item-categories': 'فئات الأصناف', items: 'الأصناف',
     promotions: 'العروض', 'payment-links': 'روابط الدفع', reviews: 'التقييمات', reports: 'التقارير', 'go-live': 'جاهزية الإطلاق', settings: 'الإعدادات'
   },

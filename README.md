@@ -126,9 +126,11 @@ Set this up under **Settings → Reviews**: turn ratings on or off, choose the p
 
 Each review opens its visit: the payment and the items ordered. Owners and managers can reveal the guest's contact details, and every view is written to the audit log. The CSV export never includes contact details. **Mark as followed up** records who got back to the guest and when. Staff see a "New review" alert as ratings come in.
 
-### Overview, tables and transactions
+### Dashboard, tables and transactions
 
-Signing in opens **Overview**, which updates live as orders, payments, refunds and reviews come in:
+Signing in opens the **Dashboard**, which updates live as orders, payments, refunds and reviews come in:
+
+- With more than one branch, a filter shows **All branches** added up, or one branch. All branches together need one currency; their days follow the first branch's time zone.
 
 - Revenue, tips, orders and refunds for today, the last 7 days, this month or this quarter, in the venue's time zone. Revenue is what guests paid towards their bills, before refunds and without tips. Refunds are shown on their own.
 - The last 7 days against the 7 days before, for revenue and orders.

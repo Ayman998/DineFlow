@@ -5,6 +5,7 @@ using HelloZen.Domain.Finance;
 using HelloZen.Domain.Orders;
 using HelloZen.Domain.Payments;
 using HelloZen.Domain.Pos;
+using HelloZen.Domain.Venues;
 using Microsoft.EntityFrameworkCore;
 
 namespace HelloZen.Application.Dashboard;
@@ -12,18 +13,25 @@ namespace HelloZen.Application.Dashboard;
 /// <summary>
 /// The merchant overview (blueprint 4.4, P1-MER-08/09, mockup "Merchant overview"): revenue, tips,
 /// orders, refunds and failures for today and a chosen period, the last week against the week
-/// before, a revenue and tips trend, and what needs attention. Days and weeks follow the
-/// venue's time zone.
+/// before, a revenue and tips trend, and what needs attention, for one branch or all of them
+/// together. Days and weeks follow the branch's time zone; for all branches, the first one's
+/// in the order the portal lists them (they're normally all in one zone).
 /// </summary>
 public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatusService tables, TimeProvider clock)
 {
     private const int MaxTrendPoints = 400;
 
-    public async Task<OverviewDto> GetAsync(Guid venueId, OverviewPeriod period, TrendGranularity? granularity, CancellationToken ct)
+    /// <param name="venueId">The branch, or null for all the tenant's branches together.</param>
+    public async Task<OverviewDto> GetAsync(Guid? venueId, OverviewPeriod period, TrendGranularity? granularity, CancellationToken ct)
     {
         tenant.RequireTenantId();
-        var venue = await db.Venues.AsNoTracking().SingleOrDefaultAsync(v => v.Id == venueId, ct)
-            ?? throw AppException.NotFound("venue_not_found", "Venue not found.");
+        var venues = await db.Venues.AsNoTracking().Where(v => venueId == null || v.Id == venueId).OrderBy(v => v.Name).ToListAsync(ct);
+        if (venues.Count == 0)
+            throw AppException.NotFound("venue_not_found", "Venue not found.");
+        if (venues.Select(v => v.Currency).Distinct().Count() > 1)
+            throw AppException.BadRequest("mixed_currencies", "Your branches use different currencies. Choose a branch to see its numbers.");
+        var venue = venues[0];
+        var venueIds = venues.Select(v => v.Id).ToList();
         var zone = TimeZoneInfo.TryFindSystemTimeZoneById(venue.TimeZone, out var tz) ? tz : TimeZoneInfo.Utc;
 
         var now = clock.GetUtcNow();
@@ -46,40 +54,40 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
 
         var weekAgo = now - TimeSpan.FromDays(7);
         var twoWeeksAgo = now - TimeSpan.FromDays(14);
-        var revenue = await LedgerAsync(venueId, weekAgo, to, LedgerEntryType.BillPayment, ct);
-        var previousRevenue = await LedgerAsync(venueId, twoWeeksAgo, weekAgo, LedgerEntryType.BillPayment, ct);
+        var revenue = await LedgerAsync(venueIds, weekAgo, to, LedgerEntryType.BillPayment, ct);
+        var previousRevenue = await LedgerAsync(venueIds, twoWeeksAgo, weekAgo, LedgerEntryType.BillPayment, ct);
         var week = new WeekComparisonDto(revenue, previousRevenue,
             previousRevenue == 0 ? null : Math.Round((double)(revenue - previousRevenue) / previousRevenue, 4),
-            await OrdersAsync(venueId, weekAgo, to, ct), await OrdersAsync(venueId, twoWeeksAgo, weekAgo, ct));
+            await OrdersAsync(venueIds, weekAgo, to, ct), await OrdersAsync(venueIds, twoWeeksAgo, weekAgo, ct));
 
         return new OverviewDto(period, from, to, venue.Currency, venue.TimeZone,
-            await KpisAsync(venueId, from, to, ct), await KpisAsync(venueId, today, to, ct), week,
-            grain, await TrendAsync(venueId, from, to, grain, zone, ct),
-            await AttentionAsync(venueId, today, now, zone, ct));
+            await KpisAsync(venueIds, from, to, ct), await KpisAsync(venueIds, today, to, ct), week,
+            grain, await TrendAsync(venueIds, from, to, grain, zone, ct),
+            await AttentionAsync(venues, today, now, zone, ct));
     }
 
-    private async Task<OverviewKpisDto> KpisAsync(Guid venueId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) => new(
-        await LedgerAsync(venueId, from, to, LedgerEntryType.BillPayment, ct),
-        await LedgerAsync(venueId, from, to, LedgerEntryType.Tip, ct),
-        await OrdersAsync(venueId, from, to, ct),
-        await LedgerAsync(venueId, from, to, LedgerEntryType.Refund, ct),
-        await db.Payments.AsNoTracking().CountAsync(p => p.VenueId == venueId && p.Status == PaymentStatus.Succeeded
+    private async Task<OverviewKpisDto> KpisAsync(List<Guid> venueIds, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) => new(
+        await LedgerAsync(venueIds, from, to, LedgerEntryType.BillPayment, ct),
+        await LedgerAsync(venueIds, from, to, LedgerEntryType.Tip, ct),
+        await OrdersAsync(venueIds, from, to, ct),
+        await LedgerAsync(venueIds, from, to, LedgerEntryType.Refund, ct),
+        await db.Payments.AsNoTracking().CountAsync(p => venueIds.Contains(p.VenueId) && p.Status == PaymentStatus.Succeeded
             && p.SucceededAt >= from && p.SucceededAt < to, ct),
-        await db.Payments.AsNoTracking().CountAsync(p => p.VenueId == venueId && p.Status == PaymentStatus.Failed
+        await db.Payments.AsNoTracking().CountAsync(p => venueIds.Contains(p.VenueId) && p.Status == PaymentStatus.Failed
             && p.UpdatedAt >= from && p.UpdatedAt < to, ct));
 
-    private async Task<long> LedgerAsync(Guid venueId, DateTimeOffset from, DateTimeOffset to, LedgerEntryType type, CancellationToken ct) =>
+    private async Task<long> LedgerAsync(List<Guid> venueIds, DateTimeOffset from, DateTimeOffset to, LedgerEntryType type, CancellationToken ct) =>
         await db.LedgerEntries.AsNoTracking()
-            .Where(e => e.VenueId == venueId && e.Type == type && e.CreatedAt >= from && e.CreatedAt < to)
+            .Where(e => venueIds.Contains(e.VenueId) && e.Type == type && e.CreatedAt >= from && e.CreatedAt < to)
             .SumAsync(e => (long?)e.AmountMinor, ct) ?? 0;
 
-    private Task<int> OrdersAsync(Guid venueId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
-        db.Orders.AsNoTracking().CountAsync(o => o.VenueId == venueId && o.Status != OrderStatus.Rejected
+    private Task<int> OrdersAsync(List<Guid> venueIds, DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
+        db.Orders.AsNoTracking().CountAsync(o => venueIds.Contains(o.VenueId) && o.Status != OrderStatus.Rejected
             && o.CreatedAt >= from && o.CreatedAt < to, ct);
 
     /// <summary>Revenue and tips per hour, day, week (from the period's start) or month, in the venue's time zone.</summary>
     private async Task<IReadOnlyList<TrendPointDto>> TrendAsync(
-        Guid venueId, DateTimeOffset from, DateTimeOffset to, TrendGranularity grain, TimeZoneInfo zone, CancellationToken ct)
+        List<Guid> venueIds, DateTimeOffset from, DateTimeOffset to, TrendGranularity grain, TimeZoneInfo zone, CancellationToken ct)
     {
         var starts = new List<DateTimeOffset>();
         var local = TimeZoneInfo.ConvertTime(from, zone).DateTime;
@@ -98,7 +106,7 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
         }
 
         var entries = await db.LedgerEntries.AsNoTracking()
-            .Where(e => e.VenueId == venueId && (e.Type == LedgerEntryType.BillPayment || e.Type == LedgerEntryType.Tip)
+            .Where(e => venueIds.Contains(e.VenueId) && (e.Type == LedgerEntryType.BillPayment || e.Type == LedgerEntryType.Tip)
                 && e.CreatedAt >= from && e.CreatedAt < to)
             .Select(e => new { e.CreatedAt, e.Type, e.AmountMinor })
             .ToListAsync(ct);
@@ -115,16 +123,19 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
         return starts.Select((s, i) => new TrendPointDto(s, revenue[i], tips[i])).ToList();
     }
 
-    /// <summary>The "Needs attention" list: failures, tables with money left, waiting orders, unhappy guests, pending refunds.</summary>
-    private async Task<IReadOnlyList<AttentionDto>> AttentionAsync(Guid venueId, DateTimeOffset today, DateTimeOffset now, TimeZoneInfo zone, CancellationToken ct)
+    /// <summary>
+    /// The "Needs attention" list: failures, tables with money left, waiting orders, unhappy guests, pending refunds.
+    /// Across several branches, the last failure also says which branch it was in.
+    /// </summary>
+    private async Task<IReadOnlyList<AttentionDto>> AttentionAsync(List<Venue> venues, DateTimeOffset today, DateTimeOffset now, TimeZoneInfo zone, CancellationToken ct)
     {
-        var venue = await db.Venues.AsNoTracking().SingleAsync(v => v.Id == venueId, ct);
-        string Money(long minor) => FormatMoney(minor, venue.Currency);
+        var venueIds = venues.Select(v => v.Id).ToList();
+        string Money(long minor) => FormatMoney(minor, venues[0].Currency);
         var items = new List<AttentionDto>();
 
         var failures = await db.Payments.AsNoTracking()
-            .Where(p => p.VenueId == venueId && p.Status == PaymentStatus.Failed && p.UpdatedAt >= today)
-            .OrderByDescending(p => p.UpdatedAt).Select(p => new { p.CheckId, p.PaymentLinkId, p.UpdatedAt }).ToListAsync(ct);
+            .Where(p => venueIds.Contains(p.VenueId) && p.Status == PaymentStatus.Failed && p.UpdatedAt >= today)
+            .OrderByDescending(p => p.UpdatedAt).Select(p => new { p.VenueId, p.CheckId, p.PaymentLinkId, p.UpdatedAt }).ToListAsync(ct);
         if (failures.Count > 0)
         {
             var last = failures[0];
@@ -136,15 +147,16 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
                     .Join(db.ServiceLocations.AsNoTracking(), c => c.ServiceLocationId, l => l.Id, (c, l) => l)
                     .SingleOrDefaultAsync(ct);
             var label = linkCode is not null ? "Payment link " + linkCode : location?.DisplayName;
+            var branch = venues.Count > 1 ? venues.Single(v => v.Id == last.VenueId) : null;
             var time = TimeZoneInfo.ConvertTime(last.UpdatedAt, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
             items.Add(new("payment", failures.Count == 1 ? "1 payment failure today" : $"{failures.Count} payment failures today",
-                $"Last: {label} · {time}", failures.Count,
-                "payment_failures", new { linkCode, locationType = location?.Type.ToString(), label = location?.Label, time }));
+                $"Last: {(branch is null ? label : $"{label}, {branch.Name}")} · {time}", failures.Count,
+                "payment_failures", new { linkCode, locationType = location?.Type.ToString(), label = location?.Label, time, venueId = branch?.Id }));
         }
 
         // Payments the POS hasn't got yet after a while (blueprint "POS offline for an extended period"), or that it refused.
         var stuckSince = now - PosCommand.AttentionAfter;
-        var stuck = await db.PosCommands.AsNoTracking().Where(c => c.VenueId == venueId
+        var stuck = await db.PosCommands.AsNoTracking().Where(c => venueIds.Contains(c.VenueId)
             && (c.Status == PosCommandStatus.Failed || (c.Status == PosCommandStatus.Pending && c.CreatedAt <= stuckSince)))
             .GroupBy(c => c.Status).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
         if (stuck.Sum(s => s.Count) is var stuckCount and > 0)
@@ -156,18 +168,20 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
         }
 
         // Reconciliation: money that doesn't add up between helloZen, the acquirer and the POS.
-        var discrepancies = await db.Discrepancies.AsNoTracking().CountAsync(d => d.VenueId == venueId && d.Status == DiscrepancyStatus.Open, ct);
+        var discrepancies = await db.Discrepancies.AsNoTracking().CountAsync(d => venueIds.Contains(d.VenueId) && d.Status == DiscrepancyStatus.Open, ct);
         if (discrepancies > 0)
             items.Add(new("reconciliation", discrepancies == 1 ? "1 reconciliation difference" : $"{discrepancies} reconciliation differences",
                 "Between helloZen, the acquirer's settlements and the POS", discrepancies, "reconciliation"));
 
-        var waiting = await db.Orders.AsNoTracking().CountAsync(o => o.VenueId == venueId && o.Status == OrderStatus.Submitted
+        var waiting = await db.Orders.AsNoTracking().CountAsync(o => venueIds.Contains(o.VenueId) && o.Status == OrderStatus.Submitted
             && o.CreatedAt <= now - TimeSpan.FromMinutes(5), ct);
         if (waiting > 0)
             items.Add(new("orders", waiting == 1 ? "1 order waiting to be accepted" : $"{waiting} orders waiting to be accepted",
                 "Placed more than 5 minutes ago", waiting, "orders_waiting", new { minutes = 5 }));
 
-        var tableList = await tables.ListAsync(venueId, ct);
+        var tableList = new List<TableStatusDto>();
+        foreach (var venue in venues)
+            tableList.AddRange(await tables.ListAsync(venue.Id, ct));
         var partial = tableList.Where(t => t.State == TableState.PartiallyPaid).ToList();
         if (partial.Count > 0)
             items.Add(new("tables", partial.Count == 1 ? "1 table partially paid" : $"{partial.Count} tables partially paid",
@@ -180,13 +194,13 @@ public class OverviewService(IAppDbContext db, ITenantContext tenant, TableStatu
                 "tables_unpaid", new { openMinor = unpaid.Sum(t => t.RemainingMinor) }));
 
         var weekAgo = now - TimeSpan.FromDays(7);
-        var unhappy = await db.Reviews.AsNoTracking().CountAsync(r => r.VenueId == venueId && r.Rating <= 3
+        var unhappy = await db.Reviews.AsNoTracking().CountAsync(r => venueIds.Contains(r.VenueId) && r.Rating <= 3
             && r.FollowedUpAt == null && r.CreatedAt >= weekAgo, ct);
         if (unhappy > 0)
             items.Add(new("review", unhappy == 1 ? "1 new 1–3 star feedback" : $"{unhappy} new 1–3 star feedbacks", "Follow up with guests", unhappy,
                 "unhappy_feedback"));
 
-        var refunds = await db.Refunds.AsNoTracking().CountAsync(r => r.VenueId == venueId && r.Status == RefundStatus.Pending, ct);
+        var refunds = await db.Refunds.AsNoTracking().CountAsync(r => venueIds.Contains(r.VenueId) && r.Status == RefundStatus.Pending, ct);
         if (refunds > 0)
             items.Add(new("refund", refunds == 1 ? "1 refund waiting for the provider" : $"{refunds} refunds waiting for the provider",
                 "They complete when the provider confirms", refunds, "refunds_pending"));

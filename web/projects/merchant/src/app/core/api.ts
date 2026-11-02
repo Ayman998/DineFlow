@@ -760,8 +760,10 @@ export class FinanceApi {
     return this.http.post<TransactionDetail>(`/v1/merchant/transactions/${paymentId}/refunds`, { clientRequestId, amountMinor, reason });
   }
 
-  overview(venueId: string, period: OverviewPeriod, granularity?: TrendGranularity) {
-    return this.http.get<Overview>(`/v1/merchant/venues/${venueId}/overview`, { params: params({ period, granularity }) });
+  /** One branch's overview, or all the tenant's branches together when venueId is null. */
+  overview(venueId: string | null, period: OverviewPeriod, granularity?: TrendGranularity) {
+    const url = venueId ? `/v1/merchant/venues/${venueId}/overview` : '/v1/merchant/overview';
+    return this.http.get<Overview>(url, { params: params({ period, granularity }) });
   }
 
   tableStatus(venueId: string) {
