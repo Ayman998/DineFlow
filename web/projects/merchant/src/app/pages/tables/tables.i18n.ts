@@ -66,6 +66,8 @@ const en = {
   // Live status
   live: {
     show: 'Show',
+    area: 'Area',
+    allAreas: 'All areas',
     filters: { All: 'All', Unpaid: 'Unpaid', PartiallyPaid: 'Partially paid', Paid: 'Paid' } as Record<string, string>,
     states: {
       Available: 'Available', Ordering: 'Ordering', Unpaid: 'Unpaid', PartiallyPaid: 'Partially paid', Paid: 'Fully paid', Attention: 'Needs attention'
@@ -81,10 +83,23 @@ const en = {
     orderStatuses: {
       Submitted: 'Submitted', Accepted: 'Accepted', Preparing: 'Preparing', Ready: 'Ready', Completed: 'Served', Rejected: 'Rejected'
     } as Record<string, string>,
+    viewOrder: (number: number) => `View order #${number}`,
     empty: 'No tables in this view.',
     justNow: 'just now',
     minutesAgo: (minutes: number) => `${minutes} min ago`,
     hoursAgo: (hours: number) => `${hours} h ago`
+  },
+  // Order dialog
+  order: {
+    title: (number: number) => `Order #${number}`,
+    placed: (time: string) => `placed ${time}`,
+    note: (note: string) => `Note: ${note}`,
+    rejected: (reason: string) => `Rejected: ${reason}`,
+    subtotal: 'Subtotal',
+    serviceCharge: 'Service charge',
+    tax: 'Tax',
+    taxIncluded: 'Tax (included)',
+    total: 'Total'
   }
 };
 
@@ -154,6 +169,8 @@ export const TABLES: Lexicon<typeof en> = {
     qrDisabled: (place: string) => `تم تعطيل رمز QR لـ ${place}.`,
     live: {
       show: 'عرض',
+      area: 'المنطقة',
+      allAreas: 'كل المناطق',
       filters: { All: 'الكل', Unpaid: 'غير مدفوعة', PartiallyPaid: 'مدفوعة جزئياً', Paid: 'مدفوعة' },
       states: {
         Available: 'متاحة', Ordering: 'تطلب الآن', Unpaid: 'غير مدفوعة', PartiallyPaid: 'مدفوعة جزئياً', Paid: 'مدفوعة بالكامل', Attention: 'تحتاج متابعة'
@@ -169,10 +186,22 @@ export const TABLES: Lexicon<typeof en> = {
       orderStatuses: {
         Submitted: 'مُرسل', Accepted: 'مقبول', Preparing: 'قيد التحضير', Ready: 'جاهز', Completed: 'تم التقديم', Rejected: 'مرفوض'
       },
+      viewOrder: (number: number) => `عرض الطلب #${number}`,
       empty: 'لا توجد طاولات في هذا العرض.',
       justNow: 'الآن',
       minutesAgo: (minutes: number) => `قبل ${minutes} د`,
       hoursAgo: (hours: number) => `قبل ${hours} س`
+    },
+    order: {
+      title: (number: number) => `الطلب #${number}`,
+      placed: (time: string) => `الساعة ${time}`,
+      note: (note: string) => `ملاحظة: ${note}`,
+      rejected: (reason: string) => `سبب الرفض: ${reason}`,
+      subtotal: 'المجموع الفرعي',
+      serviceCharge: 'رسوم الخدمة',
+      tax: 'الضريبة',
+      taxIncluded: 'الضريبة (مشمولة)',
+      total: 'المجموع'
     }
   }
 };

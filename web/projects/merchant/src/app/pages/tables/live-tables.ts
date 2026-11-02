@@ -1,6 +1,6 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { merge } from 'rxjs';
+import { EMPTY, Subject, catchError, merge, switchMap } from 'rxjs';
 
 import { FinanceApi, TableState, TableStatus, TransferResult } from '../../core/api';
 import { errorMessage } from '../../core/auth';
@@ -8,6 +8,7 @@ import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
+import { OrderDialog } from './order-dialog';
 import { TABLES } from './tables.i18n';
 import { TransferDialog } from './transfer-dialog';
 import { TRANSFER } from './transfer.i18n';
@@ -17,19 +18,30 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
 /**
  * The live table view (blueprint 4.4 "Tables", P1-MER-10, mockup "Merchant table view"): each
  * table's state, what's been paid against its bill, and its orders when expanded. Updates as
- * orders and payments come in. Staff can move an open bill, or some of its items, to another table.
+ * orders and payments come in. Staff can open an order, and move an open bill, or some of its
+ * items, to another table.
  */
 @Component({
   selector: 'hz-live-tables',
-  imports: [TransferDialog],
+  imports: [OrderDialog, TransferDialog],
   template: `
     @let s = this.s();
-    <div class="flex flex-wrap items-center gap-2" role="group" [attr.aria-label]="s.show">
-      @for (f of filters; track f) {
-        <button type="button" class="rounded-full border px-4 py-2 text-sm font-semibold" [attr.aria-pressed]="filter() === f"
-                [class]="filter() === f ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink'" (click)="filter.set(f)">
-          {{ s.filters[f] }} <span class="ms-1 opacity-70">{{ count(f) }}</span>
-        </button>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-2" role="group" [attr.aria-label]="s.show">
+        @for (f of filters; track f) {
+          <button type="button" class="rounded-full border px-4 py-2 text-sm font-semibold" [attr.aria-pressed]="filter() === f"
+                  [class]="filter() === f ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink'" (click)="filter.set(f)">
+            {{ s.filters[f] }} <span class="ms-1 opacity-70">{{ count(f) }}</span>
+          </button>
+        }
+      </div>
+      @if (areas().length > 1) {
+        <label class="sr-only" for="live-area">{{ s.area }}</label>
+        <!-- By position, not value: a table with no area has the name "". -->
+        <select id="live-area" class="field w-auto" (change)="setArea($any($event.target).selectedIndex - 1)">
+          <option [selected]="area() === null">{{ s.allAreas }}</option>
+          @for (a of areas(); track a) { <option [selected]="area() === a">{{ a || i18n.t().noArea }}</option> }
+        </select>
       }
     </div>
 
@@ -71,7 +83,9 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
                 <tbody>
                   @for (o of t.orders; track o.id) {
                     <tr class="border-t border-line">
-                      <td class="py-1.5 font-semibold">#{{ o.number }}</td>
+                      <td class="py-1.5">
+                        <button type="button" class="link" [attr.aria-label]="s.viewOrder(o.number)" (click)="viewing.set(o)">#{{ o.number }}</button>
+                      </td>
                       <td class="py-1.5 text-ink-muted">{{ time(o.createdAt) }}</td>
                       <td class="py-1.5">{{ s.orderStatuses[o.status] || o.status }}</td>
                       <td class="py-1.5 text-end tabular-nums">{{ money(o.totalMinor, t.currency) }}</td>
@@ -93,6 +107,9 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
     @if (moving(); as from) {
       <hz-transfer-dialog [from]="from" [tables]="tables()" (moved)="moved(from, $event)" (cancelled)="moving.set(null)" />
     }
+    @if (viewing(); as o) {
+      <hz-order-dialog [orderId]="o.id" [number]="o.number" (closed)="viewing.set(null)" />
+    }
   `
 })
 export class LiveTables implements OnInit {
@@ -113,12 +130,44 @@ export class LiveTables implements OnInit {
   protected readonly notice = signal<string | null>(null);
   /** The table whose bill is being moved to another one. */
   protected readonly moving = signal<TableStatus | null>(null);
+  /** The order open in the order dialog. */
+  protected readonly viewing = signal<TableStatus['orders'][number] | null>(null);
   protected readonly m = this.i18n.use(TRANSFER);
   private readonly now = signal(Date.now());
+  private readonly reload = new Subject<void>();
 
-  protected readonly shown = computed(() => this.tables().filter(t => this.matches(t, this.filter())));
+  /** The area to show (a table with no area is in ""), or null for every area. */
+  protected readonly area = signal<string | null>(null);
+  /** The venue's areas in its own order (the API sorts tables by area). */
+  protected readonly areas = computed(() => [...new Set(this.tables().map(t => t.areaName ?? ''))]);
+  private readonly inArea = computed(() => {
+    const area = this.area();
+    return area === null ? this.tables() : this.tables().filter(t => (t.areaName ?? '') === area);
+  });
+  protected readonly shown = computed(() => this.inArea().filter(t => this.matches(t, this.filter())));
 
   ngOnInit(): void {
+    // The latest request wins, so a burst of events (a table move pushes one per order) can't
+    // leave an older answer on screen.
+    this.reload
+      .pipe(
+        switchMap(() => {
+          const venueId = this.venue.venue()?.id;
+          if (!venueId) return EMPTY;
+          return this.api.tableStatus(venueId).pipe(catchError(error => {
+            this.error.set(errorMessage(error));
+            return EMPTY;
+          }));
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(t => {
+        this.tables.set(t);
+        // The chosen area was renamed or emptied: show them all rather than nothing.
+        const area = this.area();
+        if (area !== null && !this.areas().includes(area)) this.area.set(null);
+      });
+
     this.venue.load().subscribe({ next: () => this.load(), error: error => this.error.set(errorMessage(error)) });
     merge(this.live.placed, this.live.changed, this.live.paid, this.live.reconnected)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -132,7 +181,12 @@ export class LiveTables implements OnInit {
   }
 
   protected count(filter: Filter): number {
-    return this.tables().filter(t => this.matches(t, filter)).length;
+    return this.inArea().filter(t => this.matches(t, filter)).length;
+  }
+
+  /** -1 (the "All areas" option) shows every area. */
+  protected setArea(index: number): void {
+    this.area.set(this.areas()[index] ?? null);
   }
 
   protected badgeIcon(state: TableState): string {
@@ -195,8 +249,6 @@ export class LiveTables implements OnInit {
   }
 
   private load(): void {
-    const venueId = this.venue.venue()?.id;
-    if (!venueId) return;
-    this.api.tableStatus(venueId).subscribe({ next: t => this.tables.set(t), error: error => this.error.set(errorMessage(error)) });
+    this.reload.next();
   }
 }

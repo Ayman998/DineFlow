@@ -336,6 +336,7 @@ export interface OrderDto {
   lines: {
     itemId: string;
     name: string;
+    nameAr?: string | null;
     quantity: number;
     unitPriceMinor: number;
     lineTotalMinor: number;
@@ -369,6 +370,10 @@ export class OrdersAdminApi {
 
   counts(venueId: string) {
     return this.http.get<OrderCounts>(`/v1/merchant/venues/${venueId}/orders/counts`);
+  }
+
+  get(orderId: string) {
+    return this.http.get<OrderDto>(`/v1/merchant/orders/${orderId}`);
   }
 
   changeStatus(orderId: string, status: OrderStatus, reason: string | null = null) {
