@@ -127,13 +127,13 @@ export class MenuPage implements OnInit {
       return;
     }
     this.cart.add({
-      itemId: item.id, name: item.name, nameAr: item.nameAr, imageUrl: item.imageUrl,
+      itemId: item.id, menuId: this.menuId(), name: item.name, nameAr: item.nameAr, imageUrl: item.imageUrl,
       unitPriceMinor: item.priceMinor, quantity: 1, options: [], note: ''
     });
   }
 
   protected removeOne(item: MenuItem): void {
-    const line = this.cart.plainLine(item.id);
+    const line = this.cart.plainLine(item.id, this.menuId());
     if (line) this.cart.setQuantity(line.key, line.quantity - 1);
   }
 

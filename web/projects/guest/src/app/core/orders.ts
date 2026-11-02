@@ -21,6 +21,8 @@ export interface CartLineRequest {
   quantity: number;
   optionIds: string[];
   note: string | null;
+  /** The menu it was added from, for that menu's price. */
+  menuId: string | null;
 }
 
 export interface CartIssue {

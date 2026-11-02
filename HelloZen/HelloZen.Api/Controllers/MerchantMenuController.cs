@@ -43,6 +43,11 @@ public class MerchantMenuController(MenuAdminService menus, MenuImageService ima
         return NoContent();
     }
 
+    /// <summary>What this menu charges for one of its items; null goes back to the item's own price.</summary>
+    [HttpPut("v1/merchant/menu/menus/{menuId:guid}/items/{itemId:guid}/price")]
+    public Task<ItemDto> SetMenuItemPrice(Guid menuId, Guid itemId, MenuItemPriceRequest request, CancellationToken ct) =>
+        menus.SetMenuItemPriceAsync(menuId, itemId, request, ct);
+
     [HttpPost("v1/merchant/menu/categories")]
     public Task<CategoryDto> CreateCategory(CreateCategoryRequest request, CancellationToken ct) =>
         menus.CreateCategoryAsync(request, ct);

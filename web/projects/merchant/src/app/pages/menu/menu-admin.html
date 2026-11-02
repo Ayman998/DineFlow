@@ -113,7 +113,18 @@
                 {{ item.tags.join(', ') }}
               </div>
             </td>
-            <td class="w-28 py-2 text-end font-semibold">{{ money(item.priceMinor) }}</td>
+            <td class="w-36 py-2 text-end">
+              @if (manage) {
+                <button type="button" class="link tabular-nums" (click)="openPrice(item)">
+                  {{ money(item.priceMinor) }}<span class="sr-only">: {{ t.admin.editPrice(item.name) }}</span>
+                </button>
+              } @else {
+                <span class="font-semibold tabular-nums">{{ money(item.priceMinor) }}</span>
+              }
+              @if (item.itemPriceMinor != null) {
+                <div class="mt-0.5 text-xs text-ink-muted">{{ t.admin.itemPrice(money(item.itemPriceMinor)) }}</div>
+              }
+            </td>
             <td class="w-36 py-2 text-end">
               <label class="inline-flex cursor-pointer items-center gap-2">
                 <span class="text-xs" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
@@ -133,4 +144,7 @@
 }
 @if (linkDialog(); as dialog) {
   <hz-link-items [menu]="dialog.menu" [catalog]="dialog.catalog" (saved)="saveLinks($event)" (cancelled)="linkDialog.set(null)" />
+}
+@if (priceDialog(); as dialog) {
+  <hz-menu-price-editor [menu]="dialog.menu" [item]="dialog.item" [currency]="currency()" (saved)="savePrice($event)" (cancelled)="priceDialog.set(null)" />
 }

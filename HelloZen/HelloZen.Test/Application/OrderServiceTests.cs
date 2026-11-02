@@ -119,6 +119,34 @@ public class OrderServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task An_item_costs_what_the_menu_it_was_ordered_from_charges()
+    {
+        var f = await CreateAsync();
+        var menus = (await _host.Menus.GetTreeAsync(f.Venue.Id, default)).Menus;
+        var allDay = menus.Single(m => m.Name == "All day");
+        var breakfast = menus.Single(m => m.Name == "Breakfast");
+        await _host.Menus.SetMenuItemsAsync(allDay.Id, new MenuItemsRequest([f.Burger.Id, f.Soup.Id, f.Shakshuka.Id]), default);
+        await _host.Menus.SetMenuItemPriceAsync(breakfast.Id, f.Shakshuka.Id, new MenuItemPriceRequest(3_000), default);
+        await _host.Menus.SetMenuItemPriceAsync(allDay.Id, f.Shakshuka.Id, new MenuItemPriceRequest(4_500), default);
+        CartRequest Shakshuka(Guid? menuId) => new([new(f.Shakshuka.Id, 2, [], null, menuId)]);
+
+        var fromBreakfast = await _host.CartQuotes.QuoteAsync(f.SessionId, Shakshuka(breakfast.Id), default);
+        var fromAllDay = await _host.CartQuotes.QuoteAsync(f.SessionId, Shakshuka(allDay.Id), default);
+        var noMenu = await _host.CartQuotes.QuoteAsync(f.SessionId, Shakshuka(null), default); // the first menu served
+        var order = await _host.GuestOrders.PlaceAsync(f.SessionId,
+            new PlaceOrderRequest(Guid.NewGuid(), Shakshuka(breakfast.Id).Lines, null, fromBreakfast.TotalMinor), default);
+        _host.Clock.Advance(TimeSpan.FromHours(2)); // 12:00 in Dubai: breakfast is over
+        var afterBreakfast = await _host.CartQuotes.QuoteAsync(f.SessionId, Shakshuka(breakfast.Id), default);
+
+        Assert.Equal(3_000, fromBreakfast.Lines.Single().UnitPriceMinor);
+        Assert.Equal(4_500, fromAllDay.Lines.Single().UnitPriceMinor);
+        Assert.Equal(4_500, noMenu.Lines.Single().UnitPriceMinor);
+        Assert.Equal((3_000L, 6_000L), (order.Lines.Single().UnitPriceMinor, order.Lines.Single().LineTotalMinor));
+        Assert.True(afterBreakfast.CanOrder);
+        Assert.Equal(4_500, afterBreakfast.Lines.Single().UnitPriceMinor);
+    }
+
+    [Fact]
     public async Task Placing_an_order_saves_priced_snapshots_and_notifies()
     {
         var f = await CreateAsync();

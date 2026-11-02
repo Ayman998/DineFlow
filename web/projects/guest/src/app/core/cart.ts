@@ -12,9 +12,11 @@ export interface CartOption {
 }
 
 export interface CartLine {
-  /** Same item + options + note → same key, so adding it again just raises the quantity. */
+  /** Same menu + item + options + note → same key, so adding it again just raises the quantity. */
   key: string;
   itemId: string;
+  /** The menu it was added from, whose price applies while that menu is being served. */
+  menuId?: string | null;
   name: string;
   nameAr: string | null;
   imageUrl?: string | null;
@@ -53,7 +55,7 @@ export class Cart {
   }
 
   add(line: Omit<CartLine, 'key'>): void {
-    const key = lineKey(line.itemId, line.options, line.note);
+    const key = lineKey(line.menuId, line.itemId, line.options, line.note);
     this.lines.update(lines => {
       const existing = lines.find(l => l.key === key);
       return existing
@@ -80,14 +82,15 @@ export class Cart {
     return this.lines().filter(l => l.itemId === itemId).reduce((sum, l) => sum + l.quantity, 0);
   }
 
-  /** The cart line for an item ordered as-is (no options, no note), if any. */
-  plainLine(itemId: string): CartLine | undefined {
-    return this.lines().find(l => l.key === lineKey(itemId, [], ''));
+  /** The cart line for an item ordered as-is (no options, no note), preferably the one from this menu. */
+  plainLine(itemId: string, menuId: string | null): CartLine | undefined {
+    const plain = this.lines().filter(l => l.itemId === itemId && !l.options.length && !l.note);
+    return plain.find(l => (l.menuId ?? null) === menuId) ?? plain[0];
   }
 }
 
-function lineKey(itemId: string, options: CartOption[], note: string): string {
-  return [itemId, ...options.map(o => o.optionId).sort(), note.trim()].join('|');
+function lineKey(menuId: string | null | undefined, itemId: string, options: CartOption[], note: string): string {
+  return [menuId ?? '', itemId, ...options.map(o => o.optionId).sort(), note.trim()].join('|');
 }
 
 function storageKey(sessionId: string): string {

@@ -251,6 +251,7 @@
   @if (openItem(); as item) {
     <hz-item-sheet
       [item]="item"
+      [menuId]="menuId()"
       [currency]="tree()?.currency ?? 'AED'"
       [canOrder]="canOrder()"
       [menuSchedule]="menu() ? schedule(menu()!) : ''"

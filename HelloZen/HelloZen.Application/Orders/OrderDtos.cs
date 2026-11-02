@@ -5,11 +5,16 @@ namespace HelloZen.Application.Orders;
 
 // ---- Cart (guest) ----
 
+/// <param name="MenuId">
+/// The menu the guest added the item from, whose price applies while it's being served. Without
+/// one, or once that menu stops, the price comes from the first menu being served.
+/// </param>
 public record CartLineRequest(
     [Required] Guid ItemId,
     [Range(1, OrderLine.MaxQuantity)] int Quantity,
     IReadOnlyList<Guid>? OptionIds,
-    [StringLength(200)] string? Note);
+    [StringLength(200)] string? Note,
+    Guid? MenuId = null);
 
 public record CartRequest([Required, MinLength(1), MaxLength(Order.MaxLines)] IReadOnlyList<CartLineRequest> Lines);
 

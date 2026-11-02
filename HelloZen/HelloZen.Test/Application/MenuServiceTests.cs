@@ -139,6 +139,45 @@ public class MenuServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_menu_can_charge_its_own_price_without_changing_the_item()
+    {
+        var (venue, allDay, mains) = await CreateMenuAsync();
+        var dinner = await _host.Menus.CreateMenuAsync(venue.Id, AllDay("Dinner"), default);
+        var burger = await _host.Menus.CreateItemAsync(Burger(mains.Id), default);
+        await LinkAsync(allDay, burger);
+        await LinkAsync(dinner, burger);
+
+        var saved = await _host.Menus.SetMenuItemPriceAsync(dinner.Id, burger.Id, new MenuItemPriceRequest(10_000), default);
+        await LinkAsync(dinner, burger); // linking again keeps the price
+        var tree = await _host.Menus.GetTreeAsync(venue.Id, default);
+        var guest = await _host.GuestMenu.GetMenuAsync(await StartGuestSessionAsync(venue.Id), default);
+        var catalog = await _host.Menus.GetCatalogAsync(venue.Id, default);
+
+        ItemDto On(MenuTreeDto t, string menu) => t.Menus.Single(m => m.Name == menu).Categories.Single().Items.Single();
+        Assert.Equal((10_000L, 5_500L), (saved.PriceMinor, saved.ItemPriceMinor));
+        Assert.Equal((10_000L, 5_500L), (On(tree, "Dinner").PriceMinor, On(tree, "Dinner").ItemPriceMinor));
+        Assert.Equal((5_500L, null), (On(tree, "All day").PriceMinor, On(tree, "All day").ItemPriceMinor));
+        // Guests see the menu's price, not what the item costs elsewhere.
+        Assert.Equal((10_000L, null), (On(guest, "Dinner").PriceMinor, On(guest, "Dinner").ItemPriceMinor));
+        Assert.Equal(5_500, catalog.Categories.Single().Items.Single().PriceMinor);
+
+        await _host.Menus.SetMenuItemPriceAsync(dinner.Id, burger.Id, new MenuItemPriceRequest(null), default);
+        Assert.Equal(5_500, On(await _host.Menus.GetTreeAsync(venue.Id, default), "Dinner").PriceMinor);
+    }
+
+    [Fact]
+    public async Task Only_an_item_on_the_menu_can_have_a_price_there()
+    {
+        var (_, menu, mains) = await CreateMenuAsync();
+        var burger = await _host.Menus.CreateItemAsync(Burger(mains.Id), default);
+
+        var notLinked = await Assert.ThrowsAsync<AppException>(() =>
+            _host.Menus.SetMenuItemPriceAsync(menu.Id, burger.Id, new MenuItemPriceRequest(100), default));
+
+        Assert.Equal("item_not_on_menu", notLinked.Code);
+    }
+
+    [Fact]
     public async Task Linking_replaces_the_menus_items_and_only_takes_items_of_its_venue()
     {
         var (venue, menu, mains) = await CreateMenuAsync();

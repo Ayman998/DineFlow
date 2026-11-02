@@ -24,7 +24,7 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
         var menuIds = menus.Select(m => m.Id).ToList();
         var links = await db.MenuItemLinks.AsNoTracking().Where(l => menuIds.Contains(l.MenuId)).ToListAsync(ct);
 
-        return MenuTree.Build(venue, menus, categories, items, links, LocalNow(venue));
+        return MenuTree.Build(venue, menus, categories, items, links, LocalNow(venue), forMerchant: true);
     }
 
     /// <summary>Every category and item of the venue, and the items each menu shows.</summary>
@@ -105,6 +105,28 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
             .Select(id => new MenuItemLink(menu.TenantId, menu.Id, id)));
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Sets what the menu charges for one of its items, leaving the item's own price, and every other
+    /// menu, as they are. A null price goes back to the item's own price.
+    /// </summary>
+    public async Task<ItemDto> SetMenuItemPriceAsync(Guid menuId, Guid itemId, MenuItemPriceRequest request, CancellationToken ct)
+    {
+        var link = await db.MenuItemLinks.SingleOrDefaultAsync(l => l.MenuId == menuId && l.MenuItemId == itemId, ct)
+            ?? throw AppException.NotFound("item_not_on_menu", "That item isn't on this menu any more. Reload and try again.");
+        var item = await db.MenuItems.AsNoTracking()
+            .Include(i => i.ModifierGroups).ThenInclude(g => g.Options)
+            .SingleAsync(i => i.Id == itemId, ct);
+
+        Apply(() =>
+        {
+            link.SetPrice(request.PriceMinor);
+            return link;
+        });
+
+        await db.SaveChangesAsync(ct);
+        return MenuTree.ToItem(item, link.PriceMinor, withItemPrice: true);
     }
 
     // ---- Categories ----

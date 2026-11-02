@@ -9,15 +9,17 @@ import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
 import { LinkItems } from './link-items';
 import { MenuEditor } from './menu-editor';
+import { MenuPriceEditor } from './menu-price-editor';
 import { MENU } from './menu.i18n';
 
 /**
- * Menu management (blueprint 4.4 "Menu"; P1-MENU-01..07): menus and their schedules, and which
- * items each one shows. Items and their categories are managed on their own pages and linked here.
+ * Menu management (blueprint 4.4 "Menu"; P1-MENU-01..07): menus and their schedules, which items
+ * each one shows and what it charges for them. Items and their categories are managed on their own
+ * pages and linked here.
  */
 @Component({
   selector: 'hz-menu-admin',
-  imports: [NgTemplateOutlet, MenuEditor, LinkItems],
+  imports: [NgTemplateOutlet, MenuEditor, LinkItems, MenuPriceEditor],
   templateUrl: './menu-admin.html'
 })
 export class MenuAdmin implements OnInit {
@@ -35,9 +37,11 @@ export class MenuAdmin implements OnInit {
 
   protected readonly menuDialog = signal<{ menu: MenuDto | null } | null>(null);
   protected readonly linkDialog = signal<{ menu: MenuDto; catalog: CatalogDto } | null>(null);
+  protected readonly priceDialog = signal<{ menu: MenuDto; item: MenuItemDto } | null>(null);
 
   private readonly menuEditor = viewChild(MenuEditor);
   private readonly linkItems = viewChild(LinkItems);
+  private readonly priceEditor = viewChild(MenuPriceEditor);
 
   protected readonly menu = computed(() => this.tree()?.menus.find(m => m.id === this.menuId()) ?? null);
   protected readonly menuIndex = computed(() => this.tree()?.menus.findIndex(m => m.id === this.menuId()) ?? -1);
@@ -115,6 +119,24 @@ export class MenuAdmin implements OnInit {
       this.linkDialog.set(null);
       this.notice.set(this.t().admin.linked(menu.name, itemIds.length));
     }, message => this.linkItems()?.showError(message));
+  }
+
+  // ---- Prices on this menu ----
+
+  protected openPrice(item: MenuItemDto): void {
+    const menu = this.menu();
+    if (menu) this.priceDialog.set({ menu, item });
+  }
+
+  protected savePrice(priceMinor: number | null): void {
+    const dialog = this.priceDialog();
+    if (!dialog) return;
+    const { menu, item } = dialog;
+    this.submit(this.api.setMenuItemPrice(menu.id, item.id, priceMinor), saved => {
+      this.priceDialog.set(null);
+      const t = this.t().admin;
+      this.notice.set(saved.itemPriceMinor == null ? t.priceReset(item.name, menu.name) : t.priceSet(item.name, menu.name, this.money(saved.priceMinor)));
+    }, message => this.priceEditor()?.showError(message));
   }
 
   protected toggleAvailability(item: MenuItemDto): void {

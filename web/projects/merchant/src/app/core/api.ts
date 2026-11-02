@@ -163,6 +163,7 @@ export interface MenuItemDto {
   nameAr: string | null;
   description: string | null;
   descriptionAr: string | null;
+  /** On a menu, what that menu charges; elsewhere the item's own price. */
   priceMinor: number;
   imageUrl: string | null;
   isAvailable: boolean;
@@ -170,6 +171,8 @@ export interface MenuItemDto {
   tags: string[];
   sortOrder: number;
   modifierGroups: ModifierGroupDto[];
+  /** On a menu, the item's own price when the menu charges a different one; null when it uses it. */
+  itemPriceMinor?: number | null;
 }
 
 export interface CategoryDto {
@@ -268,6 +271,11 @@ export class MenuAdminApi {
   /** Makes the menu show exactly these items. */
   setMenuItems(menuId: string, itemIds: string[]) {
     return this.http.put<void>(`/v1/merchant/menu/menus/${menuId}/items`, { itemIds });
+  }
+
+  /** What the menu charges for one of its items; null goes back to the item's own price. */
+  setMenuItemPrice(menuId: string, itemId: string, priceMinor: number | null) {
+    return this.http.put<MenuItemDto>(`/v1/merchant/menu/menus/${menuId}/items/${itemId}/price`, { priceMinor });
   }
 
   createCategory(venueId: string, parentId: string | null, name: string, nameAr: string | null) {

@@ -38,6 +38,11 @@ public record CategoryDto(
     IReadOnlyList<ItemDto> Items,
     IReadOnlyList<CategoryDto> Subcategories);
 
+/// <param name="PriceMinor">On a menu, what that menu charges; elsewhere the item's own price.</param>
+/// <param name="ItemPriceMinor">
+/// Merchant view of a menu only: the item's own price when the menu charges a different one; null
+/// when the menu uses it.
+/// </param>
 public record ItemDto(
     Guid Id,
     Guid CategoryId,
@@ -51,7 +56,8 @@ public record ItemDto(
     IReadOnlyList<Allergen> Allergens,
     IReadOnlyList<string> Tags,
     int SortOrder,
-    IReadOnlyList<ModifierGroupDto> ModifierGroups);
+    IReadOnlyList<ModifierGroupDto> ModifierGroups,
+    long? ItemPriceMinor = null);
 
 public record ModifierGroupDto(
     Guid Id, string Name, string? NameAr, int MinSelect, int MaxSelect, IReadOnlyList<ModifierOptionDto> Options);
@@ -110,6 +116,9 @@ public record AvailabilityRequest(bool IsAvailable);
 
 /// <param name="ItemIds">Every item the menu should show; items left out are taken off it.</param>
 public record MenuItemsRequest([Required] IReadOnlyList<Guid> ItemIds);
+
+/// <param name="PriceMinor">What the menu charges for the item; null to use the item's own price.</param>
+public record MenuItemPriceRequest([Range(0, 100_000_000)] long? PriceMinor);
 
 /// <param name="Kind">"menus", "categories" or "items".</param>
 /// <param name="Ids">Every sibling, in the new order.</param>

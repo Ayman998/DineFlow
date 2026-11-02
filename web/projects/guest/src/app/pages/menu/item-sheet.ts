@@ -20,6 +20,8 @@ export class ItemSheet implements OnInit, OnDestroy {
   protected readonly i18n = inject(I18n);
 
   readonly item = input.required<MenuItem>();
+  /** The menu it's shown on, whose price it has. */
+  readonly menuId = input<string | null>(null);
   readonly currency = input.required<string>();
   /** False when the selected menu isn't being served right now. */
   readonly canOrder = input.required<boolean>();
@@ -123,7 +125,7 @@ export class ItemSheet implements OnInit, OnDestroy {
       })));
 
     this.cart.add({
-      itemId: item.id, name: item.name, nameAr: item.nameAr, imageUrl: item.imageUrl,
+      itemId: item.id, menuId: this.menuId(), name: item.name, nameAr: item.nameAr, imageUrl: item.imageUrl,
       unitPriceMinor: this.unitPrice(), quantity: this.quantity(), options, note: this.note().trim()
     });
     this.added.emit(this.name());

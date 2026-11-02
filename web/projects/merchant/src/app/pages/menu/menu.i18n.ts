@@ -75,7 +75,17 @@ const en = {
     savedMenu: (name: string) => `Saved menu "${name}".`,
     confirmDeleteMenu: (name: string) => `Delete the "${name}" menu? Its items stay under Items.`,
     deletedMenu: (name: string) => `Deleted menu "${name}".`,
-    linked: (menu: string, n: number) => `"${menu}" now shows ${count(n, 'item', 'items')}.`
+    linked: (menu: string, n: number) => `"${menu}" now shows ${count(n, 'item', 'items')}.`,
+    // An item's price on this menu
+    editPrice: (item: string) => `Change the price of ${item} on this menu`,
+    itemPrice: (price: string) => `Item price ${price}`,
+    priceTitle: (item: string, menu: string) => `${item} on ${menu}`,
+    menuPrice: (currency: string) => `Price on this menu (${currency})`,
+    priceHint: (price: string) => `The item's own price is ${price}. Changing it here leaves that price, and other menus, as they are.`,
+    useItemPrice: 'Use item price',
+    savePrice: 'Save price',
+    priceSet: (item: string, menu: string, price: string) => `"${menu}" now charges ${price} for "${item}".`,
+    priceReset: (item: string, menu: string) => `"${menu}" now uses the item price for "${item}".`
   },
 
   /** The item categories page. */
@@ -281,7 +291,16 @@ export const MENU: Lexicon<typeof en> = {
       savedMenu: (name: string) => `تم حفظ القائمة "${name}".`,
       confirmDeleteMenu: (name: string) => `هل تريد حذف قائمة "${name}"؟ ستبقى أصنافها في صفحة الأصناف.`,
       deletedMenu: (name: string) => `تم حذف القائمة "${name}".`,
-      linked: (menu: string, n: number) => `أصبحت قائمة "${menu}" تعرض ${arCount(n, 'صنفاً واحداً', 'صنفين', 'أصناف', 'صنفاً')}.`
+      linked: (menu: string, n: number) => `أصبحت قائمة "${menu}" تعرض ${arCount(n, 'صنفاً واحداً', 'صنفين', 'أصناف', 'صنفاً')}.`,
+      editPrice: (item: string) => `تغيير سعر ${item} في هذه القائمة`,
+      itemPrice: (price: string) => `سعر الصنف ${price}`,
+      priceTitle: (item: string, menu: string) => `${item} في قائمة ${menu}`,
+      menuPrice: (currency: string) => `السعر في هذه القائمة (${currency})`,
+      priceHint: (price: string) => `سعر الصنف الأساسي ${price}. تغييره هنا لا يغيّر هذا السعر ولا القوائم الأخرى.`,
+      useItemPrice: 'استخدام سعر الصنف',
+      savePrice: 'حفظ السعر',
+      priceSet: (item: string, menu: string, price: string) => `أصبحت قائمة "${menu}" تحتسب ${price} لـ "${item}".`,
+      priceReset: (item: string, menu: string) => `أصبحت قائمة "${menu}" تستخدم سعر الصنف لـ "${item}".`
     },
 
     categoriesPage: {

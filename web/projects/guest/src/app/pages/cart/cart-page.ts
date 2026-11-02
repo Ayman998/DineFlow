@@ -134,7 +134,8 @@ export class CartPage {
       itemId: l.itemId,
       quantity: l.quantity,
       optionIds: l.options.map(o => o.optionId),
-      note: l.note || null
+      note: l.note || null,
+      menuId: l.menuId ?? null
     }));
   }
 }

@@ -48,13 +48,13 @@ public class CartQuoteService(IAppDbContext db, TimeProvider clock)
             .ToDictionaryAsync(i => i.Id, ct);
 
         // An item can be on several menus; it can be ordered while any of them is being served.
-        var menusByItem = (await db.MenuItemLinks
+        var listingsByItem = (await db.MenuItemLinks
             .Where(l => itemIds.Contains(l.MenuItemId))
-            .Join(db.Menus, l => l.MenuId, m => m.Id, (l, m) => new { l.MenuItemId, Menu = m })
+            .Join(db.Menus, l => l.MenuId, m => m.Id, (l, m) => new { l.MenuItemId, l.PriceMinor, Menu = m })
             .ToListAsync(ct))
             .Where(x => x.Menu.IsPublished)
             .OrderBy(x => x.Menu.SortOrder)
-            .ToLookup(x => x.MenuItemId, x => x.Menu);
+            .ToLookup(x => x.MenuItemId);
 
         var localNow = VenueTime.LocalNow(clock, table.Venue.TimeZone);
         var quoteLines = new List<QuoteLineDto>();
@@ -72,7 +72,8 @@ public class CartQuoteService(IAppDbContext db, TimeProvider clock)
                 continue;
             }
 
-            var menus = menusByItem[item.Id].ToList();
+            var listings = listingsByItem[item.Id].ToList();
+            var menus = listings.Select(x => x.Menu).ToList();
             if (!item.IsAvailable)
                 Issue("item_unavailable", $"{item.Name} is sold out right now.");
             else if (!menus.Any(m => m.IsAvailableAt(localNow)))
@@ -80,15 +81,21 @@ public class CartQuoteService(IAppDbContext db, TimeProvider clock)
                     ? $"{item.Name} is on the {menu.Name} menu, served {start:HH\\:mm}–{menu.EndTime:HH\\:mm}."
                     : $"{item.Name} isn't being served right now.");
 
+            // The price of the menu the guest ordered from while it's served, else of the first one served.
+            var serving = listings.Where(x => x.Menu.IsAvailableAt(localNow)).ToList();
+            var listing = serving.FirstOrDefault(x => x.Menu.Id == line.MenuId) ?? serving.FirstOrDefault()
+                ?? listings.FirstOrDefault(x => x.Menu.Id == line.MenuId);
+            var basePrice = listing?.PriceMinor ?? item.PriceMinor;
+
             var modifiers = ResolveOptions(item, line.OptionIds ?? [], Issue);
-            var unitPrice = item.PriceMinor + modifiers.Sum(m => m.PriceDeltaMinor);
+            var unitPrice = basePrice + modifiers.Sum(m => m.PriceDeltaMinor);
             var note = string.IsNullOrWhiteSpace(line.Note) ? null : line.Note.Trim();
 
             quoteLines.Add(new QuoteLineDto(index, item.Id, item.Name, item.NameAr, line.Quantity,
                 unitPrice, unitPrice * line.Quantity, modifiers.Select(m => m.ToDto()).ToList(), note));
 
             var tenantId = table.Venue.TenantId;
-            orderLines.Add(() => new OrderLine(tenantId, item.Id, item.Name, item.NameAr, item.PriceMinor, line.Quantity, modifiers, note));
+            orderLines.Add(() => new OrderLine(tenantId, item.Id, item.Name, item.NameAr, basePrice, line.Quantity, modifiers, note));
         }
 
         var venue = table.Venue;

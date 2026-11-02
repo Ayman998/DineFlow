@@ -618,6 +618,9 @@ namespace HelloZen.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("MenuItemId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long?>("PriceMinor")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
