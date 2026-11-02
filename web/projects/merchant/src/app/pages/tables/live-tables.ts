@@ -2,23 +2,26 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { merge } from 'rxjs';
 
-import { FinanceApi, TableState, TableStatus } from '../../core/api';
+import { FinanceApi, TableState, TableStatus, TransferResult } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
 import { TABLES } from './tables.i18n';
+import { TransferDialog } from './transfer-dialog';
+import { TRANSFER } from './transfer.i18n';
 
 type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
 
 /**
  * The live table view (blueprint 4.4 "Tables", P1-MER-10, mockup "Merchant table view"): each
  * table's state, what's been paid against its bill, and its orders when expanded. Updates as
- * orders and payments come in.
+ * orders and payments come in. Staff can move an open bill, or some of its items, to another table.
  */
 @Component({
   selector: 'hz-live-tables',
+  imports: [TransferDialog],
   template: `
     @let s = this.s();
     <div class="flex flex-wrap items-center gap-2" role="group" [attr.aria-label]="s.show">
@@ -32,6 +35,9 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
 
     @if (error()) {
       <p class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
+    }
+    @if (notice()) {
+      <p class="notice mt-4" role="status">{{ notice() }}</p>
     }
 
     <ul class="mt-4 grid gap-2.5 lg:grid-cols-2">
@@ -73,6 +79,9 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
                   }
                 </tbody>
               </table>
+              @if (canMove(t)) {
+                <button type="button" class="btn-secondary mt-3" (click)="moving.set(t)">{{ m().open }}</button>
+              }
             </div>
           }
         </li>
@@ -80,6 +89,10 @@ type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
         <li class="text-sm text-ink-muted">{{ s.empty }}</li>
       }
     </ul>
+
+    @if (moving(); as from) {
+      <hz-transfer-dialog [from]="from" [tables]="tables()" (moved)="moved(from, $event)" (cancelled)="moving.set(null)" />
+    }
   `
 })
 export class LiveTables implements OnInit {
@@ -97,6 +110,10 @@ export class LiveTables implements OnInit {
   protected readonly tables = signal<TableStatus[]>([]);
   protected readonly expanded = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
+  protected readonly notice = signal<string | null>(null);
+  /** The table whose bill is being moved to another one. */
+  protected readonly moving = signal<TableStatus | null>(null);
+  protected readonly m = this.i18n.use(TRANSFER);
   private readonly now = signal(Date.now());
 
   protected readonly shown = computed(() => this.tables().filter(t => this.matches(t, this.filter())));
@@ -136,6 +153,20 @@ export class LiveTables implements OnInit {
   /** "Table 12" in the portal's language (the API's displayName is English). */
   protected place(t: TableStatus): string {
     return `${this.i18n.t().locationTypes[t.locationType] ?? t.locationType} ${t.label}`;
+  }
+
+  /** An open bill with something on it can move to another table. */
+  protected canMove(t: TableStatus): boolean {
+    return !!t.checkId && (t.state === 'Unpaid' || t.state === 'PartiallyPaid' || t.state === 'Attention');
+  }
+
+  protected moved(from: TableStatus, result: TransferResult): void {
+    this.moving.set(null);
+    const to = this.tables().find(t => t.locationId === result.toLocationId);
+    const place = to ? this.place(to) : '';
+    this.notice.set(result.wholeBill ? this.m().movedBill(place) : this.m().movedItems(this.i18n.t().items(result.items), place));
+    this.expanded.set(result.wholeBill ? result.toLocationId : from.locationId);
+    this.load();
   }
 
   protected money(minor: number, currency: string): string {

@@ -202,7 +202,8 @@ const audit = {
     reconciliation: 'Resolved differences',
     pos: 'POS',
     staff: 'Team',
-    account: 'Password changes'
+    account: 'Password changes',
+    table: 'Moving bills between tables'
   } as Partial<Record<string, string>>,
   empty: 'Nothing recorded yet.',
   when: 'When',
@@ -235,7 +236,8 @@ export const AUDIT_LOG: Lexicon<typeof audit> = {
       reconciliation: 'الفروقات التي تمت معالجتها',
       pos: 'نظام نقاط البيع (POS)',
       staff: 'الفريق',
-      account: 'تغيير كلمات المرور'
+      account: 'تغيير كلمات المرور',
+      table: 'نقل الفواتير بين الطاولات'
     },
     empty: 'لم يُسجَّل أي شيء بعد.',
     when: 'الوقت',
@@ -261,6 +263,8 @@ export const AUDIT_LOG: Lexicon<typeof audit> = {
       'pos.connection.saved': 'غيّر ربط نظام نقاط البيع',
       'pos.mapping.saved': 'غيّر ربط الطاولات أو الأصناف مع نظام نقاط البيع',
       'pos.command.retried': 'أعاد إرسال عملية إلى نظام نقاط البيع',
+      'table.bill_moved': 'نقل فاتورة طاولة كاملة إلى طاولة أخرى',
+      'table.items_moved': 'نقل أصنافًا إلى طاولة أخرى',
       'staff.added': 'أضاف عضواً إلى الفريق',
       'staff.updated': 'عدّل بيانات عضو في الفريق',
       'staff.password_reset': 'أعاد تعيين كلمة مرور عضو في الفريق',
@@ -278,7 +282,8 @@ export const AUDIT_LOG: Lexicon<typeof audit> = {
       Discrepancy: 'فرق مطابقة',
       PosConnection: 'ربط POS',
       PosCommand: 'عملية POS',
-      StaffUser: 'عضو الفريق'
+      StaffUser: 'عضو الفريق',
+      Check: 'فاتورة'
     },
     range: (from: number, to: number, total: number) => `${from}–${to} من ${total}`,
     previousPage: 'الصفحة السابقة',

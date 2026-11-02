@@ -1,0 +1,60 @@
+import { Lexicon } from '../../core/i18n';
+
+const en = {
+  open: 'Move to another table',
+  title: (place: string) => `Move from ${place}`,
+  intro: 'Move the whole bill when the guests change tables, or just some items, e.g. when one guest moves to the bar.',
+  to: 'Move to',
+  choose: 'Choose a table',
+  hasBill: 'has a bill',
+  joins: (place: string) => `${place} already has a bill. What you move joins it.`,
+  what: 'What to move',
+  wholeBill: 'Whole bill',
+  wholeBillHint: 'Every item. To a table without a bill, what has been paid so far moves with it.',
+  someItems: 'Some items',
+  order: (number: number) => `Order #${number}`,
+  paidByItem: 'Paid by item, stays here',
+  fewer: (name: string) => `One fewer ${name}`,
+  more: (name: string) => `One more ${name}`,
+  all: 'All',
+  selected: (items: string, amount: string) => `${items} selected · ${amount}`,
+  pickItems: 'Pick the items to move.',
+  paid: (amount: string) => `This table has paid ${amount}. What stays on its bill has to cover that.`,
+  paying: 'A guest at this table is paying right now. Try again once the payment has finished.',
+  empty: 'This table has nothing on its bill to move.',
+  move: 'Move',
+  moving: 'Moving…',
+  movedBill: (place: string) => `Moved the bill to ${place}.`,
+  movedItems: (items: string, place: string) => `Moved ${items} to ${place}.`
+};
+
+export const TRANSFER: Lexicon<typeof en> = {
+  en,
+  ar: {
+    open: 'نقل إلى طاولة أخرى',
+    title: (place: string) => `نقل من ${place}`,
+    intro: 'انقل الفاتورة كاملة عندما ينتقل الضيوف إلى طاولة أخرى، أو انقل بعض الأصناف فقط، مثلًا عندما ينتقل أحد الضيوف إلى البار.',
+    to: 'النقل إلى',
+    choose: 'اختر طاولة',
+    hasBill: 'عليها فاتورة',
+    joins: (place: string) => `على ${place} فاتورة مفتوحة، وسيُضاف إليها ما تنقله.`,
+    what: 'ما الذي تريد نقله',
+    wholeBill: 'الفاتورة كاملة',
+    wholeBillHint: 'كل الأصناف. عند النقل إلى طاولة ليس عليها فاتورة، ينتقل معها ما دُفع حتى الآن.',
+    someItems: 'أصناف محددة',
+    order: (number: number) => `الطلب #${number}`,
+    paidByItem: 'مدفوع حسب الصنف، يبقى هنا',
+    fewer: (name: string) => `إنقاص ${name}`,
+    more: (name: string) => `زيادة ${name}`,
+    all: 'الكل',
+    selected: (items: string, amount: string) => `تم اختيار ${items} · ${amount}`,
+    pickItems: 'اختر الأصناف التي تريد نقلها.',
+    paid: (amount: string) => `دفعت هذه الطاولة ${amount}. يجب أن يغطي ما يبقى على فاتورتها هذا المبلغ.`,
+    paying: 'أحد الضيوف على هذه الطاولة يدفع الآن. حاول مرة أخرى بعد انتهاء عملية الدفع.',
+    empty: 'لا يوجد على فاتورة هذه الطاولة ما يمكن نقله.',
+    move: 'نقل',
+    moving: 'جارٍ النقل…',
+    movedBill: (place: string) => `تم نقل الفاتورة إلى ${place}.`,
+    movedItems: (items: string, place: string) => `تم نقل ${items} إلى ${place}.`
+  }
+};

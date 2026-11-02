@@ -73,6 +73,14 @@ public class Check : Entity, ITenantOwned
         Touch();
     }
 
+    /// <summary>The guests changed tables: the bill goes with them, with everything paid and held on it.</summary>
+    public void MoveTo(Guid serviceLocationId)
+    {
+        if (Status != CheckStatus.Open) throw new DomainException("Only an open bill can be moved.");
+        ServiceLocationId = serviceLocationId;
+        Touch();
+    }
+
     public void Close(DateTimeOffset now)
     {
         if (Status == CheckStatus.Closed) return;

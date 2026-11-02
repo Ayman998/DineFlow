@@ -1,4 +1,5 @@
 using HelloZen.Api.Common;
+using HelloZen.Application.Bills;
 using HelloZen.Application.Tables;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,4 +32,19 @@ public class MerchantTablesController(TableService tables) : ControllerBase
     [HttpPost("{locationId:guid}/qr/enable")]
     public Task<LocationDto> EnableQr(Guid locationId, CancellationToken ct) =>
         tables.SetQrEnabledAsync(locationId, enabled: true, ct);
+}
+
+/// <summary>A table's open bill item by item, and moving it, whole or in part, to another table. Any staff role.</summary>
+[ApiController]
+[Route("v1/merchant/tables/{locationId:guid}")]
+[Authorize(Policy = Policies.Merchant)]
+public class MerchantTableBillsController(TableTransferService transfers) : ControllerBase
+{
+    [HttpGet("bill")]
+    public Task<TableBillDto> Bill(Guid locationId, CancellationToken ct) => transfers.GetBillAsync(locationId, ct);
+
+    /// <summary>Moves the listed items (or the whole bill, when none are listed) to another table.</summary>
+    [HttpPost("transfer")]
+    public Task<TransferResultDto> Transfer(Guid locationId, TransferRequest request, CancellationToken ct) =>
+        transfers.TransferAsync(locationId, request, User.UserId(), ct);
 }

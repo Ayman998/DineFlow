@@ -33,6 +33,10 @@ public class PosSync(IAppDbContext db, IPosConnectorRegistry connectors, TimePro
         await AddAsync(PosCommand.PostPayment(payment.TenantId, payment.VenueId, checkId, payment.Id, connection.Provider, clock.GetUtcNow()), ct);
     }
 
+    /// <summary>The venue has a POS switched on. Its bills mirror the POS, so tables are moved there, not here.</summary>
+    public Task<bool> IsConnectedAsync(Guid venueId, CancellationToken ct) =>
+        db.PosConnections.AnyAsync(c => c.VenueId == venueId && c.IsActive, ct);
+
     private async Task<PosConnection?> ActiveConnectionAsync(Guid venueId, PosCapabilities needs, CancellationToken ct)
     {
         // Called from webhooks too, where there's no tenant: look the venue up directly.

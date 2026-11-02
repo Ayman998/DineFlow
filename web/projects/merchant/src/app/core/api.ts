@@ -317,7 +317,9 @@ export type OrderFilter = 'Active' | 'New' | 'Completed' | 'Rejected';
 export interface OrderModifierDto {
   optionId: string;
   groupName: string;
+  groupNameAr?: string | null;
   name: string;
+  nameAr?: string | null;
   priceDeltaMinor: number;
 }
 
@@ -730,6 +732,46 @@ export interface TableStatus {
   orders: { id: string; number: number; status: string; createdAt: string; totalMinor: number }[];
 }
 
+/** A table's open bill line by line, for moving some of it to another table. */
+export interface TableBill {
+  locationId: string;
+  /** Null when the table has no open bill. */
+  checkId: string | null;
+  currency: string;
+  totalMinor: number;
+  /** Already paid towards the bill; what stays on it has to cover this. */
+  paidMinor: number;
+  /** A guest is paying right now, so nothing can move until that finishes. */
+  paymentInProgress: boolean;
+  lines: TableBillLine[];
+}
+
+export interface TableBillLine {
+  orderLineId: string;
+  orderId: string;
+  orderNumber: number;
+  orderStatus: OrderStatus;
+  name: string;
+  nameAr: string | null;
+  modifiers: OrderModifierDto[];
+  note: string | null;
+  quantity: number;
+  unitPriceMinor: number;
+  lineTotalMinor: number;
+  /** 0 when guests have paid, or are paying, for this line by item. */
+  movableQuantity: number;
+}
+
+export interface TransferResult {
+  fromLocationId: string;
+  toLocationId: string;
+  wholeBill: boolean;
+  /** How many items (units) moved. */
+  items: number;
+  /** The orders now at the new table, including any split off for the items that moved. */
+  orderNumbers: number[];
+}
+
 /** Pushed to staff screens when the provider confirms or declines a refund. */
 export interface RefundNotice {
   tenantId: string;
@@ -742,7 +784,7 @@ export interface RefundNotice {
   status: RefundStatus;
 }
 
-/** Transactions, refunds, the overview and the live table view (blueprint 9.2). */
+/** Transactions, refunds, the overview and the live table view, including moving bills between tables (blueprint 9.2). */
 @Injectable({ providedIn: 'root' })
 export class FinanceApi {
   private readonly http = inject(HttpClient);
@@ -768,6 +810,15 @@ export class FinanceApi {
 
   tableStatus(venueId: string) {
     return this.http.get<TableStatus[]>(`/v1/merchant/venues/${venueId}/table-status`);
+  }
+
+  tableBill(locationId: string) {
+    return this.http.get<TableBill>(`/v1/merchant/tables/${locationId}/bill`);
+  }
+
+  /** Moves the listed items to another table; with no lines, the whole bill moves. */
+  transfer(fromLocationId: string, toLocationId: string, lines: { orderLineId: string; quantity: number }[] | null) {
+    return this.http.post<TransferResult>(`/v1/merchant/tables/${fromLocationId}/transfer`, { toLocationId, lines });
   }
 }
 

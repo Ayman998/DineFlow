@@ -78,18 +78,75 @@ public class Order : Entity, ITenantOwned
         for (var i = 0; i < lines.Count; i++) lines[i].AttachTo(this, i);
         _lines.AddRange(lines);
 
-        var price = OrderPricing.Calculate(lines.Sum(l => l.LineTotalMinor), serviceChargeBasisPoints, taxBasisPoints, taxIncluded);
-        SubtotalMinor = price.SubtotalMinor;
-        ServiceChargeMinor = price.ServiceChargeMinor;
         ServiceChargeBasisPoints = serviceChargeBasisPoints;
-        TaxMinor = price.TaxMinor;
         TaxBasisPoints = taxBasisPoints;
-        TaxIncluded = price.TaxIncluded;
-        TotalMinor = price.TotalMinor;
+        TaxIncluded = taxIncluded;
+        Reprice();
     }
 
     /// <summary>Adds the order to the table's open bill.</summary>
     public void AssignToCheck(Guid checkId) => CheckId = checkId;
+
+    /// <summary>
+    /// Moves the order to another table's bill, e.g. when the guests change tables. It keeps its
+    /// number and kitchen status; the location snapshot follows it, so staff serve the right table.
+    /// </summary>
+    public void MoveTo(Guid serviceLocationId, string locationType, string locationLabel, string? areaName, Guid checkId, DateTimeOffset now)
+    {
+        ServiceLocationId = serviceLocationId;
+        LocationType = locationType;
+        LocationLabel = locationLabel;
+        AreaName = areaName;
+        CheckId = checkId;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Takes some of the items off this order onto a new one at the same table, ready to be moved,
+    /// e.g. when one guest takes their drinks to the bar. <paramref name="quantities"/> says how
+    /// many of each line (by line id) go. The new order keeps this one's guest, status, charges
+    /// and time, and both orders are repriced. Moving every item is <see cref="MoveTo"/> instead.
+    /// </summary>
+    public Order SplitOff(IReadOnlyDictionary<Guid, int> quantities, int number, DateTimeOffset now)
+    {
+        var taking = _lines.Where(l => quantities.ContainsKey(l.Id)).OrderBy(l => l.Position).ToList();
+        if (taking.Count == 0 || taking.Count != quantities.Count) throw new DomainException("Pick items from this order to move.");
+        if (taking.Any(l => quantities[l.Id] < 1 || quantities[l.Id] > l.Quantity))
+            throw new DomainException("You can't move more of an item than was ordered.");
+        if (taking.Count == _lines.Count && taking.All(l => quantities[l.Id] == l.Quantity))
+            throw new DomainException("Move the whole order instead of splitting it.");
+
+        var moved = new List<OrderLine>();
+        foreach (var line in taking)
+        {
+            var quantity = quantities[line.Id];
+            moved.Add(line.CopyWith(quantity));
+            if (quantity == line.Quantity) _lines.Remove(line);
+            else line.Reduce(quantity);
+        }
+        Reprice();
+        UpdatedAt = now;
+
+        return new Order(TenantId, VenueId, ServiceLocationId, GuestSessionId, Guid.NewGuid(), number,
+            LocationType, LocationLabel, AreaName, Currency, ServiceChargeBasisPoints, TaxBasisPoints, TaxIncluded, moved, Note, now)
+        {
+            CheckId = CheckId,
+            Status = Status,
+            RejectReason = RejectReason,
+            AcceptedByStaffId = AcceptedByStaffId,
+            ServedByStaffId = ServedByStaffId,
+            CreatedAt = CreatedAt
+        };
+    }
+
+    private void Reprice()
+    {
+        var price = OrderPricing.Calculate(_lines.Sum(l => l.LineTotalMinor), ServiceChargeBasisPoints, TaxBasisPoints, TaxIncluded);
+        SubtotalMinor = price.SubtotalMinor;
+        ServiceChargeMinor = price.ServiceChargeMinor;
+        TaxMinor = price.TaxMinor;
+        TotalMinor = price.TotalMinor;
+    }
 
     /// <summary>
     /// Moves the order along the kitchen flow. Allowed: Submitted → Accepted or Rejected;
@@ -172,6 +229,18 @@ public class OrderLine : Entity, ITenantOwned
     {
         OrderId = order.Id;
         Position = position;
+    }
+
+    /// <summary>The same item, options and price, <paramref name="quantity"/> of them, for another order.</summary>
+    internal OrderLine CopyWith(int quantity) =>
+        new(TenantId, MenuItemId, Name, NameAr, UnitPriceMinor - Modifiers.Sum(m => m.PriceDeltaMinor), quantity,
+            Modifiers.Select(m => m with { }).ToList(), Note);
+
+    /// <summary>Some of this line went to another order.</summary>
+    internal void Reduce(int quantity)
+    {
+        Quantity -= quantity;
+        LineTotalMinor = checked(UnitPriceMinor * Quantity);
     }
 }
 

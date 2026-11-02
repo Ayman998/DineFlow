@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<GuestOrderService>();
         services.AddScoped<MerchantOrderService>();
         services.AddScoped<BillService>();
+        services.AddScoped<TableTransferService>();
         services.AddScoped<PromotionService>();
         services.AddScoped<PaymentService>();
         services.AddScoped<PaymentStatusSync>();

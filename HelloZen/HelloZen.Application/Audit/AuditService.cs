@@ -44,6 +44,8 @@ public class AuditService(IAppDbContext db, ITenantContext tenant)
         ["pos.connection.saved"] = "Changed the POS connection",
         ["pos.mapping.saved"] = "Changed POS table or item mapping",
         ["pos.command.retried"] = "Sent an item to the POS again",
+        ["table.bill_moved"] = "Moved a table's whole bill to another table",
+        ["table.items_moved"] = "Moved items to another table",
         ["staff.added"] = "Added a team member",
         ["staff.updated"] = "Changed a team member",
         ["staff.password_reset"] = "Reset a team member's password",

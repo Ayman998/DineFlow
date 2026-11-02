@@ -82,6 +82,7 @@ public sealed class TestHost : IDisposable
         MerchantReviews = new MerchantReviewService(Db, _tenant, Clock);
         Transactions = new TransactionService(Db, _tenant, Sandbox, Clock);
         TableStatus = new TableStatusService(Db, _tenant, Clock);
+        Transfers = new TableTransferService(Db, _tenant, Bills, PosSync, Notifier, PaymentNotifier, Clock);
         Overview = new OverviewService(Db, _tenant, TableStatus, Clock);
         PaymentLinks = new PaymentLinkService(Db, _tenant, QrTokens, Emails, guestOptions, Clock);
         LinkCheckout = new PaymentLinkCheckoutService(Db, QrTokens, Sandbox, Emails, paymentOptions, guestOptions, Clock);
@@ -129,6 +130,7 @@ public sealed class TestHost : IDisposable
     public MerchantReviewService MerchantReviews { get; }
     public TransactionService Transactions { get; }
     public TableStatusService TableStatus { get; }
+    public TableTransferService Transfers { get; }
     public OverviewService Overview { get; }
     public PaymentLinkService PaymentLinks { get; }
     public PaymentLinkCheckoutService LinkCheckout { get; }

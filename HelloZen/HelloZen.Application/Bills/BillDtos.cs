@@ -108,3 +108,44 @@ public record ReserveRequest([Required, MaxLength(500)] IReadOnlyList<UnitRef> U
 
 /// <param name="Taken">Requested items another guest already holds or paid for.</param>
 public record ReserveResultDto(BillDto Bill, IReadOnlyList<UnitRef> Taken);
+
+// ---- Moving items between tables (staff) ----
+
+/// <summary>A table's open bill line by line, for staff choosing what to move to another table.</summary>
+/// <param name="CheckId">Null when the table has no open bill.</param>
+/// <param name="PaidMinor">Already paid towards the bill (ledger), which has to stay covered by what's left on it.</param>
+/// <param name="PaymentInProgress">A guest is paying right now; nothing can move until that finishes.</param>
+public record TableBillDto(
+    Guid LocationId,
+    Guid? CheckId,
+    string Currency,
+    long TotalMinor,
+    long PaidMinor,
+    bool PaymentInProgress,
+    IReadOnlyList<TableBillLineDto> Lines);
+
+/// <param name="MovableQuantity">How many of the line can move: 0 when guests have paid, or are paying, for it by item.</param>
+public record TableBillLineDto(
+    Guid OrderLineId,
+    Guid OrderId,
+    int OrderNumber,
+    OrderStatus OrderStatus,
+    string Name,
+    string? NameAr,
+    IReadOnlyList<OrderModifierDto> Modifiers,
+    string? Note,
+    int Quantity,
+    long UnitPriceMinor,
+    long LineTotalMinor,
+    int MovableQuantity);
+
+public record TransferLineRequest([Required] Guid OrderLineId, [Range(1, OrderLine.MaxQuantity)] int Quantity);
+
+/// <param name="ToLocationId">The table the items go to, in the same branch.</param>
+/// <param name="Lines">Which items and how many of each; null or empty moves the whole bill.</param>
+public record TransferRequest([Required] Guid ToLocationId, [MaxLength(500)] IReadOnlyList<TransferLineRequest>? Lines);
+
+/// <param name="WholeBill">Everything on the bill moved, not just some items.</param>
+/// <param name="Items">How many items (units) moved.</param>
+/// <param name="OrderNumbers">The orders now at the new table, including any split off for the items that moved.</param>
+public record TransferResultDto(Guid FromLocationId, Guid ToLocationId, bool WholeBill, int Items, IReadOnlyList<int> OrderNumbers);
