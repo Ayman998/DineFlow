@@ -23,6 +23,8 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
  */
 @Component({
   selector: 'hz-trend-chart',
+  // A block host, so the chart can measure (and follow) the width it is given.
+  host: { class: 'block' },
   template: `
     @let t = this.t();
     <div class="relative" (mouseleave)="hovered.set(null)">
@@ -47,7 +49,7 @@ const MARGIN = { top: 12, right: 8, bottom: 28, left: 56 };
       </svg>
       @if (hovered() !== null && bars()[hovered()!]; as bar) {
         <div class="pointer-events-none absolute z-10 -translate-x-1/2 rounded-lg border border-line bg-white px-3 py-2 text-xs whitespace-nowrap shadow-md"
-             [style.left.px]="bar.cx" [style.top.px]="Math.max(0, bar.top - 52)" role="status">
+             [style.left.px]="Math.min(Math.max(bar.cx, 64), width() - 64)" [style.top.px]="Math.max(0, bar.top - 52)" role="status">
           <div class="text-sm font-semibold text-ink">{{ money(bar.value) }}</div>
           <div class="text-ink-muted">{{ bar.label }}</div>
         </div>

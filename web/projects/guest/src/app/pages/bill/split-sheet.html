@@ -9,7 +9,7 @@
     <h1 id="split-title" class="text-lg font-extrabold">{{ tab() === 'Items' ? t.payForItems : t.splitTitle }}</h1>
   </header>
 
-  <div class="flex-1 overflow-y-auto px-5 pt-1 pb-6">
+  <div class="flex-1 overscroll-contain overflow-y-auto px-5 pt-1 pb-6">
     <div class="flex gap-1 rounded-[14px] bg-surface p-1" role="tablist" [attr.aria-label]="t.howToPay">
       @for (mode of tabs; track mode) {
         <button type="button" role="tab" class="split-tab" [class.split-tab-on]="tab() === mode" [attr.aria-selected]="tab() === mode"
@@ -81,7 +81,7 @@
         <p class="mt-4 mb-3 text-sm leading-relaxed text-ink-muted">{{ t.customIntro }}</p>
         @let parsed = amount();
         <label for="custom-amount" class="mb-1.5 block text-sm font-bold">{{ t.customLabel }} ({{ b.currency }})</label>
-        <input id="custom-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+        <input id="custom-amount" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-base font-medium outline-none focus:border-brand"
                inputmode="decimal" autocomplete="off" maxlength="12" [value]="amountText()" (input)="amountText.set($any($event.target).value)"
                aria-describedby="custom-amount-help" />
         <p id="custom-amount-help" class="mt-1 text-[13px]"
@@ -113,7 +113,7 @@
     }
   </div>
 
-  <div class="flex gap-3 px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
+  <div class="flex gap-3 px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
     <button type="button" class="min-h-14 flex-1 rounded-[14px] border-[1.5px] border-[#FDA29B] bg-[#FEF3F2] font-bold text-[#B42318] disabled:opacity-50"
             [disabled]="busy()" (click)="remove()">{{ t.removeSplit }}</button>
     <button type="button" class="min-h-14 flex-1 rounded-[14px] bg-accent font-bold text-ink disabled:bg-[#D4D4D4] disabled:text-ink-muted"

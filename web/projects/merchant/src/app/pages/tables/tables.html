@@ -1,5 +1,5 @@
 @let t = this.t();
-<div class="mb-5 flex gap-1 rounded-lg bg-surface p-1 w-fit print:hidden" role="tablist" [attr.aria-label]="t.viewLabel">
+<div class="mb-5 flex gap-1 rounded-lg bg-surface p-1 w-fit print:hidden no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="tablist" [attr.aria-label]="t.viewLabel">
   <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === 'live'"
           [class]="view() === 'live' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set('live')">{{ t.liveStatus }}</button>
   <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === 'qr'"
@@ -109,7 +109,7 @@
 }
 
 @if (loading()) {
-  <div class="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4" aria-busy="true">
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4" aria-busy="true">
     @for (i of [1, 2, 3, 4, 5, 6]; track i) {
       <div class="h-72 animate-pulse rounded-xl bg-white"></div>
     }
@@ -141,18 +141,18 @@
       @if (!section.active) {
         <p class="mb-3 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-900 print:hidden">{{ t.areaClosedNote }}</p>
       }
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4 print:grid-cols-3 print:gap-6">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4 print:grid-cols-3 print:gap-6">
         @for (location of section.locations; track location.id) {
           @let qr = location.qr;
           @let name = place(location);
           <article
-            class="flex flex-col rounded-xl border border-line bg-white p-4 break-inside-avoid"
+            class="flex min-w-0 flex-col rounded-xl border border-line bg-white p-3 break-inside-avoid sm:p-4"
             [class.opacity-60]="qr?.status === 'Disabled' || !section.active">
             <div class="hidden text-center print:block">
               <div class="text-sm font-semibold">{{ brandName() }}</div>
             </div>
 
-            <div class="flex items-start justify-between gap-2 print:justify-center">
+            <div class="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 print:justify-center">
               <div class="font-bold print:text-center print:text-lg">{{ name }}</div>
               @if (qr) {
                 <span

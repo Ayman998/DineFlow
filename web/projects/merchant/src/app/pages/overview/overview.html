@@ -31,45 +31,45 @@
 
   @if (d) {
     <div class="flex flex-col gap-6 transition-opacity" [class.opacity-60]="loading()">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div class="card">
           <p class="text-sm text-ink-muted">{{ t.revenue }} {{ periodName() }}</p>
-          <p class="mt-1 text-2xl font-semibold">{{ money(d.selected.revenueMinor) }}</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">{{ money(d.selected.revenueMinor) }}</p>
           @if (revenueChange(d); as c) { <p class="mt-1 text-xs text-ink-muted">{{ c }}</p> }
         </div>
         <div class="card">
           <p class="text-sm text-ink-muted">{{ t.tips }} {{ periodName() }}</p>
-          <p class="mt-1 text-2xl font-semibold">{{ money(d.selected.tipsMinor) }}</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">{{ money(d.selected.tipsMinor) }}</p>
         </div>
         <div class="card">
           <p class="text-sm text-ink-muted">{{ t.orders }} {{ periodName() }}</p>
-          <p class="mt-1 text-2xl font-semibold">{{ d.selected.orders }}</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">{{ d.selected.orders }}</p>
           <p class="mt-1 text-xs text-ink-muted">{{ ordersChange(d) }}</p>
         </div>
         <div class="card">
           <p class="text-sm text-ink-muted">{{ t.refunds }} {{ periodName() }}</p>
-          <p class="mt-1 text-2xl font-semibold">{{ money(d.selected.refundsMinor) }}</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">{{ money(d.selected.refundsMinor) }}</p>
         </div>
       </div>
 
       @if (period() !== 'Today') {
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.revenueToday }}</p><p class="mt-1 text-xl font-semibold">{{ money(d.today.revenueMinor) }}</p></div>
-          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.tipsToday }}</p><p class="mt-1 text-xl font-semibold">{{ money(d.today.tipsMinor) }}</p></div>
-          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.ordersToday }}</p><p class="mt-1 text-xl font-semibold">{{ d.today.orders }}</p></div>
-          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paymentFailuresToday }}</p><p class="mt-1 text-xl font-semibold">{{ d.today.paymentFailures }}</p></div>
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.revenueToday }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.today.revenueMinor) }}</p></div>
+          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.tipsToday }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.today.tipsMinor) }}</p></div>
+          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.ordersToday }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ d.today.orders }}</p></div>
+          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paymentFailuresToday }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ d.today.paymentFailures }}</p></div>
         </div>
       } @else {
-        <div class="grid gap-3 sm:grid-cols-2">
-          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.successfulPaymentsToday }}</p><p class="mt-1 text-xl font-semibold">{{ d.today.payments }}</p></div>
-          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paymentFailuresToday }}</p><p class="mt-1 text-xl font-semibold">{{ d.today.paymentFailures }}</p></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.successfulPaymentsToday }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ d.today.payments }}</p></div>
+          <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paymentFailuresToday }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ d.today.paymentFailures }}</p></div>
         </div>
       }
 
       <div class="grid gap-6 lg:grid-cols-[1fr_340px]">
         <section class="card min-w-0">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" [attr.aria-label]="t.whatToChart">
+            <div class="flex gap-1 rounded-lg bg-surface p-1 no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="group" [attr.aria-label]="t.whatToChart">
               <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="series() === 'revenue'"
                       [class]="series() === 'revenue' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="series.set('revenue')">{{ t.revenue }}</button>
               <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="series() === 'tips'"

@@ -10,7 +10,7 @@
   </div>
 
   @if (auth.canManage()) {
-    <div class="flex w-fit gap-1 rounded-lg bg-surface p-1" role="tablist" [attr.aria-label]="t.title">
+    <div class="flex w-fit gap-1 rounded-lg bg-surface p-1 no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="tablist" [attr.aria-label]="t.title">
       @for (tab of tabs; track tab) {
         <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === tab"
                 [class]="view() === tab ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(tab)">{{ t.tabs[tab] }}</button>
@@ -75,7 +75,7 @@
               <h2 class="font-semibold">{{ t.preview }}</h2>
               @if (r) { <p class="text-sm text-ink-muted">{{ t.comparedWith(periodLabel(r), r.frequency) }}</p> }
             </div>
-            <div class="flex gap-1 rounded-lg bg-surface p-1" role="group" [attr.aria-label]="t.reportPeriod">
+            <div class="flex gap-1 rounded-lg bg-surface p-1 no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="group" [attr.aria-label]="t.reportPeriod">
               @for (f of frequencies; track f) {
                 <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-pressed]="previewFrequency() === f"
                         [class]="previewFrequency() === f ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setPreview(f)">{{ frequencyLabel(f) }}</button>

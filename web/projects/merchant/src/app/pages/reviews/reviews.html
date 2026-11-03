@@ -60,7 +60,7 @@
     <div class="grid gap-6 lg:grid-cols-[1fr_300px]">
       <section class="card p-0">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <div class="flex gap-1 rounded-lg bg-surface p-1" role="tablist" [attr.aria-label]="t.whichReviews">
+          <div class="flex gap-1 rounded-lg bg-surface p-1 no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="tablist" [attr.aria-label]="t.whichReviews">
             @for (k of ['All', 'Positive', 'Constructive']; track k) {
               <button type="button" role="tab" class="rounded-md px-3 py-1.5 text-sm font-semibold" [attr.aria-selected]="kind() === k"
                       [class]="kind() === k ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setKind($any(k))">
@@ -90,7 +90,7 @@
         @if (!d.items.length) {
           <p class="px-5 py-10 text-center text-sm text-ink-muted">{{ t.noMatch }}</p>
         } @else {
-          <div class="overflow-x-auto">
+          <div class="relative overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="border-b border-line text-xs text-ink-muted uppercase">
                 <tr>

@@ -18,12 +18,30 @@ describe('Shell', () => {
   it('should render the merchant navigation', async () => {
     const fixture = TestBed.createComponent(Shell);
     await fixture.whenStable();
-    const links = (fixture.nativeElement as HTMLElement).querySelectorAll('nav a');
+    const links = (fixture.nativeElement as HTMLElement).querySelectorAll('#portal-nav nav a');
     const labels = [...links].map(a => a.textContent?.trim());
     // Go-live is for owners and managers; nobody is signed in here.
     expect(links.length).toBe(NAV_ITEMS.length - 1);
     expect(labels).toContain('Promotions');
     expect(labels).not.toContain('Go-live');
+  });
+
+  it('keeps the busiest areas in the bottom tabs and opens the drawer from "More"', async () => {
+    const fixture = TestBed.createComponent(Shell);
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    const tabBar = host.querySelector('#portal-nav ~ div > nav')!;
+    expect([...tabBar.querySelectorAll('a')].map(a => a.textContent?.trim())).toEqual(['Dashboard', 'Orders', 'Tables', 'Transactions']);
+
+    const more = tabBar.querySelector('button')!;
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    more.click();
+    fixture.detectChanges();
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(more.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('switches the navigation to Arabic and the page to right-to-left', async () => {

@@ -50,7 +50,7 @@
     <div class="border-b border-line px-5 py-4"><h2 class="font-semibold">{{ t.settlements }}</h2></div>
     @if (p && !p.items.length) { <p class="px-5 py-10 text-center text-sm text-ink-muted">{{ t.noSettlements }}</p> }
     @if (p?.items?.length) {
-      <div class="overflow-x-auto">
+      <div class="relative overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line text-xs text-ink-muted uppercase">
             <tr>

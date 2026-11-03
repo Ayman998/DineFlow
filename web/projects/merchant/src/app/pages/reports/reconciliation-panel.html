@@ -24,7 +24,7 @@
         <h2 class="font-semibold">{{ t.differences }}</h2>
         <p class="text-sm text-ink-muted">{{ t.differencesIntro }}</p>
       </div>
-      <div class="flex gap-1 rounded-lg bg-surface p-1 text-sm" role="group" [attr.aria-label]="t.show">
+      <div class="flex gap-1 rounded-lg bg-surface p-1 text-sm no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="group" [attr.aria-label]="t.show">
         @for (f of [{ v: 'Open', l: t.open }, { v: null, l: c.all }]; track f.v) {
           <button type="button" class="rounded-md px-3 py-1.5 font-semibold" [attr.aria-pressed]="filter() === f.v"
                   [class]="filter() === f.v ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="setFilter($any(f.v))">{{ f.l }}</button>
@@ -82,7 +82,7 @@
     </div>
     @if (runs() && !runs()!.length) { <p class="px-5 py-10 text-center text-sm text-ink-muted">{{ t.noDays }}</p> }
     @if (runs()?.length) {
-      <div class="overflow-x-auto">
+      <div class="relative overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line text-xs text-ink-muted uppercase">
             <tr>

@@ -2,7 +2,7 @@
 <h1 class="mb-1 text-2xl font-bold">{{ t.title }}</h1>
 <p class="mb-4 text-sm text-ink-muted">{{ t.intro }}</p>
 
-<div class="mb-6 flex gap-1 rounded-lg bg-surface p-1 w-fit" role="tablist" [attr.aria-label]="t.title">
+<div class="mb-6 flex gap-1 rounded-lg bg-surface p-1 w-fit no-scrollbar max-w-full overflow-x-auto *:shrink-0 *:whitespace-nowrap" role="tablist" [attr.aria-label]="t.title">
   @for (tab of tabs(); track tab.value) {
     <button type="button" role="tab" class="rounded-md px-4 py-1.5 text-sm font-semibold" [attr.aria-selected]="view() === tab.value"
             [class]="view() === tab.value ? 'bg-white text-ink shadow-sm' : 'text-ink-muted'" (click)="view.set(tab.value)">{{ tab.label }}</button>

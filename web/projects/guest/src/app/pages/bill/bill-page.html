@@ -104,7 +104,7 @@
         } @else {
           @let custom = customTip();
           <label for="custom-tip" class="mt-3 mb-1.5 block text-sm font-bold">{{ t.customTipLabel }}</label>
-          <input id="custom-tip" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+          <input id="custom-tip" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-base font-medium outline-none focus:border-brand"
                  inputmode="decimal" autocomplete="off" maxlength="12" [placeholder]="t.customTipPlaceholder"
                  [value]="customText()" (input)="customText.set($any($event.target).value)"
                  [attr.aria-invalid]="custom && 'error' in custom" aria-describedby="custom-tip-help" />
@@ -139,7 +139,7 @@
         <form class="mt-4" (submit)="$event.preventDefault(); applyPromo()">
           <label for="promo" class="mb-1.5 block text-sm font-bold">{{ t.promoLabel }}</label>
           <div class="flex gap-2">
-            <input id="promo" class="h-[50px] min-w-0 flex-1 rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-[15px] font-semibold uppercase outline-none focus:border-brand"
+            <input id="promo" class="h-[50px] min-w-0 flex-1 rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-base font-semibold uppercase outline-none focus:border-brand"
                    autocomplete="off" autocapitalize="characters" maxlength="20" [value]="promoText()" (input)="promoText.set($any($event.target).value)"
                    [attr.aria-invalid]="!!promoError()" aria-describedby="promo-error" />
             <button type="submit" class="min-h-[50px] rounded-xl bg-ink px-5 font-bold text-white disabled:opacity-50" [disabled]="!promoText().trim() || checkingPromo()">{{ t.promoApply }}</button>
@@ -198,7 +198,7 @@
       </div>
     </main>
 
-    <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-[22px] shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
+    <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-[max(22px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
       @if (payError()) {
         <p class="mb-2 rounded-xl bg-[#FEE4E2] px-4 py-2.5 text-sm text-[#B42318]" role="alert">{{ payError() }}</p>
       }

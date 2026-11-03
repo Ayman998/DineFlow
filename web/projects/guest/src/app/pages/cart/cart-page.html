@@ -61,7 +61,7 @@
       }
 
       <label for="kitchen-note" class="mt-[18px] mb-1.5 block text-sm font-bold">{{ t.kitchenRequest }}</label>
-      <input id="kitchen-note" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-sm font-medium outline-none focus:border-brand"
+      <input id="kitchen-note" class="h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] px-3.5 text-base font-medium outline-none focus:border-brand"
              maxlength="200" [placeholder]="t.kitchenRequestPlaceholder" [value]="note()" (input)="note.set($any($event.target).value)" />
 
       <div class="mt-[18px] border-t border-line pt-2.5" aria-live="polite">
@@ -89,7 +89,7 @@
   </main>
 
   @if (cart.lines().length) {
-    <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-6 shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
+    <div class="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md bg-white px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(16,24,40,0.08)]">
       <button type="button" class="min-h-14 w-full rounded-[14px] bg-accent text-base font-bold text-ink disabled:bg-[#D4D4D4] disabled:text-ink-muted"
               [disabled]="!canPlace()" (click)="place()">
         @if (placing()) { {{ t.placingOrder }} }

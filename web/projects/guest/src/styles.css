@@ -28,6 +28,20 @@ body {
   background: #ffffff;
 }
 
+/* Phones: no grey flash on tap, and no font boost after rotating to landscape. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Tablets and desktops: the phone-width app sits on a soft grey page instead of floating on white. */
+@media (width >= 48rem) {
+  body {
+    background: var(--color-surface);
+  }
+}
+
 ::selection {
   background: var(--color-accent);
   color: var(--color-ink);
@@ -93,7 +107,7 @@ body {
 
   /* Text fields on the feedback form, from the "Private feedback form" mockup. */
   .field-guest {
-    @apply h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-ink focus:ring-3 focus:ring-accent/40;
+    @apply h-[50px] w-full rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-base font-medium outline-none focus:border-ink focus:ring-3 focus:ring-accent/40;
   }
 }
 

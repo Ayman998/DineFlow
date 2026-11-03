@@ -1,14 +1,28 @@
 <div class="flex min-h-full">
-  <aside class="sticky top-0 flex h-dvh w-64 shrink-0 flex-col overflow-hidden bg-ink print:hidden">
-    <a routerLink="/overview" class="relative z-10 block px-6 pt-6 pb-7">
-      <hz-logo class="text-[22px]" />
-    </a>
+  <!-- Below lg the sidebar is a drawer, opened from the top bar or the bottom tabs' "More". -->
+  @if (menuOpen()) {
+    <button type="button" class="fixed inset-0 z-40 bg-ink/60 backdrop-blur-[2px] lg:hidden print:hidden" tabindex="-1" [attr.aria-label]="t().closeMenu"
+            (click)="menuOpen.set(false)"></button>
+  }
+  <aside id="portal-nav"
+         class="fixed inset-y-0 start-0 z-50 flex h-dvh w-72 max-w-[85vw] shrink-0 flex-col overflow-hidden bg-ink transition-[translate,visibility] duration-200 lg:sticky lg:top-0 lg:z-auto lg:w-64 lg:max-w-none print:hidden"
+         [class]="menuOpen() ? '' : 'max-lg:invisible max-lg:-translate-x-full max-lg:rtl:translate-x-full'">
+    <div class="relative z-10 flex items-center justify-between pe-3">
+      <a routerLink="/overview" class="block px-6 pt-6 pb-7" (click)="menuOpen.set(false)">
+        <hz-logo class="text-[22px]" />
+      </a>
+      <button type="button" class="flex size-10 items-center justify-center rounded-lg text-white/70 hover:bg-white/8 hover:text-white lg:hidden" [attr.aria-label]="t().closeMenu"
+              (click)="menuOpen.set(false)">
+        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </div>
     <nav class="relative z-10 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-6">
       @for (item of nav(); track item.path) {
         <a
           [routerLink]="item.path"
           routerLinkActive
           ariaCurrentWhenActive="page"
+          (click)="menuOpen.set(false)"
           class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/65 transition-colors hover:bg-white/8 hover:text-white aria-[current=page]:bg-accent aria-[current=page]:font-semibold aria-[current=page]:text-ink">
           <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path [attr.d]="item.icon" />
@@ -23,6 +37,15 @@
         </a>
       }
     </nav>
+    <!-- On phones and tablets the top bar has no room for the user, so they sit in the drawer. -->
+    <div class="relative z-10 mx-3 mb-3 flex items-center gap-2.5 rounded-xl bg-white/8 p-3 text-sm lg:hidden">
+      <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-ink" aria-hidden="true">{{ initials() }}</span>
+      <span class="min-w-0 flex-1 leading-tight">
+        <span class="block truncate font-semibold text-white">{{ auth.profile()?.displayName }}</span>
+        <span class="block truncate text-xs text-white/60">{{ t().roles[auth.profile()?.role ?? ''] || auth.profile()?.role }}</span>
+      </span>
+      <button type="button" class="rounded-lg px-2.5 py-2 font-medium text-white/80 hover:bg-white/8 hover:text-white" (click)="signOut()">{{ t().signOut }}</button>
+    </div>
     <!-- The flowing lines from the brand board. -->
     <svg class="pointer-events-none absolute inset-x-0 bottom-0 h-36 w-full text-accent/20" viewBox="0 0 256 144" preserveAspectRatio="none" fill="none" stroke="currentColor" aria-hidden="true">
       <path d="M-8 70C50 40 90 110 150 80S230 40 264 60M-8 82C50 52 90 122 150 92S230 52 264 72M-8 94C50 64 90 134 150 104S230 64 264 84M-8 106C50 76 90 146 150 116S230 76 264 96M-8 118C50 88 90 158 150 128S230 88 264 108M-8 130C50 100 90 170 150 140S230 100 264 120" />
@@ -31,40 +54,78 @@
   </aside>
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-white/95 px-8 py-3 backdrop-blur print:hidden">
-      <div class="text-sm">
-        <span class="font-semibold">{{ auth.profile()?.tenantName }}</span>
-        @if (currentVenue.venue(); as venue) {
-          <span class="text-ink-muted"> · {{ venue.name }}</span>
-        }
+    <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur sm:px-6 lg:px-8 lg:py-3 print:hidden">
+      <div class="flex min-w-0 items-center gap-1.5">
+        <button type="button" class="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-lg hover:bg-surface lg:hidden" aria-controls="portal-nav"
+                [attr.aria-expanded]="menuOpen()" [attr.aria-label]="t().openMenu" (click)="menuOpen.set(true)">
+          <svg class="size-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
+        <div class="min-w-0 text-sm leading-tight">
+          <span class="block truncate font-semibold sm:inline">{{ auth.profile()?.tenantName }}</span>
+          @if (currentVenue.venue(); as venue) {
+            <span class="block truncate text-xs text-ink-muted sm:inline sm:text-sm"><span class="max-sm:hidden"> · </span>{{ venue.name }}</span>
+          }
+        </div>
       </div>
-      <div class="flex items-center gap-3 text-sm">
+      <div class="flex shrink-0 items-center gap-2 text-sm sm:gap-3">
         <span class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" role="status"
               [class]="live.state() === 'live' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'">
-          <span class="size-2 rounded-full" [class]="live.state() === 'live' ? 'bg-emerald-500' : 'bg-amber-400'"></span>
-          {{ live.state() === 'live' ? t().live : live.state() === 'offline' ? t().offline : t().connecting }}
+          <span class="size-2 shrink-0 rounded-full" [class]="live.state() === 'live' ? 'bg-emerald-500' : 'bg-amber-400'"></span>
+          <!-- On a phone the green dot says "live"; anything else keeps its words. -->
+          <span [class]="live.state() === 'live' ? 'max-sm:sr-only' : 'max-sm:max-w-28 max-sm:truncate'">
+            {{ live.state() === 'live' ? t().live : live.state() === 'offline' ? t().offline : t().connecting }}
+          </span>
         </span>
         <button type="button" class="rounded-full border border-line px-3 py-1 font-medium hover:border-ink/30 hover:bg-surface" [attr.aria-label]="t().changeLanguage" (click)="i18n.toggle()"
                 [attr.lang]="i18n.lang() === 'en' ? 'ar' : 'en'">{{ t().otherLanguage }}</button>
-        <span class="ms-2 flex items-center gap-2.5 border-s border-line ps-4">
+        <span class="ms-2 hidden items-center gap-2.5 border-s border-line ps-4 lg:flex">
           <span class="flex size-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-ink" aria-hidden="true">{{ initials() }}</span>
           <span class="leading-tight">
             <span class="block font-semibold">{{ auth.profile()?.displayName }}</span>
             <span class="block text-xs text-ink-muted">{{ t().roles[auth.profile()?.role ?? ''] || auth.profile()?.role }}</span>
           </span>
         </span>
-        <button type="button" class="btn-ghost" (click)="signOut()">{{ t().signOut }}</button>
+        <button type="button" class="btn-ghost hidden lg:block" (click)="signOut()">{{ t().signOut }}</button>
       </div>
     </header>
 
-    <main class="flex-1 bg-surface p-8 print:bg-white print:p-0">
+    <main class="flex-1 bg-surface p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:p-8 print:bg-white print:p-0">
       <router-outlet />
     </main>
+
+    <!-- Phones and tablets: the busiest areas one tap away, everything else under "More". -->
+    <nav class="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
+      @for (item of tabs(); track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive
+          ariaCurrentWhenActive="page"
+          class="group flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium text-ink-muted aria-[current=page]:font-bold aria-[current=page]:text-ink">
+          <span class="relative flex h-7 w-12 items-center justify-center rounded-full group-aria-[current=page]:bg-accent">
+            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path [attr.d]="item.icon" />
+            </svg>
+            @if (item.path === 'orders' && live.counts().new) {
+              <span class="absolute -top-1 -end-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-accent"
+                    [attr.aria-label]="t().newOrdersBadge(live.counts().new)">{{ live.counts().new }}</span>
+            }
+          </span>
+          <span class="max-w-full truncate">{{ t().nav[item.path] }}</span>
+        </a>
+      }
+      <button type="button" class="flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium text-ink-muted"
+              aria-controls="portal-nav" [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(true)">
+        <span class="flex h-7 w-12 items-center justify-center rounded-full">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </span>
+        <span class="max-w-full truncate">{{ t().more }}</span>
+      </button>
+    </nav>
   </div>
 </div>
 
 <!-- Live alerts: new orders and payments -->
-<div class="fixed end-6 bottom-6 z-50 flex w-80 flex-col gap-2 print:hidden" aria-live="assertive">
+<div class="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex flex-col gap-2 sm:inset-x-auto sm:end-6 sm:w-80 lg:bottom-6 print:hidden" aria-live="assertive">
   @for (toast of toasts(); track toast.id) {
     @if (toast.kind === 'order') {
       <div class="rounded-xl border-s-4 border-accent bg-white p-4 shadow-lg" role="alert">

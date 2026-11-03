@@ -33,17 +33,20 @@ const AREAS = ['', 'payment', 'review', 'alerts', 'report', 'notification', 'set
         <table class="w-full text-sm">
           <thead class="border-b border-line text-xs text-ink-muted uppercase">
             <tr>
-              <th scope="col" class="px-5 py-2.5 text-start font-semibold">{{ t.when }}</th>
-              <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.who }}</th>
+              <th scope="col" class="px-3 py-2.5 text-start font-semibold sm:px-5">{{ t.when }}</th>
+              <th scope="col" class="px-3 py-2.5 text-start font-semibold max-sm:hidden">{{ t.who }}</th>
               <th scope="col" class="px-3 py-2.5 text-start font-semibold">{{ t.what }}</th>
             </tr>
           </thead>
           <tbody>
             @for (e of d.items; track e.id) {
               <tr class="border-b border-line last:border-0">
-                <td class="px-5 py-2.5 whitespace-nowrap text-ink-muted">{{ when(e.at) }}</td>
-                <td class="px-3 py-2.5 whitespace-nowrap">{{ e.staffName ?? t.someone }}</td>
-                <td class="px-3 py-2.5">{{ t.actions[e.action] ?? e.description }} <span class="text-xs text-ink-muted">({{ t.objectTypes[e.objectType] ?? e.objectType }} {{ e.objectId.slice(0, 8) }})</span></td>
+                <td class="px-3 py-2.5 align-top sm:px-5">
+                  <span class="block whitespace-nowrap text-ink-muted">{{ when(e.at) }}</span>
+                  <span class="block sm:hidden">{{ e.staffName ?? t.someone }}</span>
+                </td>
+                <td class="px-3 py-2.5 whitespace-nowrap max-sm:hidden">{{ e.staffName ?? t.someone }}</td>
+                <td class="px-3 py-2.5 break-words">{{ t.actions[e.action] ?? e.description }} <span class="text-xs text-ink-muted">({{ t.objectTypes[e.objectType] ?? e.objectType }} {{ e.objectId.slice(0, 8) }})</span></td>
               </tr>
             }
           </tbody>

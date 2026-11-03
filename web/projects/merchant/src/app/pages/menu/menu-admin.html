@@ -42,7 +42,7 @@
   @if (menu(); as m) {
     <section class="card mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <h2 class="text-lg font-bold">{{ m.name }}</h2>
           @if (m.nameAr) { <span class="text-ink-muted" dir="rtl">{{ m.nameAr }}</span> }
           <span class="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -100,7 +100,7 @@
       <tbody>
         @for (item of category.items; track item.id) {
           <tr class="border-t border-line" [class.opacity-60]="!item.isAvailable">
-            <td class="w-14 py-2">
+            <td class="w-14 py-2 max-sm:hidden">
               <div class="flex size-11 items-center justify-center overflow-hidden rounded-lg bg-surface text-xs font-bold text-ink-muted">
                 @if (item.imageUrl) { <img [src]="item.imageUrl" alt="" class="size-full object-cover" loading="lazy" /> } @else { {{ item.name[0] }} }
               </div>
@@ -113,7 +113,7 @@
                 {{ item.tags.join(', ') }}
               </div>
             </td>
-            <td class="w-36 py-2 text-end">
+            <td class="py-2 ps-2 text-end whitespace-nowrap sm:w-36">
               @if (manage) {
                 <button type="button" class="link tabular-nums" (click)="openPrice(item)">
                   {{ money(item.priceMinor) }}<span class="sr-only">: {{ t.admin.editPrice(item.name) }}</span>
@@ -125,9 +125,9 @@
                 <div class="mt-0.5 text-xs text-ink-muted">{{ t.admin.itemPrice(money(item.itemPriceMinor)) }}</div>
               }
             </td>
-            <td class="w-36 py-2 text-end">
+            <td class="py-2 ps-3 text-end sm:w-36">
               <label class="inline-flex cursor-pointer items-center gap-2">
-                <span class="text-xs" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
+                <span class="text-xs max-sm:sr-only" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
                 <input type="checkbox" class="toggle" [checked]="item.isAvailable" (change)="toggleAvailability(item)"
                        [attr.aria-label]="item.isAvailable ? t.markSoldOut(item.name) : t.markAvailable(item.name)" />
               </label>

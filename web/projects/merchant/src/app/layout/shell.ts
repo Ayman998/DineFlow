@@ -19,14 +19,19 @@ type Toast =
   | { id: string; kind: 'refund'; refund: RefundNotice }
   | { id: string; kind: 'link'; link: PaymentLinkNotice };
 
+/** The areas staff open most, kept in the bottom tab bar on phones and tablets. */
+const TAB_PATHS: readonly string[] = ['overview', 'orders', 'tables', 'transactions'];
+
 /**
  * Signed-in layout: sidebar navigation (blueprint 4.4), venue and user in the top bar, and live
  * alerts on every page: new orders (toast, chime, nav badge and tab title) and payments.
+ * Below lg the sidebar becomes a drawer and a bottom tab bar holds the busiest areas.
  */
 @Component({
   selector: 'hz-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, Logo],
-  templateUrl: './shell.html'
+  templateUrl: './shell.html',
+  host: { '(document:keydown.escape)': 'menuOpen.set(false)' }
 })
 export class Shell implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
@@ -34,6 +39,9 @@ export class Shell implements OnInit {
   /** Areas whose feature is switched off in the API's configuration are left out. */
   protected readonly nav = computed(() => NAV_ITEMS.filter(item =>
     (item.path !== 'payment-links' || this.features.current().paymentLinks) && (item.path !== 'go-live' || this.auth.canManage())));
+  protected readonly tabs = computed(() => this.nav().filter(item => TAB_PATHS.includes(item.path)));
+  /** The navigation drawer on phones and tablets; the sidebar is always shown from lg up. */
+  protected readonly menuOpen = signal(false);
   protected readonly auth = inject(Auth);
   protected readonly currentVenue = inject(CurrentVenue);
   protected readonly live = inject(LiveOrders);

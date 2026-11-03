@@ -1,7 +1,7 @@
 @let t = i18n.t();
 @let p = payment();
 
-<div class="min-h-dvh bg-[#F7F7F7] pb-8">
+<div class="min-h-dvh bg-[#F7F7F7] pb-[max(2rem,env(safe-area-inset-bottom))]">
   @if (!p) {
     <main class="flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
       @if (notFound()) {
@@ -85,7 +85,7 @@
           <form class="flex flex-col gap-2.5" (submit)="$event.preventDefault(); sendReceipt()">
             <label for="receipt-email" class="text-sm font-bold">{{ t.receiptTitle }}</label>
             <input id="receipt-email" type="email" autocomplete="email" maxlength="254" required
-                   class="h-[50px] rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-[15px] font-medium outline-none focus:border-brand"
+                   class="h-[50px] rounded-xl border-[1.5px] border-[#D4D4D4] bg-white px-3.5 text-base font-medium outline-none focus:border-brand"
                    [placeholder]="t.emailPlaceholder" [value]="email()" (input)="email.set($any($event.target).value)"
                    [attr.aria-invalid]="!!receiptError()" aria-describedby="receipt-error" />
             @if (receiptError()) { <p id="receipt-error" class="text-[13px] font-semibold text-[#B42318]" role="alert">{{ receiptError() }}</p> }

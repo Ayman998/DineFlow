@@ -34,9 +34,9 @@
   </div>
 } @else {
   <div class="mb-4 flex flex-wrap gap-3">
-    <input type="search" class="field max-w-xs" [ngModel]="query()" (ngModelChange)="query.set($event)"
+    <input type="search" class="field sm:max-w-xs" [ngModel]="query()" (ngModelChange)="query.set($event)"
            [placeholder]="t.itemsPage.search" [attr.aria-label]="t.itemsPage.search" />
-    <select class="field max-w-xs" [ngModel]="categoryFilter()" (ngModelChange)="categoryFilter.set($event)" [attr.aria-label]="t.itemsPage.category">
+    <select class="field sm:max-w-xs" [ngModel]="categoryFilter()" (ngModelChange)="categoryFilter.set($event)" [attr.aria-label]="t.itemsPage.category">
       <option value="">{{ t.itemsPage.allCategories }}</option>
       @for (c of categoryChoices(); track c.id) { <option [value]="c.id">{{ c.label }}</option> }
     </select>
@@ -45,21 +45,21 @@
   @if (!groups().length) {
     <div class="card text-center text-ink-muted">{{ t.itemsPage.noMatches }}</div>
   } @else {
-    <div class="card overflow-x-auto p-0">
+    <div class="card relative overflow-x-auto p-0">
       <table class="w-full text-sm">
         <thead class="border-b border-line text-xs text-ink-muted uppercase">
           <tr>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.itemsPage.item }}</th>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.itemsPage.menus }}</th>
-            <th scope="col" class="px-5 py-3 text-end font-semibold">{{ t.itemsPage.price }}</th>
-            <th scope="col" class="px-5 py-3 text-start font-semibold">{{ t.itemsPage.status }}</th>
-            <th scope="col" class="px-5 py-3"><span class="sr-only">{{ t.itemsPage.actions }}</span></th>
+            <th scope="col" class="px-3 py-3 text-start font-semibold sm:px-5">{{ t.itemsPage.item }}</th>
+            <th scope="col" class="px-5 py-3 text-start font-semibold max-md:hidden">{{ t.itemsPage.menus }}</th>
+            <th scope="col" class="px-5 py-3 text-end font-semibold max-sm:hidden">{{ t.itemsPage.price }}</th>
+            <th scope="col" class="px-3 py-3 text-start font-semibold sm:px-5">{{ t.itemsPage.status }}</th>
+            <th scope="col" class="px-3 py-3 sm:px-5"><span class="sr-only">{{ t.itemsPage.actions }}</span></th>
           </tr>
         </thead>
         @for (group of groups(); track group.category.id) {
           <tbody>
             <tr class="border-b border-line bg-surface">
-              <th scope="colgroup" colspan="5" class="px-5 py-2 text-start font-semibold">
+              <th scope="colgroup" colspan="5" class="px-3 py-2 text-start font-semibold sm:px-5">
                 {{ group.label }}
                 @if (group.category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ group.category.nameAr }}</span> }
               </th>
@@ -67,22 +67,28 @@
             @for (item of group.items; track item.id; let first = $first; let last = $last) {
               @let menus = menusOf(item);
               <tr class="border-b border-line last:border-0">
-                <td class="px-5 py-2" [class.opacity-60]="!item.isAvailable">
+                <td class="px-3 py-2 sm:px-5" [class.opacity-60]="!item.isAvailable">
                   <div class="flex items-center gap-3">
                     <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface text-xs font-bold text-ink-muted">
                       @if (item.imageUrl) { <img [src]="item.imageUrl" alt="" class="size-full object-cover" loading="lazy" /> } @else { {{ item.name[0] }} }
                     </div>
-                    <div>
+                    <div class="min-w-0">
                       <div class="font-semibold">{{ item.name }} @if (item.nameAr) { <span class="ms-1 font-normal text-ink-muted" dir="rtl">{{ item.nameAr }}</span> }</div>
+                      <!-- On phones the price and menus columns fold in here. -->
+                      <div class="font-semibold tabular-nums sm:hidden">{{ money(item.priceMinor) }}</div>
                       <div class="text-xs text-ink-muted">
                         @if (item.modifierGroups.length) { {{ t.optionGroups(item.modifierGroups.length) }} · }
                         @if (item.allergens.length) { {{ t.allergenCount(item.allergens.length) }} · }
                         {{ item.tags.join(', ') }}
                       </div>
+                      <div class="mt-1 flex flex-wrap gap-1 md:hidden">
+                        @for (name of menus; track name) { <span class="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-ink">{{ name }}</span> }
+                        @empty { <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">{{ t.itemsPage.notOnAnyMenu }}</span> }
+                      </div>
                     </div>
                   </div>
                 </td>
-                <td class="px-5 py-2">
+                <td class="px-5 py-2 max-md:hidden">
                   @if (menus.length) {
                     <div class="flex flex-wrap gap-1">
                       @for (name of menus; track name) { <span class="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-ink">{{ name }}</span> }
@@ -91,22 +97,22 @@
                     <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">{{ t.itemsPage.notOnAnyMenu }}</span>
                   }
                 </td>
-                <td class="px-5 py-2 text-end font-semibold whitespace-nowrap tabular-nums">{{ money(item.priceMinor) }}</td>
-                <td class="px-5 py-2">
+                <td class="px-5 py-2 text-end font-semibold whitespace-nowrap tabular-nums max-sm:hidden">{{ money(item.priceMinor) }}</td>
+                <td class="px-3 py-2 sm:px-5">
                   <label class="inline-flex cursor-pointer items-center gap-2">
                     <input type="checkbox" class="toggle" [checked]="item.isAvailable" (change)="toggleAvailability(item)"
                            [attr.aria-label]="item.isAvailable ? t.markSoldOut(item.name) : t.markAvailable(item.name)" />
-                    <span class="text-xs" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
+                    <span class="text-xs max-sm:sr-only" [class]="item.isAvailable ? 'text-emerald-800' : 'text-red-700'">{{ item.isAvailable ? t.available : t.soldOut }}</span>
                   </label>
                 </td>
-                <td class="px-5 py-2 text-end whitespace-nowrap">
+                <td class="px-3 py-2 text-end whitespace-nowrap sm:px-5">
                   @if (manage) {
                     <button type="button" class="link" (click)="dialog.set({ item })">{{ common.edit }}</button>
                     @if (!searching()) {
-                      <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="move(item, group.category.items, -1)" [attr.aria-label]="t.itemsPage.moveUp">↑</button>
-                      <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="move(item, group.category.items, 1)" [attr.aria-label]="t.itemsPage.moveDown">↓</button>
+                      <button type="button" class="btn-ghost px-1.5 sm:px-2" [disabled]="first" (click)="move(item, group.category.items, -1)" [attr.aria-label]="t.itemsPage.moveUp">↑</button>
+                      <button type="button" class="btn-ghost px-1.5 sm:px-2" [disabled]="last" (click)="move(item, group.category.items, 1)" [attr.aria-label]="t.itemsPage.moveDown">↓</button>
                     }
-                    <button type="button" class="btn-ghost px-2 text-red-700" (click)="deleteDialog.set(item)" [attr.aria-label]="t.itemsPage.delete">✕</button>
+                    <button type="button" class="btn-ghost px-1.5 text-red-700 sm:px-2" (click)="deleteDialog.set(item)" [attr.aria-label]="t.itemsPage.delete">✕</button>
                   }
                 </td>
               </tr>
