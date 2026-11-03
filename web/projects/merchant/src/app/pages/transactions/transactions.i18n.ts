@@ -7,7 +7,9 @@ const en = {
   period: 'Period',
   range: (days: number) => (days === 1 ? 'Last 24 hours' : `Last ${days} days`),
   status: 'Status',
-  filters: { All: 'All', Succeeded: 'Paid', Refunded: 'Refunded', Pending: 'Pending', Failed: 'Failed' } as Record<TransactionFilter, string>,
+  filters: {
+    All: 'All', Succeeded: 'Succeeded', Paid: 'Paid', PartiallyPaid: 'Partially paid', Refunded: 'Refunded', Pending: 'Pending', Failed: 'Failed'
+  } as Record<TransactionFilter, string>,
   searchPlaceholder: 'Reference, link, table or amount',
   paidCount: (count: number) => `Paid (${count})`,
   ofWhichTips: 'Of which tips',
@@ -25,6 +27,8 @@ const en = {
   states: {
     Pending: 'Pending', Succeeded: 'Paid', PartiallyRefunded: 'Partly refunded', Refunded: 'Refunded', Failed: 'Failed', Cancelled: 'Cancelled'
   } as Record<TransactionState, string>,
+  /** A successful payment towards a bill (or link) that still has something owed on it. */
+  partiallyPaid: 'Partially paid',
   amountRefunded: (amount: string) => `−${amount} refunded`,
   refundPending: 'Refund pending',
   posRefused: 'POS refused',
@@ -74,7 +78,9 @@ export const TRANSACTIONS: Lexicon<typeof en> = {
     range: (days: number) =>
       days === 1 ? 'آخر 24 ساعة' : days === 2 ? 'آخر يومين' : days <= 10 ? `آخر ${days} أيام` : `آخر ${days} يوماً`,
     status: 'الحالة',
-    filters: { All: 'الكل', Succeeded: 'مدفوعة', Refunded: 'مستردة', Pending: 'قيد المعالجة', Failed: 'فاشلة' },
+    filters: {
+      All: 'الكل', Succeeded: 'ناجحة', Paid: 'مدفوعة', PartiallyPaid: 'مدفوعة جزئياً', Refunded: 'مستردة', Pending: 'قيد المعالجة', Failed: 'فاشلة'
+    },
     searchPlaceholder: 'المرجع أو الرابط أو الطاولة أو المبلغ',
     paidCount: (count: number) => `المدفوع (${count})`,
     ofWhichTips: 'منها إكراميات',
@@ -91,6 +97,7 @@ export const TRANSACTIONS: Lexicon<typeof en> = {
     states: {
       Pending: 'قيد المعالجة', Succeeded: 'مدفوعة', PartiallyRefunded: 'مستردة جزئياً', Refunded: 'مستردة', Failed: 'فاشلة', Cancelled: 'ملغاة'
     },
+    partiallyPaid: 'مدفوعة جزئياً',
     amountRefunded: (amount: string) => `تم استرداد ${amount}`,
     refundPending: 'استرداد قيد المعالجة',
     posRefused: 'رفضها نظام نقاط البيع',

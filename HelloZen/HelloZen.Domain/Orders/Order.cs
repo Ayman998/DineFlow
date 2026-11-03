@@ -168,6 +168,19 @@ public class Order : Entity, ITenantOwned
         UpdatedAt = now;
     }
 
+    /// <summary>
+    /// The table's bill is paid in full: a served order is done with and leaves the Served list.
+    /// An order the kitchen is still working on stays where it is, and closes once it's served.
+    /// </summary>
+    /// <returns>Whether the order closed.</returns>
+    public bool Close(DateTimeOffset now)
+    {
+        if (Status != OrderStatus.Completed) return false;
+        Status = OrderStatus.Closed;
+        UpdatedAt = now;
+        return true;
+    }
+
     public bool CanTransitionTo(OrderStatus next) => (Status, next) switch
     {
         (OrderStatus.Submitted, OrderStatus.Accepted or OrderStatus.Ready or OrderStatus.Rejected) => true,
@@ -187,7 +200,9 @@ public enum OrderStatus
     Ready = 3,
     /// <summary>Served to the table.</summary>
     Completed = 4,
-    Rejected = 5
+    Rejected = 5,
+    /// <summary>Served, and the table's bill is paid in full. Only <see cref="Order.Close"/> gets an order here.</summary>
+    Closed = 6
 }
 
 /// <summary>One item on an order, with its chosen options, priced when the order was placed.</summary>

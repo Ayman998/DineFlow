@@ -109,10 +109,30 @@ public enum OrderFilter
     /// <summary>Not ready yet (submitted, or accepted or preparing under the older flow).</summary>
     New,
     Ready,
-    /// <summary>Completed orders, newest first.</summary>
+    /// <summary>Served, with the table's bill not yet paid in full; newest first.</summary>
     Served,
-    Rejected
+    Rejected,
+    /// <summary>Served and paid for in full; newest first.</summary>
+    Closed,
+    /// <summary>Every order whatever its stage, newest first: for looking one up.</summary>
+    All
 }
+
+/// <summary>A stretch of the calendar at the venue: the day, week (Saturday to Friday), month, quarter or year around a date.</summary>
+public enum OrderPeriod { All, Day, Week, Month, Quarter, Year }
+
+/// <param name="Period">Only orders placed in this period; <see cref="OrderPeriod.All"/> for any time.</param>
+/// <param name="Date">A day in the period, at the venue; today when left out.</param>
+/// <param name="LocationId">Only orders for this table (or room, counter and so on).</param>
+/// <param name="Number">Only the order with this number, e.g. 1024.</param>
+/// <param name="Page">Which page of <see cref="MerchantOrderService.PageSize"/> orders to show, from 1.</param>
+public record OrderQuery(
+    OrderFilter Filter = OrderFilter.Active,
+    OrderPeriod Period = OrderPeriod.All,
+    DateOnly? Date = null,
+    Guid? LocationId = null,
+    [Range(1, int.MaxValue)] int? Number = null,
+    [Range(1, 1_000)] int Page = 1);
 
 internal static class OrderMapping
 {

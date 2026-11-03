@@ -61,16 +61,16 @@ public class SignalROrderNotifier(
     ILogger<SignalROrderNotifier> logger) : IOrderNotifier
 {
     public Task OrderPlacedAsync(OrderDto order, CancellationToken ct) =>
-        SendAsync(order, "orderPlaced", ct);
+        SendAsync(order, "orderPlaced", tenant.TenantId, ct);
 
-    public Task OrderChangedAsync(OrderDto order, CancellationToken ct) =>
-        SendAsync(order, "orderChanged", ct);
+    public Task OrderChangedAsync(OrderDto order, CancellationToken ct, Guid? tenantId = null) =>
+        SendAsync(order, "orderChanged", tenantId ?? tenant.TenantId, ct);
 
-    private async Task SendAsync(OrderDto order, string merchantEvent, CancellationToken ct)
+    private async Task SendAsync(OrderDto order, string merchantEvent, Guid? merchant, CancellationToken ct)
     {
         try
         {
-            if (tenant.TenantId is { } tenantId)
+            if (merchant is { } tenantId)
                 await merchants.Clients.Group(MerchantHub.Group(tenantId)).SendAsync(merchantEvent, order, ct);
             await guests.Clients.Group(GuestHub.Group(order.GuestSessionId)).SendAsync("orderChanged", order, ct);
             await guests.Clients.Group(GuestHub.LocationGroup(order.ServiceLocationId))

@@ -123,6 +123,7 @@ export class OrderDialog implements OnInit {
     switch (status) {
       case 'Ready': return 'bg-accent-soft text-ink';
       case 'Completed': return 'bg-emerald-50 text-emerald-700';
+      case 'Closed': return 'bg-surface text-ink-muted';
       case 'Rejected': return 'bg-red-50 text-red-800';
       default: return 'bg-amber-50 text-amber-800';
     }

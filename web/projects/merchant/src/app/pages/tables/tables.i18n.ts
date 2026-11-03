@@ -71,7 +71,7 @@ const en = {
     show: 'Show',
     area: 'Area',
     allAreas: 'All areas',
-    filters: { All: 'All', Unpaid: 'Unpaid', PartiallyPaid: 'Partially paid', Paid: 'Paid' } as Record<string, string>,
+    filters: { All: 'All', Available: 'Available', Unpaid: 'Unpaid', PartiallyPaid: 'Partially paid' } as Record<string, string>,
     states: {
       Available: 'Available', Ordering: 'Ordering', Unpaid: 'Unpaid', PartiallyPaid: 'Partially paid', Paid: 'Fully paid', Attention: 'Needs attention'
     } as Record<string, string>,
@@ -84,7 +84,7 @@ const en = {
     status: 'Status',
     total: 'Total',
     orderStatuses: {
-      Submitted: 'Submitted', Accepted: 'Accepted', Preparing: 'Preparing', Ready: 'Ready', Completed: 'Served', Rejected: 'Rejected'
+      Submitted: 'Submitted', Accepted: 'Accepted', Preparing: 'Preparing', Ready: 'Ready', Completed: 'Served', Rejected: 'Rejected', Closed: 'Closed'
     } as Record<string, string>,
     viewOrder: (number: number) => `View order #${number}`,
     empty: 'No tables in this view.',
@@ -177,7 +177,7 @@ export const TABLES: Lexicon<typeof en> = {
       show: 'عرض',
       area: 'المنطقة',
       allAreas: 'كل المناطق',
-      filters: { All: 'الكل', Unpaid: 'غير مدفوعة', PartiallyPaid: 'مدفوعة جزئياً', Paid: 'مدفوعة' },
+      filters: { All: 'الكل', Available: 'متاحة', Unpaid: 'غير مدفوعة', PartiallyPaid: 'مدفوعة جزئياً' },
       states: {
         Available: 'متاحة', Ordering: 'تطلب الآن', Unpaid: 'غير مدفوعة', PartiallyPaid: 'مدفوعة جزئياً', Paid: 'مدفوعة بالكامل', Attention: 'تحتاج متابعة'
       },
@@ -190,7 +190,7 @@ export const TABLES: Lexicon<typeof en> = {
       status: 'الحالة',
       total: 'المجموع',
       orderStatuses: {
-        Submitted: 'مُرسل', Accepted: 'مقبول', Preparing: 'قيد التحضير', Ready: 'جاهز', Completed: 'تم التقديم', Rejected: 'مرفوض'
+        Submitted: 'مُرسل', Accepted: 'مقبول', Preparing: 'قيد التحضير', Ready: 'جاهز', Completed: 'تم التقديم', Rejected: 'مرفوض', Closed: 'مغلق'
       },
       viewOrder: (number: number) => `عرض الطلب #${number}`,
       empty: 'لا توجد طاولات في هذا العرض.',

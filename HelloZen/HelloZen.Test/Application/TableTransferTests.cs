@@ -248,7 +248,7 @@ public class TableTransferTests : IDisposable
         await MoveAsync(f, f.Seven, f.Eight, (await LineAsync(f.Seven, "Coke"), 1));
 
         Assert.Equal(BillStatus.Paid, (await BillAsync(atSeven)).Status);
-        Assert.Equal(TableState.Paid, (await StatusAsync(f, f.Seven)).State);
+        Assert.Equal(TableState.Available, (await StatusAsync(f, f.Seven)).State); // paid in full, so free again
         Assert.Equal(TableState.Unpaid, (await StatusAsync(f, f.Eight)).State);
     }
 

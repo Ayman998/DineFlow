@@ -133,6 +133,7 @@ const EN = {
     Preparing: 'Being prepared',
     Ready: 'Ready — on its way to you',
     Completed: 'Served. Enjoy!',
+    Closed: 'Served and paid. Thank you!',
     Rejected: "Couldn't be accepted"
   } as Record<string, string>,
   rejectedReason: (reason: string) => `Reason: ${reason}`,
@@ -482,6 +483,7 @@ const AR: Strings = {
     Preparing: 'قيد التحضير',
     Ready: 'جاهز — في الطريق إليك',
     Completed: 'تم التقديم. بالهناء والشفاء!',
+    Closed: 'تم التقديم والدفع. شكراً لك!',
     Rejected: 'تعذّر قبول الطلب'
   },
   rejectedReason: (reason: string) => `السبب: ${reason}`,

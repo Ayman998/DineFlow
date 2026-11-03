@@ -255,6 +255,8 @@ public class FinanceTests : IDisposable
         Assert.Equal([declined.Id], (await List(TransactionFilter.Failed)).Items.Select(t => t.Id));
         Assert.Equal([paid8.Id], (await List(TransactionFilter.Refunded)).Items.Select(t => t.Id));
         Assert.Equal(2, (await List(TransactionFilter.Succeeded)).Total);
+        Assert.Equal(2, (await List(TransactionFilter.Paid)).Total); // both bills are paid in full
+        Assert.Equal(0, (await List(TransactionFilter.PartiallyPaid)).Total);
         Assert.Equal([paid7.Id], (await List(search: paid7.Reference.ToLowerInvariant())).Items.Select(t => t.Id));
         Assert.Equal([paid8.Id], (await List(search: "8")).Items.Select(t => t.Id));
         Assert.Equal([paid7.Id], (await List(search: "55.00")).Items.Select(t => t.Id));
@@ -430,10 +432,47 @@ public class FinanceTests : IDisposable
 
         await PayAsync(guest);
         var paid = await Table("7");
-        Assert.Equal((TableState.Paid, 10_000L, 0L), (paid.State, paid.PaidMinor, paid.RemainingMinor));
+        Assert.Equal((TableState.Available, null, 0L), (paid.State, paid.CheckId, paid.TotalMinor)); // paid in full: free straight away
 
-        _host.Clock.Advance(TableStatusService.PaidVisibleFor + TimeSpan.FromMinutes(1));
-        Assert.Equal(TableState.Available, (await Table("7")).State);
+        _host.Clock.Advance(TimeSpan.FromMinutes(5));
+        await GuestAsync(f, f.Table7);
+        Assert.Equal(TableState.Ordering, (await Table("7")).State); // the next guests
         Assert.Equal(TableState.Available, (await Table("8")).State);
+    }
+
+    [Fact]
+    public async Task Paying_in_full_closes_the_served_orders_and_marks_the_payments_paid()
+    {
+        var f = await CreateAsync();
+        var guest = await GuestAsync(f, f.Table7);
+        var served = await OrderAsync(guest, (f.Burger, 1));
+        var cooking = await OrderAsync(guest, (f.Coke, 1));
+        await _host.MerchantOrders.ChangeStatusAsync(served.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
+        await _host.MerchantOrders.ChangeStatusAsync(served.Id, new ChangeOrderStatusRequest(OrderStatus.Completed, null), default);
+        Task<OrderStatus> Status(OrderDto order) => _host.MerchantOrders.GetAsync(order.Id, default).ContinueWith(t => t.Result.Status);
+        Task<TransactionRowDto> Row(PaymentDto payment) => _host.Transactions.ListAsync(new TransactionQuery(f.Venue.Id), default)
+            .ContinueWith(t => t.Result.Items.Single(r => r.Id == payment.Id));
+
+        var part = await PayAsync(guest, amount: 2000);
+        Assert.Equal(OrderStatus.Completed, await Status(served)); // still owed: served, not closed
+        Assert.Equal(TransactionBillState.PartiallyPaid, (await Row(part)).BillState);
+
+        var rest = await PayAsync(guest);
+        Assert.Equal((OrderStatus.Closed, OrderStatus.Submitted), (await Status(served), await Status(cooking))); // the kitchen still has the Coke
+        Assert.Equal((TransactionBillState.Paid, TransactionBillState.Paid), ((await Row(part)).BillState, (await Row(rest)).BillState));
+        Assert.Contains(_host.Notifier.Events, e => e.Event == "changed" && e.Order.Id == served.Id && e.Order.Status == OrderStatus.Closed);
+
+        await _host.MerchantOrders.ChangeStatusAsync(cooking.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
+        var late = await _host.MerchantOrders.ChangeStatusAsync(cooking.Id, new ChangeOrderStatusRequest(OrderStatus.Completed, null), default);
+        Assert.Equal(OrderStatus.Closed, late.Status); // served after the table paid: closes straight away
+
+        var closed = await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Closed), default);
+        Assert.Equal([cooking.Id, served.Id], closed.Select(o => o.Id));
+        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Served), default));
+        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(), default)); // off the board
+        Assert.Equal(2, (await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.All), default)).Count);
+        Task<int> Count(TransactionFilter status) =>
+            _host.Transactions.ListAsync(new TransactionQuery(f.Venue.Id, Status: status), default).ContinueWith(t => t.Result.Total);
+        Assert.Equal((2, 0), (await Count(TransactionFilter.Paid), await Count(TransactionFilter.PartiallyPaid)));
     }
 }

@@ -67,6 +67,30 @@ public class MenuServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Linking_items_to_a_category_moves_them_after_its_own_and_keeps_their_menus()
+    {
+        var (venue, menu, mains) = await CreateMenuAsync();
+        var grills = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Grills", null), default);
+        var burger = await _host.Menus.CreateItemAsync(Burger(mains.Id), default);
+        var steak = await _host.Menus.CreateItemAsync(Burger(mains.Id) with { Name = "Steak" }, default);
+        var kebab = await _host.Menus.CreateItemAsync(Burger(grills.Id) with { Name = "Kebab" }, default);
+        await LinkAsync(menu, steak);
+
+        await _host.Menus.LinkItemsAsync(grills.Id, new CategoryItemsRequest([steak.Id, kebab.Id]), default);
+
+        var catalog = await _host.Menus.GetCatalogAsync(venue.Id, default);
+        Assert.Equal(["Classic burger"], catalog.Categories.Single(c => c.Id == mains.Id).Items.Select(i => i.Name));
+        Assert.Equal(["Kebab", "Steak"], catalog.Categories.Single(c => c.Id == grills.Id).Items.Select(i => i.Name));
+        Assert.Equal([steak.Id], catalog.Menus.Single().ItemIds);
+
+        await _host.CreateTenantAsync();
+        var theirs = await _host.CreateVenueAsync();
+        var other = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(theirs.Id, null, "Mains", null), default);
+        var foreign = await Assert.ThrowsAsync<AppException>(() => _host.Menus.LinkItemsAsync(other.Id, new CategoryItemsRequest([burger.Id]), default));
+        Assert.Equal("item_not_found", foreign.Code); // another tenant's items can't be pulled in
+    }
+
+    [Fact]
     public async Task Updating_an_item_keeps_existing_modifier_ids_and_saves_changes()
     {
         var (venue, _, category) = await CreateMenuAsync();

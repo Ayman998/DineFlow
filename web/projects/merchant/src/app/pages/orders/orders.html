@@ -1,5 +1,5 @@
 @let t = this.t();
-<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+<div class="mb-4 flex flex-wrap items-start justify-between gap-4">
   <div>
     <h1 class="text-2xl font-bold">{{ t.title }}</h1>
     <p class="mt-1 text-sm text-ink-muted">{{ t.intro }}</p>
@@ -17,6 +17,37 @@
   </div>
 </div>
 
+<!-- Period, table and order number. On phones the period stepper takes a row of its own. -->
+<div class="mb-6 flex flex-wrap items-center gap-2" role="group" [attr.aria-label]="t.filterOrders">
+  <select class="field w-auto" [attr.aria-label]="t.period" (change)="setPeriod($any($event.target).value)">
+    @for (p of periods; track p) { <option [value]="p" [selected]="period() === p">{{ t.periods[p] }}</option> }
+  </select>
+  @if (period() !== 'All') {
+    <div class="flex items-center justify-between rounded-lg border border-line bg-white max-sm:order-last max-sm:w-full">
+      <button type="button" class="btn-ghost px-3 py-2" [attr.aria-label]="t.previousPeriod" (click)="step(-1)">{{ t.previousArrow }}</button>
+      <span class="min-w-36 px-1 text-center text-sm font-semibold whitespace-nowrap tabular-nums" aria-live="polite">{{ periodText() }}</span>
+      <button type="button" class="btn-ghost px-3 py-2" [attr.aria-label]="t.nextPeriod" [disabled]="atLatest()" (click)="step(1)">{{ t.nextArrow }}</button>
+    </div>
+  }
+  @if (tables().length) {
+    <select class="field w-auto max-w-[14rem]" [attr.aria-label]="t.table" (change)="setLocation($any($event.target).value)">
+      <option value="" [selected]="!locationId()">{{ t.allTables }}</option>
+      @for (group of tableGroups(); track group.area) {
+        <optgroup [label]="group.area || i18n.t().noArea">
+          @for (table of group.tables; track table.locationId) {
+            <option [value]="table.locationId" [selected]="locationId() === table.locationId">{{ place(table) }}</option>
+          }
+        </optgroup>
+      }
+    </select>
+  }
+  <input type="search" inputmode="numeric" class="field w-28" maxlength="10" [placeholder]="t.orderNumber" [attr.aria-label]="t.orderNumberLabel"
+         [value]="numberText()" (input)="setNumber($any($event.target).value)" />
+  @if (filtered()) {
+    <button type="button" class="link px-1 text-sm" (click)="clearFilters()">{{ t.clearFilters }}</button>
+  }
+</div>
+
 @if (error()) {
   <p class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ error() }}</p>
 }
@@ -31,7 +62,12 @@
           {{ locationType(order) }} {{ order.locationLabel }}@if (order.areaName) { <span class="font-normal text-ink-muted"> · {{ order.areaName }}</span> }
         </div>
       </div>
-      <span class="text-xs" [class]="isLate(order) ? 'font-bold text-red-700' : 'text-ink-muted'">{{ age(order) }}</span>
+      <div class="flex flex-col items-end gap-1">
+        <span class="text-xs" [class]="isLate(order) ? 'font-bold text-red-700' : 'text-ink-muted'">{{ age(order) }}</span>
+        @if (filter() === 'All') {
+          <span class="rounded-md px-2 py-0.5 text-xs font-bold" [class]="statusClass(order.status)">{{ statusLabel(order) }}</span>
+        }
+      </div>
     </div>
 
     <ul class="mt-3 space-y-1.5 text-sm">
@@ -73,7 +109,7 @@
 @if (orders() === null) {
   <div class="h-64 animate-pulse rounded-xl bg-white" aria-busy="true"></div>
 } @else if (filter() === 'Active') {
-  <div class="grid gap-4 lg:grid-cols-3">
+  <div class="grid gap-4 transition-opacity lg:grid-cols-3" [class.opacity-60]="loading()">
     @for (column of columns; track column) {
       @let list = byColumn().get(column) ?? [];
       <section class="flex flex-col gap-3 rounded-xl bg-white/60 p-3" [attr.aria-label]="t.columns[column]">
@@ -90,13 +126,27 @@
   </div>
 } @else {
   @if (!orders()!.length) {
-    <div class="card text-center text-ink-muted">{{ t.noOrders(filter()) }}</div>
+    <div class="card text-center text-ink-muted">
+      @if (filtered()) {
+        <p>{{ t.noMatches }}</p>
+        @if (filter() !== 'All') {
+          <button type="button" class="link mt-2 text-sm" (click)="setFilter('All')">{{ t.searchAll }}</button>
+        }
+      } @else {
+        {{ t.noOrders(filter()) }}
+      }
+    </div>
   }
-  <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 transition-opacity" [class.opacity-60]="loading()">
     @for (order of orders(); track order.id) {
       <ng-container *ngTemplateOutlet="orderCard; context: { $implicit: order }" />
     }
   </div>
+  @if (more()) {
+    <div class="mt-6 text-center">
+      <button type="button" class="btn-secondary" [disabled]="loading()" (click)="showMore()">{{ t.showMore }}</button>
+    </div>
+  }
 }
 
 @if (rejecting(); as order) {

@@ -2,6 +2,7 @@ using System.Globalization;
 using HelloZen.Application.Abstractions;
 using HelloZen.Application.Common;
 using HelloZen.Domain.Audit;
+using HelloZen.Domain.Bills;
 using HelloZen.Domain.Common;
 using HelloZen.Domain.Orders;
 using HelloZen.Domain.Payments;
@@ -30,9 +31,15 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         payments = await SearchAsync(payments, venue.Id, venue.Currency, query.Search, ct);
 
         var refunds = db.Refunds.AsNoTracking();
+        var settledChecks = db.Checks.AsNoTracking().Where(c => c.Status == CheckStatus.Closed).Select(c => (Guid?)c.Id);
+        var settledLinks = db.PaymentLinks.AsNoTracking().Where(l => l.Status == PaymentLinkStatus.Paid).Select(l => (Guid?)l.Id);
         payments = query.Status switch
         {
             TransactionFilter.Succeeded => payments.Where(p => p.Status == PaymentStatus.Succeeded),
+            TransactionFilter.Paid => payments.Where(p => p.Status == PaymentStatus.Succeeded
+                && (settledChecks.Contains(p.CheckId) || settledLinks.Contains(p.PaymentLinkId))),
+            TransactionFilter.PartiallyPaid => payments.Where(p => p.Status == PaymentStatus.Succeeded
+                && !settledChecks.Contains(p.CheckId) && !settledLinks.Contains(p.PaymentLinkId)),
             TransactionFilter.Refunded => payments.Where(p => refunds.Any(r => r.PaymentId == p.Id && r.Status != RefundStatus.Failed)),
             TransactionFilter.Pending => payments.Where(p => p.Status == PaymentStatus.Created || p.Status == PaymentStatus.RequiresAction || p.Status == PaymentStatus.Processing),
             TransactionFilter.Failed => payments.Where(p => p.Status == PaymentStatus.Failed || p.Status == PaymentStatus.Cancelled),
@@ -173,12 +180,12 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         var ids = payments.Select(p => p.Id).ToList();
         var checkIds = payments.Where(p => p.CheckId != null).Select(p => p.CheckId!.Value).Distinct().ToList();
         var linkIds = payments.Where(p => p.PaymentLinkId != null).Select(p => p.PaymentLinkId!.Value).Distinct().ToList();
-        var links = await db.PaymentLinks.AsNoTracking().Where(l => linkIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Code, ct);
+        var links = await db.PaymentLinks.AsNoTracking().Where(l => linkIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, ct);
         var refunds = await db.Refunds.AsNoTracking().Where(r => ids.Contains(r.PaymentId)).ToListAsync(ct);
         var postings = await db.PosCommands.AsNoTracking().Where(c => c.PaymentId != null && ids.Contains(c.PaymentId.Value))
             .ToDictionaryAsync(c => c.PaymentId!.Value, c => c.Status, ct);
-        var checks = await db.Checks.AsNoTracking().Where(c => checkIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.ServiceLocationId, ct);
-        var locationIds = checks.Values.Distinct().ToList();
+        var checks = await db.Checks.AsNoTracking().Where(c => checkIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
+        var locationIds = checks.Values.Select(c => c.ServiceLocationId).Distinct().ToList();
         var locations = await db.ServiceLocations.AsNoTracking().Where(l => locationIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, ct);
         var orders = await db.Orders.AsNoTracking().Where(o => o.CheckId != null && checkIds.Contains(o.CheckId.Value) && o.Status != OrderStatus.Rejected)
             .Select(o => new { o.CheckId, o.Number }).ToListAsync(ct);
@@ -187,10 +194,15 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         {
             var mine = refunds.Where(r => r.PaymentId == p.Id).ToList();
             var refunded = mine.Where(r => r.Status == RefundStatus.Succeeded).Sum(r => r.AmountMinor);
-            var location = p.CheckId is { } checkId ? locations.GetValueOrDefault(checks.GetValueOrDefault(checkId)) : null;
-            return new TransactionRowDto(p.Id, p.Reference, p.CreatedAt, p.SucceededAt, StateOf(p, refunded), p.Method, p.CardBrand, p.CardLast4,
+            var check = p.CheckId is { } checkId ? checks.GetValueOrDefault(checkId) : null;
+            var location = check is null ? null : locations.GetValueOrDefault(check.ServiceLocationId);
+            var link = p.PaymentLinkId is { } linkId ? links.GetValueOrDefault(linkId) : null;
+            TransactionBillState? billState = p.Status != PaymentStatus.Succeeded ? null
+                : check?.Status == CheckStatus.Closed || link?.Status == PaymentLinkStatus.Paid ? TransactionBillState.Paid
+                : TransactionBillState.PartiallyPaid;
+            return new TransactionRowDto(p.Id, p.Reference, p.CreatedAt, p.SucceededAt, StateOf(p, refunded), billState, p.Method, p.CardBrand, p.CardLast4,
                 p.Mode, location?.Type.ToString() ?? "", location?.Label ?? "",
-                p.PaymentLinkId is { } linkId ? links.GetValueOrDefault(linkId) : null,
+                link?.Code,
                 orders.Where(o => o.CheckId == p.CheckId).Select(o => o.Number).Order().ToList(),
                 p.Currency, p.AmountMinor, p.TipMinor, refunded, mine.Any(r => r.Status == RefundStatus.Pending),
                 postings.TryGetValue(p.Id, out var posting) ? posting switch

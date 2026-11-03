@@ -215,11 +215,11 @@ public class OrderServiceTests : IDisposable
         var counts = await _host.MerchantOrders.CountsAsync(f.Venue.Id, default);
         await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
         var again = await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
-        var ready = await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Ready, default);
+        var ready = await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Ready), default);
         var skip = await Assert.ThrowsAsync<AppException>(() =>
             _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Rejected, "Too late"), default));
         await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Completed, null), default);
-        var board = await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Active, default);
+        var board = await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Active), default);
         _host.Clock.Advance(TimeSpan.FromDays(1));
 
         Assert.Equal(new OrderCountsDto(1, 0), counts);
@@ -227,11 +227,33 @@ public class OrderServiceTests : IDisposable
         Assert.Equal(order.Id, Assert.Single(ready).Id);
         Assert.Equal("invalid_transition", skip.Code);
         Assert.Equal(OrderStatus.Completed, Assert.Single(board).Status); // in the Served column for the rest of the day
-        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Active, default));
-        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.New, default));
-        Assert.Single(await _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Served, default));
+        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Active), default));
+        Assert.Empty(await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.New), default));
+        Assert.Single(await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Served), default));
         Assert.Equal(new OrderCountsDto(0, 0), await _host.MerchantOrders.CountsAsync(f.Venue.Id, default));
         Assert.Equal(["placed", "changed", "changed"], _host.Notifier.Events.Select(e => e.Event));
+    }
+
+    [Fact]
+    public async Task Staff_look_orders_up_by_period_table_and_number()
+    {
+        var f = await CreateAsync();
+        Task<OrderDto> PlaceAsync() => _host.GuestOrders.PlaceAsync(f.SessionId, new PlaceOrderRequest(Guid.NewGuid(), [new(f.Burger.Id, 1, [f.Medium], null)], null, null), default);
+        var first = await PlaceAsync();
+        var second = await PlaceAsync();
+        var today = DateOnly.FromDateTime(VenueTime.LocalNow(_host.Clock, "Asia/Dubai"));
+        var saturday = today.AddDays(-(((int)today.DayOfWeek - (int)DayOfWeek.Saturday + 7) % 7));
+        var quarter = new DateOnly(today.Year, (today.Month - 1) / 3 * 3 + 1, 1);
+        async Task<int> Count(OrderPeriod period = OrderPeriod.All, DateOnly? date = null, Guid? locationId = null, int? number = null) =>
+            (await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.New, period, date, locationId, number), default)).Count;
+
+        Assert.Equal((2, 0), (await Count(OrderPeriod.Day), await Count(OrderPeriod.Day, today.AddDays(-1))));
+        Assert.Equal((2, 0), (await Count(OrderPeriod.Week, saturday.AddDays(6)), await Count(OrderPeriod.Week, saturday.AddDays(-1)))); // Saturday to Friday
+        Assert.Equal((2, 0), (await Count(OrderPeriod.Month, new(today.Year, today.Month, 1)), await Count(OrderPeriod.Month, new DateOnly(today.Year, today.Month, 1).AddDays(-1))));
+        Assert.Equal((2, 0), (await Count(OrderPeriod.Quarter, quarter.AddMonths(3).AddDays(-1)), await Count(OrderPeriod.Quarter, quarter.AddDays(-1))));
+        Assert.Equal((2, 0), (await Count(OrderPeriod.Year, new(today.Year, 12, 31)), await Count(OrderPeriod.Year, new(today.Year - 1, 12, 31))));
+        Assert.Equal((2, 0), (await Count(locationId: first.ServiceLocationId), await Count(locationId: Guid.NewGuid())));
+        Assert.Equal(second.Id, (await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.New, Number: second.Number), default)).Single().Id);
     }
 
     [Fact]
@@ -242,7 +264,7 @@ public class OrderServiceTests : IDisposable
 
         await _host.CreateTenantAsync("Someone else");
 
-        Assert.Equal("venue_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.MerchantOrders.ListAsync(f.Venue.Id, OrderFilter.Active, default))).Code);
+        Assert.Equal("venue_not_found", (await Assert.ThrowsAsync<AppException>(() => _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.Active), default))).Code);
         Assert.Equal("order_not_found", (await Assert.ThrowsAsync<AppException>(() =>
             _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Accepted, null), default))).Code);
     }

@@ -68,6 +68,13 @@ public class MenuItem : Entity, ITenantOwned
 
     public void SetSortOrder(int sortOrder) => SortOrder = sortOrder;
 
+    /// <summary>Files the item under another category of the venue, at <paramref name="sortOrder"/> there.</summary>
+    public void MoveTo(Guid categoryId, int sortOrder)
+    {
+        CategoryId = categoryId;
+        SortOrder = sortOrder;
+    }
+
     /// <summary>
     /// Makes the item's modifier groups match <paramref name="specs"/>, in that order. Groups and
     /// options with an id are updated in place, ones without are added, and missing ones are removed.

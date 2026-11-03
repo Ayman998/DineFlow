@@ -40,6 +40,11 @@
       <option value="">{{ t.itemsPage.allCategories }}</option>
       @for (c of categoryChoices(); track c.id) { <option [value]="c.id">{{ c.label }}</option> }
     </select>
+    @if (!searching() && groups().length > 1) {
+      <button type="button" class="btn-ghost text-sm sm:ms-auto" (click)="fold.toggleAll(groupIds())">
+        {{ fold.allFolded(groupIds()) ? t.expandAll : t.collapseAll }}
+      </button>
+    }
   </div>
 
   @if (!groups().length) {
@@ -57,14 +62,22 @@
           </tr>
         </thead>
         @for (group of groups(); track group.category.id) {
+          @let folded = isFolded(group);
           <tbody>
             <tr class="border-b border-line bg-surface">
-              <th scope="colgroup" colspan="5" class="px-3 py-2 text-start font-semibold sm:px-5">
-                {{ group.label }}
-                @if (group.category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ group.category.nameAr }}</span> }
+              <th scope="colgroup" colspan="5" class="p-0 text-start font-semibold">
+                <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-start sm:px-5" [attr.aria-expanded]="!folded"
+                        [attr.aria-label]="t.toggleCategory(group.label)" [disabled]="searching()" (click)="fold.toggle(group.category.id)">
+                  @if (!searching()) { <svg viewBox="0 0 24 24" class="size-4 shrink-0 text-ink-muted transition-transform" [class]="folded ? 'ltr:-rotate-90 rtl:rotate-90' : ''" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg> }
+                  <span class="min-w-0 flex-1">
+                    {{ group.label }}
+                    @if (group.category.nameAr) { <span class="ms-2 font-normal text-ink-muted" dir="rtl">{{ group.category.nameAr }}</span> }
+                  </span>
+                  <span class="shrink-0 text-xs font-normal text-ink-muted">{{ t.itemCount(group.items.length) }}</span>
+                </button>
               </th>
             </tr>
-            @for (item of group.items; track item.id; let first = $first; let last = $last) {
+            @for (item of folded ? [] : group.items; track item.id; let first = $first; let last = $last) {
               @let menus = menusOf(item);
               <tr class="border-b border-line last:border-0">
                 <td class="px-3 py-2 sm:px-5" [class.opacity-60]="!item.isAvailable">

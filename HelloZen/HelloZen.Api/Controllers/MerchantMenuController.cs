@@ -56,6 +56,14 @@ public class MerchantMenuController(MenuAdminService menus, MenuImageService ima
     public Task<CategoryDto> UpdateCategory(Guid categoryId, UpdateCategoryRequest request, CancellationToken ct) =>
         menus.UpdateCategoryAsync(categoryId, request, ct);
 
+    /// <summary>Moves existing items into the category, after the ones already there.</summary>
+    [HttpPost("v1/merchant/menu/categories/{categoryId:guid}/items")]
+    public async Task<IActionResult> LinkCategoryItems(Guid categoryId, CategoryItemsRequest request, CancellationToken ct)
+    {
+        await menus.LinkItemsAsync(categoryId, request, ct);
+        return NoContent();
+    }
+
     [HttpDelete("v1/merchant/menu/categories/{categoryId:guid}")]
     public async Task<IActionResult> DeleteCategory(Guid categoryId, CancellationToken ct)
     {

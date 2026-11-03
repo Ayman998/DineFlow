@@ -58,6 +58,7 @@
         @if (!category.parentId) {
           <button type="button" class="link" (click)="dialog.set({ parentId: category.id, category: null })">{{ t.categoriesPage.addSubcategory }}</button>
         }
+        <button type="button" class="link ms-3" (click)="linkDialog.set(category)">{{ t.categoriesPage.linkItems }}</button>
         <button type="button" class="link ms-3" (click)="dialog.set({ parentId: category.parentId, category })">{{ t.categoriesPage.rename }}</button>
         <button type="button" class="btn-ghost px-2" [disabled]="first" (click)="move(category, siblings, -1)" [attr.aria-label]="t.categoriesPage.moveUp">↑</button>
         <button type="button" class="btn-ghost px-2" [disabled]="last" (click)="move(category, siblings, 1)" [attr.aria-label]="t.categoriesPage.moveDown">↓</button>
@@ -73,6 +74,9 @@
     [initial]="d.category"
     (saved)="save($event)"
     (cancelled)="dialog.set(null)" />
+}
+@if (linkDialog(); as category) {
+  <hz-link-category-items [category]="category" [catalog]="catalog()!" (saved)="link($event)" (cancelled)="linkDialog.set(null)" />
 }
 @if (deleteDialog(); as category) {
   <hz-confirm-dialog

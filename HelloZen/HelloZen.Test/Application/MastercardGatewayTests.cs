@@ -43,7 +43,7 @@ public class MastercardGatewayTests : IDisposable
             Microsoft.Extensions.Options.Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }));
 
     private PaymentService Payments(MastercardGatewayProvider provider) =>
-        new(_host.Db, _host.Bills, _host.Promotions, provider, _host.PaymentNotifier, _host.Emails, _host.Alerts, _host.PosSync,
+        new(_host.Db, _host.Bills, _host.Promotions, provider, _host.PaymentNotifier, _host.Notifier, _host.Emails, _host.Alerts, _host.PosSync,
             Microsoft.Extensions.Options.Options.Create(new PaymentOptions()),
             Microsoft.Extensions.Options.Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), _host.Clock);
 

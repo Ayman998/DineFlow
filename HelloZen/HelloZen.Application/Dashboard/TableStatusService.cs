@@ -9,13 +9,12 @@ namespace HelloZen.Application.Dashboard;
 
 /// <summary>
 /// The live table view (blueprint 4.4 "Tables", P1-MER-10, mockup "Merchant table view"): every
-/// table with what's been paid against its bill and a state staff can act on.
+/// table with what's been paid against its bill and a state staff can act on. A table whose bill
+/// is paid in full is available again straight away.
 /// </summary>
 public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimeProvider clock)
 {
-    /// <summary>A settled table keeps showing "Paid" this long, while the guests may still be there.</summary>
-    public static readonly TimeSpan PaidVisibleFor = TimeSpan.FromHours(2);
-    /// <summary>A scan this recent with nothing ordered yet means guests are choosing.</summary>
+    /// <summary>A scan this recent with nothing ordered yet (or since the last bill was paid) means guests are choosing.</summary>
     public static readonly TimeSpan OrderingWindow = TimeSpan.FromMinutes(60);
     /// <summary>A failed payment this recent, with money still owed, needs a member of staff.</summary>
     public static readonly TimeSpan FailedPaymentAttention = TimeSpan.FromMinutes(30);
@@ -29,11 +28,17 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
 
         var locations = await db.ServiceLocations.AsNoTracking().Include(l => l.DiningArea)
             .Where(l => l.VenueId == venueId && l.IsActive).ToListAsync(ct);
-        var paidSince = now - PaidVisibleFor;
+        var scannedSince = now - OrderingWindow;
         var checks = await db.Checks.AsNoTracking()
-            .Where(c => c.VenueId == venueId && (c.Status == CheckStatus.Open || c.ClosedAt >= paidSince))
+            .Where(c => c.VenueId == venueId && c.Status == CheckStatus.Open)
             .ToListAsync(ct);
         var checkIds = checks.Select(c => c.Id).ToList();
+        // When each table's last bill was paid in full, if that was within the ordering window.
+        var closedAt = await db.Checks.AsNoTracking()
+            .Where(c => c.VenueId == venueId && c.Status == CheckStatus.Closed && c.ClosedAt >= scannedSince)
+            .GroupBy(c => c.ServiceLocationId)
+            .Select(g => new { LocationId = g.Key, Last = g.Max(c => c.ClosedAt) })
+            .ToListAsync(ct);
 
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.CheckId != null && checkIds.Contains(o.CheckId.Value) && o.Status != OrderStatus.Rejected)
@@ -48,7 +53,6 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
             .Where(p => p.CheckId != null && checkIds.Contains(p.CheckId.Value))
             .Select(p => new { p.CheckId, p.Status, p.CreatedAt, p.UpdatedAt })
             .ToListAsync(ct);
-        var scannedSince = now - OrderingWindow;
         var locationIds = locations.Select(l => l.Id).ToList();
         var scans = await db.GuestSessions.AsNoTracking()
             .Where(s => locationIds.Contains(s.ServiceLocationId) && s.CreatedAt >= scannedSince)
@@ -61,12 +65,9 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
 
         var result = locations.Select(location =>
         {
-            var open = checks.FirstOrDefault(c => c.ServiceLocationId == location.Id && c.Status == CheckStatus.Open);
-            var openOrders = open is null ? [] : orders.Where(o => o.CheckId == open.Id).ToList();
-            var check = openOrders.Count > 0
-                ? open
-                : checks.Where(c => c.ServiceLocationId == location.Id && c.Status == CheckStatus.Closed).MaxBy(c => c.ClosedAt);
-            var shown = check is null ? [] : orders.Where(o => o.CheckId == check.Id).OrderBy(o => o.Number).ToList();
+            var open = checks.FirstOrDefault(c => c.ServiceLocationId == location.Id);
+            var shown = open is null ? [] : orders.Where(o => o.CheckId == open.Id).OrderBy(o => o.Number).ToList();
+            var check = shown.Count > 0 ? open : null;
 
             var total = shown.Sum(o => o.TotalMinor);
             var paid = check is null ? 0 : Ledger(check.Id, LedgerEntryType.BillPayment, LedgerEntryType.Discount);
@@ -76,11 +77,12 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
             var lastPayment = check is null ? null : payments.Where(p => p.CheckId == check.Id)
                 .MaxBy(p => (p.CreatedAt, p.Status == PaymentStatus.Failed ? 0 : 1));
             var scan = scans.FirstOrDefault(s => s.LocationId == location.Id)?.Last;
+            var paidAt = closedAt.FirstOrDefault(c => c.LocationId == location.Id)?.Last;
 
             TableState state;
             string? attention = null;
             DateTimeOffset? lastActivity;
-            if (check is not null && check.Status == CheckStatus.Open)
+            if (check is not null)
             {
                 state = remaining == 0 ? TableState.Paid : paid == 0 ? TableState.Unpaid : TableState.PartiallyPaid;
                 if (remaining > 0 && lastPayment is { Status: PaymentStatus.Failed } failed && failed.UpdatedAt >= now - FailedPaymentAttention)
@@ -90,15 +92,11 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
                 }
                 lastActivity = Latest(shown.Max(o => (DateTimeOffset?)o.CreatedAt), lastPayment?.UpdatedAt);
             }
-            else if (check is not null)
-            {
-                state = TableState.Paid;
-                lastActivity = check.ClosedAt;
-            }
             else
             {
-                state = scan is not null ? TableState.Ordering : TableState.Available;
-                lastActivity = scan;
+                // Guests who scanned before the last bill was paid in full have paid and gone.
+                state = scan is not null && !(paidAt >= scan) ? TableState.Ordering : TableState.Available;
+                lastActivity = Latest(scan, paidAt);
             }
 
             return new TableStatusDto(location.Id, location.Type.ToString(), location.Label, location.DisplayName, location.DiningArea?.Name,

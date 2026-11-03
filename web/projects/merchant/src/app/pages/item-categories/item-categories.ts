@@ -10,16 +10,18 @@ import { I18n } from '../../core/i18n';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { CategoryEditor, CategoryNames } from '../menu/category-editor';
 import { MENU } from '../menu/menu.i18n';
+import { LinkCategoryItems } from './link-category-items';
 
 type CategoryDialog = { parentId: string | null; category: CategoryDto | null };
 
 /**
  * The venue's item categories and subcategories (blueprint 4.4 "Menu"). Items are filed under
- * them on the Items page, and a menu shows a category when it links any of its items.
+ * them on the Items page, or linked here from other categories, and a menu shows a category
+ * when it links any of its items.
  */
 @Component({
   selector: 'hz-item-categories',
-  imports: [NgTemplateOutlet, RouterLink, CategoryEditor, ConfirmDialog],
+  imports: [NgTemplateOutlet, RouterLink, CategoryEditor, ConfirmDialog, LinkCategoryItems],
   templateUrl: './item-categories.html'
 })
 export class ItemCategories implements OnInit {
@@ -36,9 +38,12 @@ export class ItemCategories implements OnInit {
   protected readonly dialog = signal<CategoryDialog | null>(null);
   /** The category waiting for the user to confirm its delete. */
   protected readonly deleteDialog = signal<CategoryDto | null>(null);
+  /** The category items are being linked to. */
+  protected readonly linkDialog = signal<CategoryDto | null>(null);
 
   private readonly editor = viewChild(CategoryEditor);
   private readonly confirmDialog = viewChild(ConfirmDialog);
+  private readonly linkItems = viewChild(LinkCategoryItems);
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe({
@@ -74,6 +79,16 @@ export class ItemCategories implements OnInit {
       this.deleteDialog.set(null);
       this.notice.set(this.t().deleted(category.name));
     }, message => this.confirmDialog()?.showError(message));
+  }
+
+  /** Moves the items picked in the link dialog into its category. */
+  protected link(itemIds: string[]): void {
+    const category = this.linkDialog();
+    if (!category) return;
+    this.submit(this.api.linkCategoryItems(category.id, itemIds), () => {
+      this.linkDialog.set(null);
+      this.notice.set(this.t().categoriesPage.linked(category.name, itemIds.length));
+    }, message => this.linkItems()?.showError(message));
   }
 
   protected move(category: CategoryDto, siblings: CategoryDto[], step: -1 | 1): void {

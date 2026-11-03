@@ -273,6 +273,11 @@ export class MenuAdminApi {
     return this.http.put<void>(`/v1/merchant/menu/menus/${menuId}/items`, { itemIds });
   }
 
+  /** Moves existing items into the category, after the ones already there. */
+  linkCategoryItems(categoryId: string, itemIds: string[]) {
+    return this.http.post<void>(`/v1/merchant/menu/categories/${categoryId}/items`, { itemIds });
+  }
+
   /** What the menu charges for one of its items; null goes back to the item's own price. */
   setMenuItemPrice(menuId: string, itemId: string, priceMinor: number | null) {
     return this.http.put<MenuItemDto>(`/v1/merchant/menu/menus/${menuId}/items/${itemId}/price`, { priceMinor });
@@ -319,8 +324,24 @@ export class MenuAdminApi {
 
 // ---- Orders (Sprint 3) ----
 
-export type OrderStatus = 'Submitted' | 'Accepted' | 'Preparing' | 'Ready' | 'Completed' | 'Rejected';
-export type OrderFilter = 'Active' | 'New' | 'Ready' | 'Served' | 'Rejected';
+/** Closed: served, and the table's bill is paid in full. */
+export type OrderStatus = 'Submitted' | 'Accepted' | 'Preparing' | 'Ready' | 'Completed' | 'Rejected' | 'Closed';
+export type OrderFilter = 'Active' | 'New' | 'Ready' | 'Served' | 'Closed' | 'Rejected' | 'All';
+/** The day, week (Saturday to Friday), month, quarter or year around a date, at the venue. */
+export type OrderPeriod = 'All' | 'Day' | 'Week' | 'Month' | 'Quarter' | 'Year';
+
+export interface OrderQuery {
+  filter: OrderFilter;
+  period?: OrderPeriod;
+  /** A day in the period, yyyy-MM-dd; today at the venue when left out. */
+  date?: string;
+  locationId?: string;
+  number?: number;
+  page?: number;
+}
+
+/** How many orders the API returns at a time. */
+export const ORDER_PAGE_SIZE = 100;
 
 export interface OrderModifierDto {
   optionId: string;
@@ -372,8 +393,9 @@ export interface OrderCounts {
 export class OrdersAdminApi {
   private readonly http = inject(HttpClient);
 
-  list(venueId: string, filter: OrderFilter) {
-    return this.http.get<OrderDto[]>(`/v1/merchant/venues/${venueId}/orders`, { params: { filter } });
+  list(venueId: string, query: OrderQuery) {
+    const params = Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    return this.http.get<OrderDto[]>(`/v1/merchant/venues/${venueId}/orders`, { params });
   }
 
   counts(venueId: string) {
@@ -602,7 +624,8 @@ function params(values: object): Record<string, string> {
 // ---- Transactions, refunds, overview and live tables (Sprint 7) ----
 
 export type TransactionState = 'Pending' | 'Succeeded' | 'PartiallyRefunded' | 'Refunded' | 'Failed' | 'Cancelled';
-export type TransactionFilter = 'All' | 'Succeeded' | 'Refunded' | 'Pending' | 'Failed';
+/** Paid and PartiallyPaid are successful payments, by whether their bill (or payment link) is now paid in full. */
+export type TransactionFilter = 'All' | 'Succeeded' | 'Paid' | 'PartiallyPaid' | 'Refunded' | 'Pending' | 'Failed';
 export type RefundStatus = 'Pending' | 'Succeeded' | 'Failed';
 
 export interface TransactionQuery {
@@ -621,6 +644,8 @@ export interface TransactionRow {
   createdAt: string;
   succeededAt: string | null;
   state: TransactionState;
+  /** Whether the bill it went towards is paid in full; null unless the payment succeeded. */
+  billState: 'Paid' | 'PartiallyPaid' | null;
   method: string;
   cardBrand: string | null;
   cardLast4: string | null;

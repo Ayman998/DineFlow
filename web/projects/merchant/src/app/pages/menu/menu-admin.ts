@@ -2,12 +2,13 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { CatalogDto, MenuAdminApi, MenuDto, MenuItemDto, MenuRequest, MenuTreeDto } from '../../core/api';
+import { CatalogDto, CategoryDto, MenuAdminApi, MenuDto, MenuItemDto, MenuRequest, MenuTreeDto } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { Folding } from '../../shared/folding';
 import { LinkItems } from './link-items';
 import { MenuEditor } from './menu-editor';
 import { MenuPriceEditor } from './menu-price-editor';
@@ -16,7 +17,7 @@ import { MENU } from './menu.i18n';
 /**
  * Menu management (blueprint 4.4 "Menu"; P1-MENU-01..07): menus and their schedules, which items
  * each one shows and what it charges for them. Items and their categories are managed on their own
- * pages and linked here.
+ * pages and linked here. Each category (and subcategory) folds away.
  */
 @Component({
   selector: 'hz-menu-admin',
@@ -54,6 +55,10 @@ export class MenuAdmin implements OnInit {
   protected readonly itemCount = computed(() =>
     (this.menu()?.categories ?? []).reduce((n, c) => n + c.items.length + c.subcategories.reduce((m, s) => m + s.items.length, 0), 0));
 
+  protected readonly fold = new Folding('hz.menu.folded');
+  /** The menu's categories and subcategories, for folding them all at once. */
+  protected readonly categoryIds = computed(() => (this.menu()?.categories ?? []).flatMap(c => [c.id, ...c.subcategories.map(s => s.id)]));
+
   ngOnInit(): void {
     this.currentVenue.load().subscribe({
       next: venue => (venue ? this.refresh() : this.fail(this.i18n.t().noVenue)),
@@ -63,6 +68,11 @@ export class MenuAdmin implements OnInit {
 
   protected money(minor: number): string {
     return formatMoney(minor, this.currency());
+  }
+
+  /** Items in the category, including its subcategories'. */
+  protected countIn(category: CategoryDto): number {
+    return category.items.length + category.subcategories.reduce((n, s) => n + s.items.length, 0);
   }
 
   protected schedule(menu: MenuDto): string {

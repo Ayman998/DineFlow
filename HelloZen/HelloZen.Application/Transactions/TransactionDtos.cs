@@ -16,7 +16,19 @@ public enum TransactionState
     Cancelled
 }
 
-public enum TransactionFilter { All, Succeeded, Refunded, Pending, Failed }
+/// <summary>Whether the bill (or payment link) a successful payment went towards is now paid in full.</summary>
+public enum TransactionBillState
+{
+    Paid,
+    /// <summary>Something is still owed on it.</summary>
+    PartiallyPaid
+}
+
+/// <summary>
+/// Which payments to list. Paid and PartiallyPaid are successful payments, by whether their bill
+/// (or payment link) is now paid in full.
+/// </summary>
+public enum TransactionFilter { All, Succeeded, Refunded, Pending, Failed, Paid, PartiallyPaid }
 
 /// <param name="Search">A reference (e.g. DF-1A2B), a payment link (e.g. PL-1A2B), a table label (e.g. 7) or an amount (e.g. 73.70).</param>
 public record TransactionQuery(
@@ -34,6 +46,8 @@ public record TransactionRowDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? SucceededAt,
     TransactionState State,
+    /// <summary>Whether the bill it went towards is paid in full; null unless the payment succeeded.</summary>
+    TransactionBillState? BillState,
     PaymentMethod Method,
     string? CardBrand,
     string? CardLast4,

@@ -2,14 +2,16 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EMPTY, Subject, catchError, map, switchMap } from 'rxjs';
 
-import { OrderDto, OrderFilter, OrderStatus, OrdersAdminApi } from '../../core/api';
+import { FinanceApi, ORDER_PAGE_SIZE, OrderDto, OrderFilter, OrderPeriod, OrderQuery, OrderStatus, OrdersAdminApi, TableStatus } from '../../core/api';
 import { errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { LiveOrders } from '../../core/live-orders';
 import { formatMoney } from '../../core/money';
 import { ORDERS } from './orders.i18n';
+import { Day, dayAt, periodLabel, periodRange, shiftPeriod } from './periods';
 
 /** The kanban columns; their titles are in the lexicon. Each one is also a filter. */
 type Column = 'New' | 'Ready' | 'Served';
@@ -31,16 +33,19 @@ const NEXT: Record<OrderStatus, OrderStatus | null> = {
   Preparing: 'Ready',
   Ready: 'Completed',
   Completed: null,
-  Rejected: null
+  Rejected: null,
+  Closed: null
 };
 
-/** Served and rejected orders are looked back on, newest first; the kitchen works oldest first. */
-const isDone = (order: OrderDto) => order.status === 'Completed' || order.status === 'Rejected';
+/** Served, closed and rejected orders are looked back on, newest first; the kitchen works oldest first. */
+const isDone = (order: OrderDto) => order.status === 'Completed' || order.status === 'Closed' || order.status === 'Rejected';
 
 /**
  * The live order queue (blueprint 4.4 "Orders", P1-ORD-03/04): new orders arrive in real time
  * and staff move them New → Ready → Served, or reject them with a reason the guest sees. The
- * Served column shows what was served today.
+ * Served column shows what was served today; once the table pays in full, its served orders move
+ * to Closed. Any list can be narrowed to a day, week, month, quarter or year, a table, or an
+ * order number.
  */
 @Component({
   selector: 'hz-orders',
@@ -49,6 +54,7 @@ const isDone = (order: OrderDto) => order.status === 'Completed' || order.status
 })
 export class Orders implements OnInit {
   private readonly api = inject(OrdersAdminApi);
+  private readonly finance = inject(FinanceApi);
   private readonly venue = inject(CurrentVenue);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly live = inject(LiveOrders);
@@ -56,17 +62,66 @@ export class Orders implements OnInit {
   protected readonly t = this.i18n.use(ORDERS);
 
   protected readonly columns = COLUMNS;
-  protected readonly filters: OrderFilter[] = ['Active', 'New', 'Ready', 'Served', 'Rejected'];
+  protected readonly filters: OrderFilter[] = ['Active', 'New', 'Ready', 'Served', 'Closed', 'Rejected', 'All'];
+  protected readonly periods: OrderPeriod[] = ['All', 'Day', 'Week', 'Month', 'Quarter', 'Year'];
   protected readonly filter = signal<OrderFilter>('Active');
   protected readonly orders = signal<OrderDto[] | null>(null);
   protected readonly error = signal<string | null>(null);
+  protected readonly loading = signal(false);
   protected readonly busy = signal<ReadonlySet<string>>(new Set());
   protected readonly fresh = signal<ReadonlySet<string>>(new Set());
   protected readonly rejecting = signal<OrderDto | null>(null);
   protected rejectReason = '';
 
+  protected readonly period = signal<OrderPeriod>('All');
+  /** A day in the chosen period; null follows today at the venue. */
+  protected readonly day = signal<Day | null>(null);
+  protected readonly locationId = signal('');
+  /** What's typed in the order number box. */
+  protected readonly numberText = signal('');
+  /** The venue's tables, for the table filter. */
+  protected readonly tables = signal<TableStatus[]>([]);
+  /** The last page loaded, and whether it was full (so there may be more). */
+  private readonly page = signal(1);
+  protected readonly more = signal(false);
+
   /** Re-renders "x min ago" every 30 seconds. */
   protected readonly now = signal(Date.now());
+
+  private readonly requests = new Subject<{ query: OrderQuery; append: boolean }>();
+  private numberTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private readonly timeZone = computed(() => this.venue.venue()?.timeZone ?? 'Asia/Amman');
+  private readonly today = computed(() => dayAt(new Date(this.now()), this.timeZone()));
+  /** A day in the period on screen. */
+  protected readonly anchor = computed(() => this.day() ?? this.today());
+  protected readonly number = computed(() => {
+    const n = Number(this.numberText().trim().replace(/^#/, ''));
+    return Number.isInteger(n) && n > 0 ? n : null;
+  });
+  protected readonly filtered = computed(() => this.period() !== 'All' || !!this.locationId() || this.number() !== null);
+
+  protected readonly periodText = computed(() => {
+    const period = this.period();
+    return period === 'All' ? '' : periodLabel(period, this.anchor(), this.i18n.locale(), this.t().quarter);
+  });
+  /** The period on screen includes today, so there's nothing after it yet. */
+  protected readonly atLatest = computed(() => {
+    const period = this.period();
+    return period !== 'All' && periodRange(period, this.anchor()).end > this.today();
+  });
+
+  /** Tables by area, in the venue's order. */
+  protected readonly tableGroups = computed(() => {
+    const groups: { area: string; tables: TableStatus[] }[] = [];
+    for (const table of this.tables()) {
+      const area = table.areaName ?? '';
+      const group = groups.find(g => g.area === area);
+      if (group) group.tables.push(table);
+      else groups.push({ area, tables: [table] });
+    }
+    return groups;
+  });
 
   protected readonly byColumn = computed(() => {
     const groups = new Map<Column, OrderDto[]>();
@@ -78,24 +133,95 @@ export class Orders implements OnInit {
   });
 
   ngOnInit(): void {
-    this.venue.load().subscribe(() => this.load());
+    // The latest request wins, so a quick change of filters can't leave an older answer on screen.
+    this.requests
+      .pipe(
+        switchMap(({ query, append }) => {
+          const venueId = this.venue.venue()?.id;
+          if (!venueId) return EMPTY;
+          this.loading.set(true);
+          return this.api.list(venueId, query).pipe(
+            map(orders => ({ orders, append, page: query.page ?? 1 })),
+            catchError(error => {
+              this.loading.set(false);
+              this.error.set(errorMessage(error));
+              return EMPTY;
+            })
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(({ orders, append, page }) => {
+        this.loading.set(false);
+        this.page.set(page);
+        // The board shows everything the kitchen has; lists come a page at a time.
+        this.more.set(this.filter() !== 'Active' && orders.length === ORDER_PAGE_SIZE);
+        this.orders.update(list => (append ? [...(list ?? []), ...orders.filter(o => !list?.some(l => l.id === o.id))] : orders));
+      });
+
+    this.venue.load().subscribe(venue => {
+      this.load();
+      if (venue) this.finance.tableStatus(venue.id).subscribe({ next: tables => this.tables.set(tables), error: () => undefined });
+    });
 
     this.live.placed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(order => {
-      if (this.filter() === 'Active' || this.filter() === 'New') {
-        this.upsert(order);
-        this.highlight(order.id);
-      }
+      if (!this.fitsFilter(order)) return;
+      this.upsert(order);
+      this.highlight(order.id);
     });
     this.live.changed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(order => this.upsert(order));
     this.live.reconnected.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
 
     const timer = setInterval(() => this.now.set(Date.now()), 30_000);
-    this.destroyRef.onDestroy(() => clearInterval(timer));
+    this.destroyRef.onDestroy(() => {
+      clearInterval(timer);
+      clearTimeout(this.numberTimer);
+    });
   }
 
   protected setFilter(filter: OrderFilter): void {
     this.filter.set(filter);
+    this.orders.set(null); // another stage's orders mustn't show under this one while it loads
     this.load();
+  }
+
+  protected setPeriod(period: OrderPeriod): void {
+    this.period.set(period);
+    this.day.set(null);
+    this.load();
+  }
+
+  /** Moves to the period before (-1) or after (1) the one on screen. */
+  protected step(step: -1 | 1): void {
+    const period = this.period();
+    if (period === 'All') return;
+    const day = shiftPeriod(period, this.anchor(), step);
+    // Back in the current period: follow today again.
+    this.day.set(periodRange(period, day).end > this.today() ? null : day);
+    this.load();
+  }
+
+  protected setLocation(locationId: string): void {
+    this.locationId.set(locationId);
+    this.load();
+  }
+
+  protected setNumber(text: string): void {
+    this.numberText.set(text);
+    clearTimeout(this.numberTimer);
+    this.numberTimer = setTimeout(() => this.load(), 300);
+  }
+
+  protected clearFilters(): void {
+    this.period.set('All');
+    this.day.set(null);
+    this.locationId.set('');
+    this.numberText.set('');
+    this.load();
+  }
+
+  protected showMore(): void {
+    this.load(true);
   }
 
   protected next(order: OrderDto): OrderStatus | null {
@@ -135,15 +261,39 @@ export class Orders implements OnInit {
     return this.i18n.t().locationTypes[order.locationType] ?? order.locationType;
   }
 
+  /** "Table 12" in the portal's language, for the table filter. */
+  protected place(table: TableStatus): string {
+    return `${this.i18n.t().locationTypes[table.locationType] ?? table.locationType} ${table.label}`;
+  }
+
+  protected statusLabel(order: OrderDto): string {
+    return this.t().statuses[order.status] ?? order.status;
+  }
+
+  protected statusClass(status: OrderStatus): string {
+    switch (status) {
+      case 'Ready': return 'bg-accent-soft text-ink';
+      case 'Completed': return 'bg-emerald-50 text-emerald-700';
+      case 'Closed': return 'bg-surface text-ink-muted';
+      case 'Rejected': return 'bg-red-50 text-red-800';
+      default: return 'bg-amber-50 text-amber-800';
+    }
+  }
+
   protected money(order: OrderDto, minor: number): string {
     return formatMoney(minor, order.currency);
   }
 
+  /** "3 min ago", then the time, and the date too for an order from another day. */
   protected age(order: OrderDto): string {
     const minutes = Math.max(0, Math.floor((this.now() - new Date(order.createdAt).getTime()) / 60_000));
     if (minutes < 1) return this.t().justNow;
     if (minutes < 60) return this.t().minutesAgo(minutes);
-    return new Date(order.createdAt).toLocaleTimeString(this.i18n.locale(), { hour: '2-digit', minute: '2-digit' });
+    const placed = new Date(order.createdAt);
+    const time: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+    return dayAt(placed, this.timeZone()) === this.today()
+      ? placed.toLocaleTimeString(this.i18n.locale(), time)
+      : placed.toLocaleString(this.i18n.locale(), { day: 'numeric', month: 'short', ...time });
   }
 
   /** Orders waiting more than 10 minutes in New are flagged. */
@@ -155,30 +305,50 @@ export class Orders implements OnInit {
     return this.busy().has(order.id);
   }
 
-  private load(): void {
-    const venueId = this.venue.venue()?.id;
-    if (!venueId) return;
-    this.api.list(venueId, this.filter()).subscribe({
-      next: orders => this.orders.set(orders),
-      error: error => this.error.set(errorMessage(error))
+  /** Loads the first page for the current filters, or the next page after those on screen. */
+  private load(append = false): void {
+    const period = this.period();
+    this.requests.next({
+      append,
+      query: {
+        filter: this.filter(),
+        period: period === 'All' ? undefined : period,
+        date: period === 'All' ? undefined : this.anchor(),
+        locationId: this.locationId() || undefined,
+        number: this.number() ?? undefined,
+        page: append ? this.page() + 1 : undefined
+      }
     });
   }
 
-  /** Puts a pushed or updated order in its place, dropping it if it no longer fits the filter. */
+  /** Puts a pushed or updated order in its place, dropping it if it no longer fits the filters. */
   private upsert(order: OrderDto): void {
     const fits = this.fitsFilter(order);
+    const newestFirst = this.filter() === 'All';
     this.orders.update(list => {
       const others = (list ?? []).filter(o => o.id !== order.id);
       if (!fits) return others;
-      return [...others, order].sort((a, b) =>
+      return [...others, order].sort((a, b) => newestFirst ? b.number - a.number :
         Number(isDone(a)) - Number(isDone(b)) || (isDone(a) ? b.number - a.number : a.number - b.number));
     });
   }
 
   private fitsFilter(order: OrderDto): boolean {
+    if (this.locationId() && order.serviceLocationId !== this.locationId()) return false;
+    const number = this.number();
+    if (number !== null && order.number !== number) return false;
+    const period = this.period();
+    if (period !== 'All') {
+      const { start, end } = periodRange(period, this.anchor());
+      const day = dayAt(order.createdAt, this.timeZone());
+      if (day < start || day >= end) return false;
+    }
+
     const filter = this.filter();
     switch (filter) {
+      case 'All': return true;
       case 'Active': return COLUMN_OF[order.status] !== undefined;
+      case 'Closed': return order.status === 'Closed';
       case 'Rejected': return order.status === 'Rejected';
       default: return COLUMN_OF[order.status] === filter;
     }

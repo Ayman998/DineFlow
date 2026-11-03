@@ -97,7 +97,7 @@ public static class ArabicErrors
     private static readonly Dictionary<string, string> OrderStatuses = new()
     {
         ["Submitted"] = "مُرسَل", ["Accepted"] = "مقبول", ["Preparing"] = "قيد التحضير", ["Ready"] = "جاهز",
-        ["Completed"] = "مكتمل", ["Rejected"] = "مرفوض"
+        ["Completed"] = "مكتمل", ["Rejected"] = "مرفوض", ["Closed"] = "مغلق"
     };
 
     private static readonly Dictionary<string, string> LocationTypes = new()

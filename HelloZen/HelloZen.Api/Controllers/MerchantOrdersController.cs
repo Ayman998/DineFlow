@@ -11,8 +11,8 @@ namespace HelloZen.Api.Controllers;
 public class MerchantOrdersController(MerchantOrderService orders) : ControllerBase
 {
     [HttpGet("v1/merchant/venues/{venueId:guid}/orders")]
-    public Task<IReadOnlyList<OrderDto>> List(Guid venueId, [FromQuery] OrderFilter filter, CancellationToken ct) =>
-        orders.ListAsync(venueId, filter, ct);
+    public Task<IReadOnlyList<OrderDto>> List(Guid venueId, [FromQuery] OrderQuery query, CancellationToken ct) =>
+        orders.ListAsync(venueId, query, ct);
 
     /// <summary>How many orders are in each active state, for the navigation badge.</summary>
     [HttpGet("v1/merchant/venues/{venueId:guid}/orders/counts")]

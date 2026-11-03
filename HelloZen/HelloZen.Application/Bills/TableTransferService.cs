@@ -161,7 +161,13 @@ public class TableTransferService(
                 throw AppException.Conflict("paid_more_than_left",
                     "This table has already paid more than would be left on its bill. Leave more items on it, or move the whole bill to a free table.");
             if (left == 0 && source.SplitPeople is not null) source.SetSplitPeople(null, state.SharesTaken);
-            if (left > 0 && state.PaidMinor == left) source.Close(now); // everything that's left is paid for
+            if (left > 0 && state.PaidMinor == left)
+            {
+                // Everything that's left is paid for: the bill closes, and so do its served orders.
+                source.Close(now);
+                foreach (var order in live.Where(o => o.CheckId == source.Id))
+                    if (order.Close(now) && !changed.Contains(order)) changed.Add(order);
+            }
 
             source.Touch();
             destination.Touch();

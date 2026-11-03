@@ -5,7 +5,8 @@ import { Observable, Subject } from 'rxjs';
 
 import { GuestSession } from './guest-session';
 
-export type OrderStatus = 'Submitted' | 'Accepted' | 'Preparing' | 'Ready' | 'Completed' | 'Rejected';
+/** Closed: served, and the table's bill is paid in full. */
+export type OrderStatus = 'Submitted' | 'Accepted' | 'Preparing' | 'Ready' | 'Completed' | 'Rejected' | 'Closed';
 
 export interface OrderModifier {
   optionId: string;
@@ -164,7 +165,8 @@ export function trackerStage(status: OrderStatus | 'Cart'): number {
     case 'Accepted':
     case 'Preparing':
     case 'Ready': return 2;
-    case 'Completed': return 3;
+    case 'Completed':
+    case 'Closed': return 3;
     default: return -1;
   }
 }

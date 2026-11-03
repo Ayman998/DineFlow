@@ -5,6 +5,7 @@ using HelloZen.Application.Abstractions;
 using HelloZen.Application.Bills;
 using HelloZen.Application.Common;
 using HelloZen.Application.Notifications;
+using HelloZen.Application.Orders;
 using HelloZen.Application.PaymentLinks;
 using HelloZen.Application.Pos;
 using HelloZen.Application.Promotions;
@@ -30,6 +31,7 @@ public class PaymentService(
     PromotionService promotions,
     IPaymentProvider provider,
     IPaymentNotifier notifier,
+    IOrderNotifier orderNotifier,
     IEmailSender email,
     PaymentAlerts alerts,
     PosSync pos,
@@ -291,12 +293,14 @@ public class PaymentService(
         if (!succeeded) return;
 
         var totals = await bills.TotalsAsync(payment!.CheckId!.Value, ct);
+        IReadOnlyList<Order> closed = [];
         if (totals.RemainingMinor == 0)
         {
             var check = await db.Checks.IgnoreQueryFilters().SingleAsync(c => c.Id == payment.CheckId, ct);
-            check.Close(now);
+            closed = await bills.CloseAsync(check, now, ct);
             await db.SaveChangesAsync(ct);
         }
+        foreach (var order in closed) await orderNotifier.OrderChangedAsync(order.ToDto(), ct, payment.TenantId);
 
         var location = await LocationAsync(payment, ct);
         var itemCount = await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == payment.Id, ct);

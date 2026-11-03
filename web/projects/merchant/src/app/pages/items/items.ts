@@ -9,6 +9,7 @@ import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/money';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { Folding } from '../../shared/folding';
 import { CategoryChoice, ItemEditor } from '../menu/item-editor';
 import { MENU } from '../menu/menu.i18n';
 
@@ -21,7 +22,8 @@ interface ItemGroup {
 
 /**
  * The venue's items (blueprint 4.4 "Menu"; P1-MENU-02, 03, 06, 07): prices, photos, allergens,
- * tags, availability and modifiers, by category. Menus pick which ones they show.
+ * tags, availability and modifiers, by category. Each category folds away; a search shows every
+ * match whatever is folded. Menus pick which items they show.
  */
 @Component({
   selector: 'hz-items',
@@ -49,6 +51,7 @@ export class Items implements OnInit {
   protected readonly query = signal('');
   protected readonly categoryFilter = linkedSignal(() => this.category() ?? '');
   protected readonly searching = computed(() => !!this.query().trim());
+  protected readonly fold = new Folding('hz.items.folded');
 
   private readonly editor = viewChild(ItemEditor);
   private readonly confirmDialog = viewChild(ConfirmDialog);
@@ -99,6 +102,15 @@ export class Items implements OnInit {
 
   protected money(minor: number): string {
     return formatMoney(minor, this.currency());
+  }
+
+  /** A search shows every match, folded or not. */
+  protected isFolded(group: ItemGroup): boolean {
+    return !this.searching() && this.fold.isFolded(group.category.id);
+  }
+
+  protected groupIds(): string[] {
+    return this.groups().map(g => g.category.id);
   }
 
   protected menusOf(item: MenuItemDto): string[] {

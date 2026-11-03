@@ -43,6 +43,10 @@ const en = {
     `"${name}" is ${available ? 'back on the menu' : 'marked sold out'}.`,
   saved: (name: string) => `Saved "${name}".`,
   deleted: (name: string) => `Deleted "${name}".`,
+  // Folding categories, on the menu and items pages
+  expandAll: 'Expand all',
+  collapseAll: 'Collapse all',
+  toggleCategory: (name: string) => `Show or hide ${name}`,
 
   /** The menu page (menu-admin). */
   admin: {
@@ -106,7 +110,13 @@ const en = {
     newSubcategory: 'New subcategory',
     savedCategory: (name: string) => `Saved category "${name}".`,
     confirmDelete: (name: string, items: number) =>
-      `Delete "${name}"${items ? ` and its ${count(items, 'item', 'items')}` : ''}? They come off every menu. This can't be undone.`
+      `Delete "${name}"${items ? ` and its ${count(items, 'item', 'items')}` : ''}? They come off every menu. This can't be undone.`,
+    linkItems: 'Link items',
+    linkTitle: (category: string) => `Link items to "${category}"`,
+    linkIntro: 'Tick items from other categories to move them here. They keep their menus, prices and options.',
+    alreadyHere: 'Already here',
+    toMove: (n: number) => `${count(n, 'item', 'items')} to move`,
+    linked: (category: string, n: number) => `Moved ${count(n, 'item', 'items')} into "${category}".`
   },
 
   /** The items page. */
@@ -264,6 +274,9 @@ export const MENU: Lexicon<typeof en> = {
       available ? `"${name}" متوفر مجدداً في القائمة.` : `تم تحديد "${name}" كنافد.`,
     saved: (name: string) => `تم حفظ "${name}".`,
     deleted: (name: string) => `تم حذف "${name}".`,
+    expandAll: 'توسيع الكل',
+    collapseAll: 'طيّ الكل',
+    toggleCategory: (name: string) => `إظهار أو إخفاء ${name}`,
 
     admin: {
       title: 'القائمة',
@@ -321,7 +334,13 @@ export const MENU: Lexicon<typeof en> = {
       newSubcategory: 'فئة فرعية جديدة',
       savedCategory: (name: string) => `تم حفظ الفئة "${name}".`,
       confirmDelete: (name: string, items: number) =>
-        `هل تريد حذف "${name}"${items ? ` مع ${arCount(items, 'الصنف الوحيد فيها', 'الصنفين فيها', 'أصناف فيها', 'صنفاً فيها')}` : ''}؟ ستُزال من جميع القوائم، ولا يمكن التراجع عن هذا الإجراء.`
+        `هل تريد حذف "${name}"${items ? ` مع ${arCount(items, 'الصنف الوحيد فيها', 'الصنفين فيها', 'أصناف فيها', 'صنفاً فيها')}` : ''}؟ ستُزال من جميع القوائم، ولا يمكن التراجع عن هذا الإجراء.`,
+      linkItems: 'ربط الأصناف',
+      linkTitle: (category: string) => `ربط الأصناف بفئة "${category}"`,
+      linkIntro: 'حدّد أصنافاً من فئات أخرى لنقلها إلى هنا. تحتفظ بقوائمها وأسعارها وخياراتها.',
+      alreadyHere: 'موجود هنا',
+      toMove: (n: number) => `${arCount(n, 'صنف واحد', 'صنفان', 'أصناف', 'صنفاً')} للنقل`,
+      linked: (category: string, n: number) => `تم نقل ${arCount(n, 'صنف واحد', 'صنفين', 'أصناف', 'صنفاً')} إلى "${category}".`
     },
 
     itemsPage: {

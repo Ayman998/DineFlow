@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { merge } from 'rxjs';
 
-import { FinanceApi, TimelineEvent, TransactionDetail, TransactionFilter, TransactionPage, TransactionRow, TransactionState } from '../../core/api';
+import { FinanceApi, TimelineEvent, TransactionDetail, TransactionFilter, TransactionPage, TransactionRow } from '../../core/api';
 import { Auth, errorMessage } from '../../core/auth';
 import { CurrentVenue } from '../../core/current-venue';
 import { I18n } from '../../core/i18n';
@@ -33,7 +33,7 @@ export class Transactions implements OnInit {
   private readonly steps = this.i18n.use(TIMELINE);
 
   protected readonly ranges = [1, 7, 30, 90];
-  protected readonly filters: TransactionFilter[] = ['All', 'Succeeded', 'Refunded', 'Pending', 'Failed'];
+  protected readonly filters: TransactionFilter[] = ['All', 'Paid', 'PartiallyPaid', 'Refunded', 'Pending', 'Failed'];
   protected readonly days = signal(30);
   protected readonly status = signal<TransactionFilter>('All');
   protected readonly search = signal('');
@@ -125,12 +125,14 @@ export class Transactions implements OnInit {
     });
   }
 
-  protected stateLabel(state: TransactionState): string {
-    return this.t().states[state];
+  /** Paid, or Partially paid while the bill it went towards still has something owed; refunds and failures as they are. */
+  protected stateLabel(row: TransactionRow): string {
+    return this.partlyPaid(row) ? this.t().partiallyPaid : this.t().states[row.state];
   }
 
-  protected stateClass(state: TransactionState): string {
-    switch (state) {
+  protected stateClass(row: TransactionRow): string {
+    if (this.partlyPaid(row)) return 'bg-amber-50 text-amber-800';
+    switch (row.state) {
       case 'Succeeded': return 'bg-emerald-50 text-emerald-700';
       case 'PartiallyRefunded':
       case 'Refunded': return 'bg-surface text-ink';
@@ -138,6 +140,10 @@ export class Transactions implements OnInit {
       case 'Pending': return 'bg-amber-50 text-amber-800';
       default: return 'bg-surface text-ink-muted';
     }
+  }
+
+  private partlyPaid(row: TransactionRow): boolean {
+    return row.state === 'Succeeded' && row.billState === 'PartiallyPaid';
   }
 
   protected modeText(d: TransactionDetail): string | null {

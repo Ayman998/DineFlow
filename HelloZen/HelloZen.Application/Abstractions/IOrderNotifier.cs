@@ -10,5 +10,9 @@ namespace HelloZen.Application.Abstractions;
 public interface IOrderNotifier
 {
     Task OrderPlacedAsync(OrderDto order, CancellationToken ct);
-    Task OrderChangedAsync(OrderDto order, CancellationToken ct);
+    /// <param name="tenantId">
+    /// Whose staff to tell when the change didn't come from them, e.g. a payment webhook closing the
+    /// order; otherwise the signed-in merchant's.
+    /// </param>
+    Task OrderChangedAsync(OrderDto order, CancellationToken ct, Guid? tenantId = null);
 }

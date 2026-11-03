@@ -166,7 +166,7 @@ export class PaymentPage implements OnInit {
     if (payment.status === 'Succeeded' && !wasSucceeded && sessionId) {
       this.orders.list(sessionId).subscribe(orders => {
         const live = orders.filter(o => o.status !== 'Rejected');
-        this.stage.set(live.length && live.every(o => o.status === 'Completed') ? 3 : 2);
+        this.stage.set(live.length && live.every(o => o.status === 'Completed' || o.status === 'Closed') ? 3 : 2);
       });
     }
   }

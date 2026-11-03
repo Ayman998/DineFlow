@@ -142,6 +142,20 @@ public class BillService(
         check.Touch();
     }
 
+    /// <summary>
+    /// Closes a bill that's paid in full, which frees the table, and closes its served orders
+    /// (<see cref="Order.Close"/>). The caller saves.
+    /// </summary>
+    /// <returns>The orders that closed, so staff and guests can be told.</returns>
+    internal async Task<IReadOnlyList<Order>> CloseAsync(Check check, DateTimeOffset now, CancellationToken ct)
+    {
+        check.Close(now);
+        var served = await db.Orders.IgnoreQueryFilters().Include(o => o.Lines)
+            .Where(o => o.CheckId == check.Id && o.Status == OrderStatus.Completed)
+            .ToListAsync(ct);
+        return served.Where(o => o.Close(now)).ToList();
+    }
+
     /// <summary>The ledger's view of a check, used when a payment succeeds.</summary>
     internal async Task<BillTotals> TotalsAsync(Guid checkId, CancellationToken ct)
     {

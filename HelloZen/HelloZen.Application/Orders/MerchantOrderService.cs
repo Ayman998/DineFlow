@@ -2,6 +2,7 @@ using HelloZen.Application.Abstractions;
 using HelloZen.Application.Bills;
 using HelloZen.Application.Common;
 using HelloZen.Application.Pos;
+using HelloZen.Domain.Bills;
 using HelloZen.Domain.Common;
 using HelloZen.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
@@ -16,28 +17,43 @@ public record OrderCountsDto(int New, int Ready);
 /// </summary>
 public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, BillService bills, PosSync pos, TimeProvider clock)
 {
-    private const int PageSize = 100;
+    public const int PageSize = 100;
+
+    /// <summary>Weeks run Saturday to Friday, as they do in Jordan; the portal labels them the same way.</summary>
+    public const DayOfWeek WeekStart = DayOfWeek.Saturday;
 
     /// <summary>Not ready yet. Accepted and Preparing are only on orders taken on before the three-step flow.</summary>
     private static readonly OrderStatus[] NewStatuses = [OrderStatus.Submitted, OrderStatus.Accepted, OrderStatus.Preparing];
 
     private static readonly OrderStatus[] KitchenStatuses = [.. NewStatuses, OrderStatus.Ready];
 
-    public async Task<IReadOnlyList<OrderDto>> ListAsync(Guid venueId, OrderFilter filter, CancellationToken ct)
+    public async Task<IReadOnlyList<OrderDto>> ListAsync(Guid venueId, OrderQuery request, CancellationToken ct)
     {
-        var servedSince = VenueTime.StartOfToday(clock, await EnsureVenueAsync(venueId, ct));
-        var query = db.Orders.AsNoTracking().Where(o => o.VenueId == venueId).Include(o => o.Lines);
+        var timeZone = await EnsureVenueAsync(venueId, ct);
+        var servedSince = VenueTime.StartOfToday(clock, timeZone);
+        IQueryable<Order> query = db.Orders.AsNoTracking().Where(o => o.VenueId == venueId).Include(o => o.Lines);
 
-        // The kitchen works oldest first; served and rejected orders are looked back on, newest first.
-        Task<List<Order>> Oldest(IQueryable<Order> orders) => orders.OrderBy(o => o.Number).Take(PageSize).ToListAsync(ct);
-        Task<List<Order>> Newest(IQueryable<Order> orders) => orders.OrderByDescending(o => o.Number).Take(PageSize).ToListAsync(ct);
+        if (request.Period != OrderPeriod.All)
+        {
+            var (from, to) = PeriodRange(request.Period, request.Date ?? DateOnly.FromDateTime(VenueTime.LocalNow(clock, timeZone)), timeZone);
+            query = query.Where(o => o.CreatedAt >= from && o.CreatedAt < to);
+        }
+        if (request.LocationId is { } locationId) query = query.Where(o => o.ServiceLocationId == locationId);
+        if (request.Number is { } number) query = query.Where(o => o.Number == number);
 
-        var orders = filter switch
+        // The kitchen works oldest first; served, closed and rejected orders are looked back on, newest first.
+        var skip = (request.Page - 1) * PageSize;
+        Task<List<Order>> Oldest(IQueryable<Order> orders) => orders.OrderBy(o => o.Number).Skip(skip).Take(PageSize).ToListAsync(ct);
+        Task<List<Order>> Newest(IQueryable<Order> orders) => orders.OrderByDescending(o => o.Number).Skip(skip).Take(PageSize).ToListAsync(ct);
+
+        var orders = request.Filter switch
         {
             OrderFilter.New => await Oldest(query.Where(o => NewStatuses.Contains(o.Status))),
             OrderFilter.Ready => await Oldest(query.Where(o => o.Status == OrderStatus.Ready)),
             OrderFilter.Served => await Newest(query.Where(o => o.Status == OrderStatus.Completed)),
+            OrderFilter.Closed => await Newest(query.Where(o => o.Status == OrderStatus.Closed)),
             OrderFilter.Rejected => await Newest(query.Where(o => o.Status == OrderStatus.Rejected)),
+            OrderFilter.All => await Newest(query),
             // The board: everything not served yet, then what was served since midnight at the venue.
             _ => [
                 .. await Oldest(query.Where(o => KitchenStatuses.Contains(o.Status))),
@@ -75,8 +91,14 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Bil
         // Rejecting takes the order off the table's bill: make sure nobody has paid for it.
         if (request.Status == OrderStatus.Rejected) await bills.PrepareRejectionAsync(order, ct);
 
-        try { order.TransitionTo(request.Status, request.Reason, clock.GetUtcNow(), staffUserId); }
+        var now = clock.GetUtcNow();
+        try { order.TransitionTo(request.Status, request.Reason, now, staffUserId); }
         catch (DomainException ex) { throw AppException.BadRequest("invalid_request", ex.Message); }
+
+        // Served after the table had already paid in full: there's nothing left to do for it.
+        if (order.Status == OrderStatus.Completed && order.CheckId is { } checkId
+            && await db.Checks.AnyAsync(c => c.Id == checkId && c.Status == CheckStatus.Closed, ct))
+            order.Close(now);
 
         await db.SaveChangesAsync(ct);
         // Once staff take a new order on (marking it ready, or accepting it), it goes to the POS
@@ -85,6 +107,23 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Bil
         var dto = order.ToDto();
         await notifier.OrderChangedAsync(dto, ct);
         return dto;
+    }
+
+    /// <summary>The day, week, month, quarter or year at the venue that <paramref name="date"/> falls in, as UTC instants (end exclusive).</summary>
+    internal static (DateTimeOffset From, DateTimeOffset To) PeriodRange(OrderPeriod period, DateOnly date, string timeZoneId)
+    {
+        var week = date.AddDays(-(((int)date.DayOfWeek - (int)WeekStart + 7) % 7));
+        var month = new DateOnly(date.Year, date.Month, 1);
+        var quarter = new DateOnly(date.Year, (date.Month - 1) / 3 * 3 + 1, 1);
+        var (start, end) = period switch
+        {
+            OrderPeriod.Day => (date, date.AddDays(1)),
+            OrderPeriod.Week => (week, week.AddDays(7)),
+            OrderPeriod.Month => (month, month.AddMonths(1)),
+            OrderPeriod.Quarter => (quarter, quarter.AddMonths(3)),
+            _ => (new DateOnly(date.Year, 1, 1), new DateOnly(date.Year + 1, 1, 1))
+        };
+        return (VenueTime.StartOf(start, timeZoneId), VenueTime.StartOf(end, timeZoneId));
     }
 
     private async Task<Order> FindAsync(Guid orderId, bool tracked, CancellationToken ct)

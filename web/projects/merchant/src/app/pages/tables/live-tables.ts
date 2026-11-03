@@ -13,12 +13,12 @@ import { TABLES } from './tables.i18n';
 import { TransferDialog } from './transfer-dialog';
 import { TRANSFER } from './transfer.i18n';
 
-type Filter = 'All' | 'Unpaid' | 'PartiallyPaid' | 'Paid';
+type Filter = 'All' | 'Available' | 'Unpaid' | 'PartiallyPaid';
 
 /**
  * The live table view (blueprint 4.4 "Tables", P1-MER-10, mockup "Merchant table view"): each
  * table's state, what's been paid against its bill, and its orders when expanded. Updates as
- * orders and payments come in. Staff can open an order, and move an open bill, or some of its
+ * orders and payments come in; a table whose bill is paid in full is available again. Staff can open an order, and move an open bill, or some of its
  * items, to another table.
  */
 @Component({
@@ -122,7 +122,7 @@ export class LiveTables implements OnInit {
   private readonly strings = this.i18n.use(TABLES);
   /** Named "s" because the template's loop variable is "t". */
   protected readonly s = computed(() => this.strings().live);
-  protected readonly filters: Filter[] = ['All', 'Unpaid', 'PartiallyPaid', 'Paid'];
+  protected readonly filters: Filter[] = ['All', 'Available', 'Unpaid', 'PartiallyPaid'];
   protected readonly filter = signal<Filter>('All');
   protected readonly tables = signal<TableStatus[]>([]);
   protected readonly expanded = signal<string | null>(null);
@@ -243,7 +243,7 @@ export class LiveTables implements OnInit {
     switch (filter) {
       case 'Unpaid': return t.state === 'Unpaid' || t.state === 'Attention';
       case 'PartiallyPaid': return t.state === 'PartiallyPaid';
-      case 'Paid': return t.state === 'Paid';
+      case 'Available': return t.state === 'Available';
       default: return true;
     }
   }

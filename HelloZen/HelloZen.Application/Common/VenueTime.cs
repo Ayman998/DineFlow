@@ -18,4 +18,11 @@ public static class VenueTime
         var midnight = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), zone).Date;
         return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(midnight, zone), TimeSpan.Zero);
     }
+
+    /// <summary>Midnight at the venue at the start of <paramref name="date"/>.</summary>
+    public static DateTimeOffset StartOf(DateOnly date, string timeZoneId)
+    {
+        var zone = TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out var found) ? found : TimeZoneInfo.Utc;
+        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue), zone), TimeSpan.Zero);
+    }
 }

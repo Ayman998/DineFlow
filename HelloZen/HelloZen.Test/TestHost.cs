@@ -77,7 +77,7 @@ public sealed class TestHost : IDisposable
         Promotions = new PromotionService(Db, _tenant, Bills, Clock);
         var features = Options.Create(Features);
         Alerts = new PaymentAlerts(Db, features, Clock);
-        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Emails, Alerts, PosSync, paymentOptions, guestOptions, Clock);
+        Payments = new PaymentService(Db, Bills, Promotions, Sandbox, PaymentNotifier, Notifier, Emails, Alerts, PosSync, paymentOptions, guestOptions, Clock);
         GuestReviews = new GuestReviewService(Db, ReviewNotifier, Clock);
         MerchantReviews = new MerchantReviewService(Db, _tenant, Clock);
         Transactions = new TransactionService(Db, _tenant, Sandbox, Clock);
@@ -168,7 +168,7 @@ public sealed class TestHost : IDisposable
         var paymentOptions = Options.Create(new PaymentOptions());
         var bills = new BillService(db, Sandbox, PaymentNotifier, paymentOptions, Clock);
         var promotions = new PromotionService(db, _tenant, bills, Clock);
-        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Emails, new PaymentAlerts(db, Options.Create(Features), Clock),
+        var payments = new PaymentService(db, bills, promotions, Sandbox, PaymentNotifier, Notifier, Emails, new PaymentAlerts(db, Options.Create(Features), Clock),
             new PosSync(db, PosConnectors, Clock), paymentOptions,
             Options.Create(new GuestOptions { AppBaseUrl = "https://guest.test" }), Clock);
         return new Scope(db, bills, payments, new TransactionService(db, _tenant, Sandbox, Clock),
@@ -255,7 +255,7 @@ public sealed class TestHost : IDisposable
             return Task.CompletedTask;
         }
 
-        public Task OrderChangedAsync(OrderDto order, CancellationToken ct)
+        public Task OrderChangedAsync(OrderDto order, CancellationToken ct, Guid? tenantId = null)
         {
             Events.Add(("changed", order));
             return Task.CompletedTask;

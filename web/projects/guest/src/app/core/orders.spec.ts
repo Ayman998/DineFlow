@@ -8,6 +8,7 @@ describe('trackerStage', () => {
     expect(trackerStage('Preparing')).toBe(2);
     expect(trackerStage('Ready')).toBe(2);
     expect(trackerStage('Completed')).toBe(3);
+    expect(trackerStage('Closed')).toBe(3);
   });
 
   it('has no stage for a rejected order', () => {

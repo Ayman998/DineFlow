@@ -180,6 +180,25 @@ public class MenuAdminService(IAppDbContext db, ITenantContext tenant, TimeProvi
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Files existing items under the category, after the items already in it, e.g. when grouping
+    /// dishes into a new category. They keep their menus, prices and everything else.
+    /// </summary>
+    public async Task LinkItemsAsync(Guid categoryId, CategoryItemsRequest request, CancellationToken ct)
+    {
+        var category = await FindCategoryAsync(categoryId, ct);
+        var ids = request.ItemIds.Distinct().ToList();
+        var items = await db.MenuItems.Where(i => ids.Contains(i.Id) && i.VenueId == category.VenueId).ToListAsync(ct);
+        if (items.Count != ids.Count)
+            throw AppException.NotFound("item_not_found", "Some of those items no longer exist. Reload and try again.");
+
+        var next = (await db.MenuItems.Where(i => i.CategoryId == category.Id).Select(i => (int?)i.SortOrder).MaxAsync(ct) ?? -1) + 1;
+        foreach (var item in items.Where(i => i.CategoryId != category.Id).OrderBy(i => ids.IndexOf(i.Id)))
+            item.MoveTo(category.Id, next++);
+
+        await db.SaveChangesAsync(ct);
+    }
+
     // ---- Items ----
 
     public async Task<ItemDto> CreateItemAsync(ItemRequest request, CancellationToken ct)

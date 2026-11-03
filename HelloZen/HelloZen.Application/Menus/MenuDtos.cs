@@ -117,6 +117,9 @@ public record AvailabilityRequest(bool IsAvailable);
 /// <param name="ItemIds">Every item the menu should show; items left out are taken off it.</param>
 public record MenuItemsRequest([Required] IReadOnlyList<Guid> ItemIds);
 
+/// <param name="ItemIds">Items of the venue to file under the category, in the order they should follow the ones already there.</param>
+public record CategoryItemsRequest([Required, MinLength(1), MaxLength(500)] IReadOnlyList<Guid> ItemIds);
+
 /// <param name="PriceMinor">What the menu charges for the item; null to use the item's own price.</param>
 public record MenuItemPriceRequest([Range(0, 100_000_000)] long? PriceMinor);
 
