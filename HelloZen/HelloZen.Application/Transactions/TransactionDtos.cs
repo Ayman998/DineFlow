@@ -66,14 +66,20 @@ public record TransactionRowDto(
     /// <summary>Where the payment stands with the venue's POS; null when it isn't posted to one (blueprint POSTED / POSTING_PENDING).</summary>
     string? PosStatus);
 
-/// <summary>Money for the successful payments that match the filters (not just the current page).</summary>
-public record TransactionTotalsDto(int Count, long GrossMinor, long TipsMinor, long RefundsMinor, long NetMinor);
+/// <summary>
+/// Money for the successful payments that match the filters (not just the current page). Count and
+/// GrossMinor cover them all; they split into those towards bills (or links) now paid in full and
+/// those towards ones with something still owed.
+/// </summary>
+public record TransactionTotalsDto(
+    int Count, long GrossMinor, long TipsMinor, long RefundsMinor, long NetMinor,
+    int PaidCount, long PaidMinor, int PartiallyPaidCount, long PartiallyPaidMinor);
 
 public record TransactionPageDto(IReadOnlyList<TransactionRowDto> Items, int Total, int Page, int PageSize, TransactionTotalsDto Totals);
 
 public record TransactionOrderLineDto(string Name, int Quantity, long LineTotalMinor);
 
-public record TransactionOrderDto(Guid Id, int Number, OrderStatus Status, DateTimeOffset CreatedAt, IReadOnlyList<TransactionOrderLineDto> Lines, long TotalMinor);
+public record TransactionOrderDto(Guid Id, int Number, int Round, OrderStatus Status, DateTimeOffset CreatedAt, IReadOnlyList<TransactionOrderLineDto> Lines, long TotalMinor);
 
 public record RefundDto(
     Guid Id, long AmountMinor, string Reason, RefundStatus Status, string? FailureReason,

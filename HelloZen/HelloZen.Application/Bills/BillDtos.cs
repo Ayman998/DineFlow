@@ -51,7 +51,7 @@ public record BillDto(
     string TermsVersion,
     string TermsUrl);
 
-public record BillOrderDto(Guid Id, int Number, OrderStatus Status, IReadOnlyList<OrderLineDto> Lines, long TotalMinor);
+public record BillOrderDto(Guid Id, int Number, int Round, OrderStatus Status, IReadOnlyList<OrderLineDto> Lines, long TotalMinor);
 
 /// <param name="People">How many people the table splits between equally; null when not splitting.</param>
 /// <param name="SharesTaken">Equal shares paid or being paid.</param>

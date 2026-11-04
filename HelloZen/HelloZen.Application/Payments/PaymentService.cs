@@ -379,7 +379,7 @@ public class PaymentService(
         var location = await LocationAsync(payment, ct);
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.CheckId == payment.CheckId && o.Status != OrderStatus.Rejected)
-            .Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
+            .Include(o => o.Lines).OrderBy(o => o.Number).ThenBy(o => o.Round).ToListAsync(ct);
         var claims = await db.ItemClaims.AsNoTracking().Where(c => c.PaymentId == payment.Id).ToListAsync(ct);
         language ??= await db.GuestSessions.Where(s => s.Id == sessionId).Select(s => s.Locale).SingleOrDefaultAsync(ct);
 
@@ -465,7 +465,7 @@ internal static class Receipt
         string T(string english, string ar) => arabic ? ar : english;
         string Money(long minor) => FormatMoney(minor, payment.Currency);
         var place = $"{Languages.LocationName(location, arabic)}{(location.DiningArea is { } a ? $" · {Languages.AreaName(a, arabic)}" : "")}";
-        var lines = orders.OrderBy(o => o.Number).SelectMany(o => o.Lines.OrderBy(l => l.Position)).ToList();
+        var lines = orders.OrderBy(o => o.Number).ThenBy(o => o.Round).SelectMany(o => o.Lines.OrderBy(l => l.Position)).ToList();
         string Name(OrderLine line) => arabic && line.NameAr is { } nameAr ? nameAr : line.Name;
 
         var rows = new List<(string Label, string Value)>();

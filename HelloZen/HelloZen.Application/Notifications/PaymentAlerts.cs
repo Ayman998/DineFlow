@@ -32,7 +32,7 @@ public class PaymentAlerts(IAppDbContext db, IOptions<FeatureOptions> features, 
             arabic => remainingMinor == 0 ? (arabic ? "تم دفع الفاتورة بالكامل" : "Bill fully paid") : LeftToPay(remainingMinor, payment.Currency, arabic),
             async () => payment.CheckId is { } checkId
                 ? await db.Orders.IgnoreQueryFilters().Where(o => o.CheckId == checkId && o.Status != Domain.Orders.OrderStatus.Rejected)
-                    .OrderBy(o => o.Number).Select(o => o.Number).ToListAsync(ct)
+                    .Select(o => o.Number).Distinct().OrderBy(n => n).ToListAsync(ct)
                 : [], ct);
 
     /// <summary>A payment through a payment link went through.</summary>

@@ -210,9 +210,11 @@ public class TableTransferTests : IDisposable
 
         var result = await MoveAsync(f, f.Seven, f.Eight, (await LineAsync(f.Seven, "Coke"), 2));
 
+        var moved = await _host.MerchantOrders.GetAsync(second.Id, default);
         Assert.False(result.WholeBill);
-        Assert.Equal([second.Number], result.OrderNumbers);
-        Assert.Equal("8", (await _host.MerchantOrders.GetAsync(second.Id, default)).LocationLabel);
+        Assert.Equal([moved.Number], result.OrderNumbers);
+        Assert.NotEqual(first.Number, moved.Number); // it takes table 8's bill's number, as its first round
+        Assert.Equal(("8", 1), (moved.LocationLabel, moved.Round));
         Assert.Equal("7", (await _host.MerchantOrders.GetAsync(first.Id, default)).LocationLabel);
         Assert.Equal(2_500, (await BillAsync(await GuestAtAsync(f, f.Eight))).TotalMinor);
     }

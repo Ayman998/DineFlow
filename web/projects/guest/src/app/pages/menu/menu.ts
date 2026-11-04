@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, afterRenderEffect, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Cart } from '../../core/cart';
@@ -20,7 +20,8 @@ const VIEW_KEY = 'df.menuView';
 
 /**
  * The e-menu (blueprint 4.2 steps 2–3, mockup "e-Menu home"): venue header, menu switcher,
- * grid/list toggle, search, category chips, items and a sticky order bar.
+ * grid/list toggle, search, category chips (with arrows when they run off the screen), items and
+ * a sticky order bar.
  */
 @Component({
   selector: 'hz-menu',
@@ -44,6 +45,10 @@ export class MenuPage implements OnInit {
   protected readonly pickerOpen = signal(false);
   protected readonly openItem = signal<MenuItem | null>(null);
   protected readonly toast = signal<string | null>(null);
+  /** Whether there are chips out of sight before or after the visible ones, so the arrows show. */
+  protected readonly chipsBack = signal(false);
+  protected readonly chipsForward = signal(false);
+  private readonly chips = viewChild<ElementRef<HTMLElement>>('chips');
 
   protected readonly menu = computed<Menu | null>(() => {
     const menus = this.tree()?.menus ?? [];
@@ -72,6 +77,19 @@ export class MenuPage implements OnInit {
 
   protected readonly canOrder = computed(() => this.menu()?.availableNow ?? false);
 
+  constructor() {
+    // Recheck the arrows once the chips render or change, and when the row is resized (turning the phone, say).
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => this.updateChipArrows());
+    inject(DestroyRef).onDestroy(() => resize?.disconnect());
+    afterRenderEffect(() => {
+      const row = this.chips()?.nativeElement;
+      this.categories();
+      if (!row) return;
+      resize?.observe(row);
+      this.updateChipArrows();
+    });
+  }
+
   ngOnInit(): void {
     const context = this.context();
     if (!context) return;
@@ -83,6 +101,24 @@ export class MenuPage implements OnInit {
       },
       error: error => this.errorCode.set(errorCode(error))
     });
+  }
+
+  protected updateChipArrows(): void {
+    const row = this.chips()?.nativeElement;
+    if (!row) return;
+    // In Arabic the row scrolls the other way, so scrollLeft runs from 0 down to minus the overflow.
+    const scrolled = Math.abs(row.scrollLeft);
+    const overflow = row.scrollWidth - row.clientWidth;
+    this.chipsBack.set(scrolled > 1);
+    this.chipsForward.set(scrolled < overflow - 1);
+  }
+
+  /** Scrolls the chips most of the row's width on (1) or back (-1), in the reading direction. */
+  protected scrollChips(step: 1 | -1): void {
+    const row = this.chips()?.nativeElement;
+    if (!row) return;
+    const rtl = getComputedStyle(row).direction === 'rtl';
+    row.scrollBy({ left: step * (rtl ? -1 : 1) * row.clientWidth * 0.7, behavior: 'smooth' });
   }
 
   protected selectMenu(menu: Menu): void {

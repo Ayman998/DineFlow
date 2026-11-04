@@ -5,7 +5,8 @@ namespace HelloZen.Domain.Orders;
 /// <summary>
 /// A round of food and drink ordered from a table session (blueprint 3.4). Lines are snapshots
 /// of names and prices at the time of ordering, so later menu edits never change an order.
-/// A session can place several orders.
+/// A table can order several rounds; they all carry its bill's number, and each goes to the
+/// kitchen on its own.
 /// </summary>
 public class Order : Entity, ITenantOwned
 {
@@ -22,8 +23,10 @@ public class Order : Entity, ITenantOwned
     public Guid? CheckId { get; private set; }
     /// <summary>The guest app's id for this submission; makes retries safe (blueprint 7.3).</summary>
     public Guid ClientRequestId { get; private set; }
-    /// <summary>Short number staff and guests use, e.g. 1024. Unique per venue.</summary>
+    /// <summary>Short number staff and guests use, e.g. 1024: the table's bill's number, shared by all its rounds.</summary>
     public int Number { get; private set; }
+    /// <summary>Which round on the bill this is: 1 for the first order, 2 for the items ordered next, and so on.</summary>
+    public int Round { get; private set; } = 1;
     public OrderStatus Status { get; private set; } = OrderStatus.Submitted;
 
     /// <summary>Location snapshot, e.g. Table / "12" / "Main hall".</summary>
@@ -84,20 +87,28 @@ public class Order : Entity, ITenantOwned
         Reprice();
     }
 
-    /// <summary>Adds the order to the table's open bill.</summary>
-    public void AssignToCheck(Guid checkId) => CheckId = checkId;
+    /// <summary>Adds the order to the table's open bill as its next round.</summary>
+    public void AssignToCheck(Guid checkId, int round)
+    {
+        CheckId = checkId;
+        Round = round;
+    }
 
     /// <summary>
     /// Moves the order to another table's bill, e.g. when the guests change tables. It keeps its
-    /// number and kitchen status; the location snapshot follows it, so staff serve the right table.
+    /// kitchen status and takes that bill's <paramref name="number"/> as its <paramref name="round"/>;
+    /// the location snapshot follows it, so staff serve the right table.
     /// </summary>
-    public void MoveTo(Guid serviceLocationId, string locationType, string locationLabel, string? areaName, Guid checkId, DateTimeOffset now)
+    public void MoveTo(Guid serviceLocationId, string locationType, string locationLabel, string? areaName, Guid checkId,
+        int number, int round, DateTimeOffset now)
     {
         ServiceLocationId = serviceLocationId;
         LocationType = locationType;
         LocationLabel = locationLabel;
         AreaName = areaName;
         CheckId = checkId;
+        Number = number;
+        Round = round;
         UpdatedAt = now;
     }
 
@@ -105,7 +116,8 @@ public class Order : Entity, ITenantOwned
     /// Takes some of the items off this order onto a new one at the same table, ready to be moved,
     /// e.g. when one guest takes their drinks to the bar. <paramref name="quantities"/> says how
     /// many of each line (by line id) go. The new order keeps this one's guest, status, charges
-    /// and time, and both orders are repriced. Moving every item is <see cref="MoveTo"/> instead.
+    /// and time, and both orders are repriced; <see cref="MoveTo"/> then puts it on the other bill.
+    /// Moving every item is <see cref="MoveTo"/> alone.
     /// </summary>
     public Order SplitOff(IReadOnlyDictionary<Guid, int> quantities, int number, DateTimeOffset now)
     {

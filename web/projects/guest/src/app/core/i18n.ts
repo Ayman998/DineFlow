@@ -61,6 +61,8 @@ const EN = {
   listView: 'List view',
   searchMenu: 'Search the menu',
   all: 'All',
+  scrollCategoriesBack: 'Earlier categories',
+  scrollCategoriesForward: 'More categories',
   noResults: 'Nothing matches your search.',
   emptyMenu: 'This menu has no items yet.',
   unavailableNow: 'Unavailable right now',
@@ -125,7 +127,7 @@ const EN = {
     invalid_choices: 'Please choose the options again'
   } as Partial<Record<string, string>>,
   placeFailed: "We couldn't send your order. Check your connection and try again; you won't be charged twice.",
-  orderNumber: (n: number) => `Order #${n}`,
+  orderNumber: (n: number, round = 1) => (round > 1 ? `Order #${n} · round ${round}` : `Order #${n}`),
   orderSent: "Order sent! This page updates as the kitchen works on it.",
   orderStatus: {
     Submitted: 'Sent — waiting for the kitchen to confirm',
@@ -411,6 +413,8 @@ const AR: Strings = {
   listView: 'عرض قائمة',
   searchMenu: 'ابحث في القائمة',
   all: 'الكل',
+  scrollCategoriesBack: 'الفئات السابقة',
+  scrollCategoriesForward: 'المزيد من الفئات',
   noResults: 'لا توجد نتائج مطابقة.',
   emptyMenu: 'لا توجد أصناف في هذه القائمة بعد.',
   unavailableNow: 'غير متوفر حالياً',
@@ -475,7 +479,7 @@ const AR: Strings = {
     invalid_choices: 'يرجى اختيار الإضافات من جديد'
   },
   placeFailed: 'تعذّر إرسال طلبك. تحقق من اتصالك وحاول مرة أخرى؛ لن يتم احتساب الطلب مرتين.',
-  orderNumber: (n: number) => `الطلب #${n}`,
+  orderNumber: (n: number, round = 1) => (round > 1 ? `الطلب #${n} · الجولة ${round}` : `الطلب #${n}`),
   orderSent: 'تم إرسال الطلب! تتحدث هذه الصفحة أثناء تحضيره.',
   orderStatus: {
     Submitted: 'تم الإرسال — بانتظار تأكيد المطبخ',

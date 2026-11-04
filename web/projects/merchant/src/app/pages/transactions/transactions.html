@@ -28,11 +28,13 @@
 
   @if (d) {
     @let cur = d.items[0]?.currency ?? 'AED';
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paidCount(d.totals.count) }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.grossMinor, cur) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.ofWhichTips }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.tipsMinor, cur) }}</p></div>
+    <!-- Paid and Partially Paid add up to everything taken; tips are part of both. On phones Net takes a row of its own. -->
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.paidCount(d.totals.paidCount) }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.paidMinor, cur) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.partiallyPaidCount(d.totals.partiallyPaidCount) }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.partiallyPaidMinor, cur) }}</p></div>
+      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.tips }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.tipsMinor, cur) }}</p></div>
       <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.refunded }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.refundsMinor, cur) }}</p></div>
-      <div class="card py-4"><p class="text-sm text-ink-muted">{{ t.net }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.netMinor, cur) }}</p></div>
+      <div class="card py-4 max-lg:col-span-2"><p class="text-sm text-ink-muted">{{ t.net }}</p><p class="mt-1 text-lg font-semibold tabular-nums sm:text-xl">{{ money(d.totals.netMinor, cur) }}</p></div>
     </div>
 
     <section class="card p-0 transition-opacity" [class.opacity-60]="loading()">

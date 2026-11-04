@@ -108,7 +108,7 @@ public class GuestReviewService(IAppDbContext db, IReviewNotifier notifier, Time
     {
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.CheckId == checkId && o.Status != OrderStatus.Rejected)
-            .OrderByDescending(o => o.Number)
+            .OrderByDescending(o => o.Number).ThenByDescending(o => o.Round)
             .Select(o => new { o.ServedByStaffId, o.AcceptedByStaffId })
             .ToListAsync(ct);
         return orders.Select(o => o.ServedByStaffId).FirstOrDefault(id => id is not null)

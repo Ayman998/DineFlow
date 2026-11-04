@@ -54,6 +54,7 @@ export type Selection =
 export interface BillOrder {
   id: string;
   number: number;
+  round: number;
   status: OrderStatus;
   lines: {
     name: string;

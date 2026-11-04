@@ -30,8 +30,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasMany(o => o.Lines).WithOne().HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        // Order numbers are unique per venue; a retried submission maps back to the same order.
-        builder.HasIndex(o => new { o.VenueId, o.Number }).IsUnique();
+        // A table's rounds share its bill's number (bills keep numbers unique); a retried submission
+        // maps back to the same order.
+        builder.HasIndex(o => new { o.VenueId, o.Number });
         builder.HasIndex(o => new { o.GuestSessionId, o.ClientRequestId }).IsUnique();
         builder.HasIndex(o => new { o.VenueId, o.Status, o.CreatedAt });
         builder.HasIndex(o => o.CheckId);

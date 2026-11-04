@@ -64,9 +64,12 @@ public record CartIssueDto(int Index, string Code, string Message);
 
 // ---- Orders ----
 
+/// <param name="Number">The table's bill's number, shared by all its rounds.</param>
+/// <param name="Round">1 for the table's first order, 2 for what it ordered next, and so on.</param>
 public record OrderDto(
     Guid Id,
     int Number,
+    int Round,
     OrderStatus Status,
     Guid VenueId,
     Guid ServiceLocationId,
@@ -137,7 +140,7 @@ public record OrderQuery(
 internal static class OrderMapping
 {
     public static OrderDto ToDto(this Order o) => new(
-        o.Id, o.Number, o.Status, o.VenueId, o.ServiceLocationId, o.LocationType, o.LocationLabel, o.AreaName,
+        o.Id, o.Number, o.Round, o.Status, o.VenueId, o.ServiceLocationId, o.LocationType, o.LocationLabel, o.AreaName,
         o.GuestSessionId, o.Currency,
         o.Lines.OrderBy(l => l.Position).Select(l => new OrderLineDto(
             l.MenuItemId, l.Name, l.NameAr, l.Quantity, l.UnitPriceMinor, l.LineTotalMinor,

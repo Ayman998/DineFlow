@@ -40,6 +40,10 @@ const NEXT: Record<OrderStatus, OrderStatus | null> = {
 /** Served, closed and rejected orders are looked back on, newest first; the kitchen works oldest first. */
 const isDone = (order: OrderDto) => order.status === 'Completed' || order.status === 'Closed' || order.status === 'Rejected';
 
+/** When it was placed: a table's later round shares its first one's number, so the number alone won't do. */
+const placedOrder = (a: OrderDto, b: OrderDto) =>
+  a.createdAt.localeCompare(b.createdAt) || a.number - b.number || a.round - b.round;
+
 /**
  * The live order queue (blueprint 4.4 "Orders", P1-ORD-03/04): new orders arrive in real time
  * and staff move them New → Ready → Served, or reject them with a reason the guest sees. The
@@ -328,8 +332,8 @@ export class Orders implements OnInit {
     this.orders.update(list => {
       const others = (list ?? []).filter(o => o.id !== order.id);
       if (!fits) return others;
-      return [...others, order].sort((a, b) => newestFirst ? b.number - a.number :
-        Number(isDone(a)) - Number(isDone(b)) || (isDone(a) ? b.number - a.number : a.number - b.number));
+      return [...others, order].sort((a, b) => newestFirst ? placedOrder(b, a) :
+        Number(isDone(a)) - Number(isDone(b)) || (isDone(a) ? placedOrder(b, a) : placedOrder(a, b)));
     });
   }
 

@@ -57,7 +57,10 @@
            [class]="fresh().has(order.id) ? 'border-accent ring-2 ring-accent/60' : isLate(order) ? 'border-red-300' : 'border-line'">
     <div class="flex items-start justify-between gap-2">
       <div>
-        <div class="text-lg font-bold">#{{ order.number }}</div>
+        <div class="text-lg font-bold">
+          #{{ order.number }}
+          @if (order.round > 1) { <span class="ms-1 rounded-md bg-accent-soft px-1.5 py-0.5 align-middle text-xs font-bold text-ink">{{ t.round(order.round) }}</span> }
+        </div>
         <div class="text-sm font-semibold">
           {{ locationType(order) }} {{ order.locationLabel }}@if (order.areaName) { <span class="font-normal text-ink-muted"> · {{ order.areaName }}</span> }
         </div>

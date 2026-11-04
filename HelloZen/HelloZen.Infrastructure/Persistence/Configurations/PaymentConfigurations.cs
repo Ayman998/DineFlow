@@ -30,6 +30,8 @@ public class CheckConfiguration : IEntityTypeConfiguration<Check>
 
         // At most one open bill per table, even if two guests order at the same moment.
         builder.HasIndex(c => c.ServiceLocationId).IsUnique().HasFilter("[Status] = 'Open'");
+        // Each bill's order number is the venue's alone, so two bills opened at once can't share one.
+        builder.HasIndex(c => new { c.VenueId, c.Number }).IsUnique().HasFilter("[Number] IS NOT NULL");
     }
 }
 

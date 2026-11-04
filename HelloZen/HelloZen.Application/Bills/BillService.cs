@@ -172,7 +172,7 @@ public class BillService(
         var orders = await db.Orders.IgnoreQueryFilters().AsNoTracking()
             .Where(o => o.CheckId == check.Id && o.Status != OrderStatus.Rejected)
             .Include(o => o.Lines)
-            .OrderBy(o => o.Number)
+            .OrderBy(o => o.Number).ThenBy(o => o.Round)
             .ToListAsync(ct);
         var payments = await db.Payments.IgnoreQueryFilters().AsNoTracking()
             .Where(p => p.CheckId == check.Id).ToListAsync(ct);
@@ -229,7 +229,7 @@ public class BillService(
             state.HeldBy(sessionId).Sum(c => c.AmountMinor));
 
         return new BillDto(check.Id, status, check.Currency, location.Type.ToString(), location.Label, location.DiningArea?.Name, location.DiningArea?.NameAr,
-            state.Orders.Select(o => new BillOrderDto(o.Id, o.Number, o.Status, o.ToDto().Lines, o.TotalMinor)).ToList(),
+            state.Orders.Select(o => new BillOrderDto(o.Id, o.Number, o.Round, o.Status, o.ToDto().Lines, o.TotalMinor)).ToList(),
             state.Orders.Sum(o => o.SubtotalMinor), state.Orders.Sum(o => o.ServiceChargeMinor), state.Orders.Sum(o => o.TaxMinor),
             state.Orders.Count == 0 || state.Orders.All(o => o.TaxIncluded), state.TotalMinor, state.PaidMinor, state.OpenMinor,
             open ? state.ReservedFor(sessionId) : 0, open ? state.AvailableFor(sessionId) : 0, state.InFlight.Any(),

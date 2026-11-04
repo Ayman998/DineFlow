@@ -52,7 +52,11 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
         var tips = await succeeded.SumAsync(p => (long?)p.TipMinor, ct) ?? 0;
         var refunded = await refunds.Where(r => r.Status == RefundStatus.Succeeded && succeeded.Any(p => p.Id == r.PaymentId))
             .SumAsync(r => (long?)r.AmountMinor, ct) ?? 0;
-        var totals = new TransactionTotalsDto(await succeeded.CountAsync(ct), gross, tips, refunded, gross - refunded);
+        var settled = succeeded.Where(p => settledChecks.Contains(p.CheckId) || settledLinks.Contains(p.PaymentLinkId));
+        var count = await succeeded.CountAsync(ct);
+        var paidCount = await settled.CountAsync(ct);
+        var paid = await settled.SumAsync(p => (long?)p.AmountMinor, ct) ?? 0;
+        var totals = new TransactionTotalsDto(count, gross, tips, refunded, gross - refunded, paidCount, paid, count - paidCount, gross - paid);
 
         var page = await payments.OrderByDescending(p => p.CreatedAt)
             .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToListAsync(ct);
@@ -71,7 +75,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
             : await db.ServiceLocations.AsNoTracking().Include(l => l.DiningArea).SingleAsync(l => l.Id == check.ServiceLocationId, ct);
         var link = await db.PaymentLinks.AsNoTracking().SingleOrDefaultAsync(l => l.Id == payment.PaymentLinkId, ct);
         var orders = check is null ? []
-            : await db.Orders.AsNoTracking().Where(o => o.CheckId == check.Id).Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
+            : await db.Orders.AsNoTracking().Where(o => o.CheckId == check.Id).Include(o => o.Lines).OrderBy(o => o.Number).ThenBy(o => o.Round).ToListAsync(ct);
         var refunds = await db.Refunds.AsNoTracking().Where(r => r.PaymentId == payment.Id).OrderBy(r => r.CreatedAt).ToListAsync(ct);
         var staffIds = refunds.Select(r => r.RequestedByStaffId).Append(link?.CreatedByStaffId ?? Guid.Empty).Distinct().ToList();
         var staff = await db.StaffUsers.AsNoTracking().Where(s => staffIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.DisplayName, ct);
@@ -86,7 +90,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
             payment.BillAmountMinor, payment.DiscountMinor, payment.PromoCode, payment.TipMinor, payment.AmountMinor,
             Refundable(payment, refunds), payment.Shares, payment.SplitPeople, itemCount, payment.FailureReason,
             review?.Rating, review?.Id,
-            orders.Select(o => new TransactionOrderDto(o.Id, o.Number, o.Status, o.CreatedAt,
+            orders.Select(o => new TransactionOrderDto(o.Id, o.Number, o.Round, o.Status, o.CreatedAt,
                 o.Lines.OrderBy(l => l.Position).Select(l => new TransactionOrderLineDto(l.Name, l.Quantity, l.LineTotalMinor)).ToList(),
                 o.TotalMinor)).ToList(),
             refundDtos,
@@ -203,7 +207,7 @@ public class TransactionService(IAppDbContext db, ITenantContext tenant, IPaymen
             return new TransactionRowDto(p.Id, p.Reference, p.CreatedAt, p.SucceededAt, StateOf(p, refunded), billState, p.Method, p.CardBrand, p.CardLast4,
                 p.Mode, location?.Type.ToString() ?? "", location?.Label ?? "",
                 link?.Code,
-                orders.Where(o => o.CheckId == p.CheckId).Select(o => o.Number).Order().ToList(),
+                orders.Where(o => o.CheckId == p.CheckId).Select(o => o.Number).Distinct().Order().ToList(),
                 p.Currency, p.AmountMinor, p.TipMinor, refunded, mine.Any(r => r.Status == RefundStatus.Pending),
                 postings.TryGetValue(p.Id, out var posting) ? posting switch
                 {

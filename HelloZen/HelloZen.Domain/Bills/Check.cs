@@ -28,6 +28,14 @@ public class Check : Entity, ITenantOwned
     public int? SplitPeople { get; private set; }
     /// <summary>This bill's check in the POS, once the first order has been sent there.</summary>
     public string? PosCheckRef { get; private set; }
+    /// <summary>
+    /// The order number every order on the bill shares, e.g. 1024; unique per venue. Null only on
+    /// a bill from before numbers were shared that has no orders.
+    /// </summary>
+    public int? Number { get; private set; }
+
+    /// <summary>Gives the bill its order number when its first order comes in; a bill keeps the one it has.</summary>
+    public void AssignNumber(int number) => Number ??= number;
 
     public void LinkPosCheck(string checkRef)
     {

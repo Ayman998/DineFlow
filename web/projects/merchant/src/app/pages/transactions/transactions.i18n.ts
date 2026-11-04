@@ -8,11 +8,12 @@ const en = {
   range: (days: number) => (days === 1 ? 'Last 24 hours' : `Last ${days} days`),
   status: 'Status',
   filters: {
-    All: 'All', Succeeded: 'Succeeded', Paid: 'Paid', PartiallyPaid: 'Partially paid', Refunded: 'Refunded', Pending: 'Pending', Failed: 'Failed'
+    All: 'All', Succeeded: 'Succeeded', Paid: 'Paid', PartiallyPaid: 'Partially Paid', Refunded: 'Refunded', Pending: 'Pending', Failed: 'Failed'
   } as Record<TransactionFilter, string>,
   searchPlaceholder: 'Reference, link, table or amount',
   paidCount: (count: number) => `Paid (${count})`,
-  ofWhichTips: 'Of which tips',
+  partiallyPaidCount: (count: number) => `Partially Paid (${count})`,
+  tips: 'Tips',
   refunded: 'Refunded',
   net: 'Net',
   noMatch: 'No payments match.',
@@ -28,7 +29,7 @@ const en = {
     Pending: 'Pending', Succeeded: 'Paid', PartiallyRefunded: 'Partly refunded', Refunded: 'Refunded', Failed: 'Failed', Cancelled: 'Cancelled'
   } as Record<TransactionState, string>,
   /** A successful payment towards a bill (or link) that still has something owed on it. */
-  partiallyPaid: 'Partially paid',
+  partiallyPaid: 'Partially Paid',
   amountRefunded: (amount: string) => `−${amount} refunded`,
   refundPending: 'Refund pending',
   posRefused: 'POS refused',
@@ -83,7 +84,8 @@ export const TRANSACTIONS: Lexicon<typeof en> = {
     },
     searchPlaceholder: 'المرجع أو الرابط أو الطاولة أو المبلغ',
     paidCount: (count: number) => `المدفوع (${count})`,
-    ofWhichTips: 'منها إكراميات',
+    partiallyPaidCount: (count: number) => `المدفوع جزئياً (${count})`,
+    tips: 'الإكراميات',
     refunded: 'المسترد',
     net: 'الصافي',
     noMatch: 'لا توجد دفعات مطابقة.',

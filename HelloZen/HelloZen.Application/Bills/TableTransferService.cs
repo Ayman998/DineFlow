@@ -16,8 +16,9 @@ namespace HelloZen.Application.Bills;
 /// tables, two groups join up, or one guest takes their drinks to the bar.
 /// <list type="bullet">
 /// <item>The whole bill to a table with no open bill: the bill itself moves, with its payments and split.</item>
-/// <item>Anything else joins the other table's bill (opening one if it has none). Whole orders move as
-/// they are; part of an order is split off into a new order with the same status, and both are repriced.</item>
+/// <item>Anything else joins the other table's bill (opening one if it has none), taking its number as
+/// new rounds. Whole orders move as they are; part of an order is split off into a new order with the
+/// same status, and both are repriced.</item>
 /// </list>
 /// Money stays where it was paid: what a table has paid must still be covered by what's left on
 /// its bill, items paid for by item stay with their payment, and nothing moves while a guest is
@@ -89,7 +90,8 @@ public class TableTransferService(
         if (state.InFlight.Any())
             throw AppException.Conflict("payment_in_progress", "A guest at this table is paying right now. Try again once the payment has finished.");
 
-        var orders = await db.Orders.Include(o => o.Lines).Where(o => o.CheckId == source.Id).OrderBy(o => o.Number).ToListAsync(ct);
+        var orders = await db.Orders.Include(o => o.Lines).Where(o => o.CheckId == source.Id)
+            .OrderBy(o => o.Number).ThenBy(o => o.Round).ToListAsync(ct);
         var live = orders.Where(o => o.Status != OrderStatus.Rejected).ToList();
         var lines = live.SelectMany(o => o.Lines).ToDictionary(l => l.Id);
         var moving = wanted.Count == 0 ? lines.Values.ToDictionary(l => l.Id, l => l.Quantity) : wanted;
@@ -113,7 +115,7 @@ public class TableTransferService(
                 await db.SaveChangesAsync(ct);
             }
             source.MoveTo(to.Id);
-            foreach (var order in orders) MoveOrder(order, to, source.Id, now);
+            foreach (var order in orders) MoveOrder(order, to, source.Id, order.Number, order.Round, now);
             destination = source;
             changed = live;
         }
@@ -128,28 +130,30 @@ public class TableTransferService(
                 destination = new Check(from.TenantId, from.VenueId, to.Id, source.Currency, now);
                 db.Checks.Add(destination);
             }
+            if (destination.Number is null) destination.AssignNumber(await OrderNumbers.NextAsync(db, from.VenueId, ct));
+            var number = destination.Number!.Value;
+            var round = await OrderNumbers.NextRoundAsync(db, destination.Id, ct);
 
             // Holds on orders that change no longer match their amounts: let them go, and guests pick again.
             var affected = live.Where(o => o.Lines.Any(l => moving.ContainsKey(l.Id))).ToList();
             var affectedLines = affected.SelectMany(o => o.Lines).Select(l => l.Id).ToHashSet();
             db.ItemClaims.RemoveRange(state.Claims.Where(c => c.Status == ItemClaimStatus.Held && affectedLines.Contains(c.OrderLineId)));
 
-            var number = await NextNumberAsync(from.VenueId, ct);
             changed = [];
             foreach (var order in affected)
             {
                 var take = order.Lines.Where(l => moving.ContainsKey(l.Id)).ToDictionary(l => l.Id, l => moving[l.Id]);
                 if (order.Lines.All(l => take.GetValueOrDefault(l.Id) == l.Quantity))
                 {
-                    MoveOrder(order, to, destination.Id, now);
+                    MoveOrder(order, to, destination.Id, number, round++, now);
                     changed.Add(order);
                     continue;
                 }
 
                 Order split;
-                try { split = order.SplitOff(take, number++, now); }
+                try { split = order.SplitOff(take, number, now); }
                 catch (DomainException ex) { throw AppException.BadRequest("invalid_transfer", ex.Message); }
-                MoveOrder(split, to, destination.Id, now);
+                MoveOrder(split, to, destination.Id, number, round++, now);
                 db.Orders.Add(split);
                 changed.Add(order);
                 changed.Add(split);
@@ -176,19 +180,16 @@ public class TableTransferService(
         db.AuditEntries.Add(new AuditEntry(from.TenantId, staffUserId, wholeBill ? "table.bill_moved" : "table.items_moved", nameof(Check), source.Id, now));
         await db.SaveChangesAsync(ct);
 
-        var numbers = changed.Where(o => o.CheckId == destination.Id).Select(o => o.Number).Order().ToList();
+        var numbers = changed.Where(o => o.CheckId == destination.Id).Select(o => o.Number).Distinct().Order().ToList();
         return (new TransferResultDto(from.Id, to.Id, wholeBill, moving.Values.Sum(), numbers), changed);
     }
 
-    private static void MoveOrder(Order order, ServiceLocation to, Guid checkId, DateTimeOffset now) =>
-        order.MoveTo(to.Id, to.Type.ToString(), to.Label, to.DiningArea?.Name, checkId, now);
+    private static void MoveOrder(Order order, ServiceLocation to, Guid checkId, int number, int round, DateTimeOffset now) =>
+        order.MoveTo(to.Id, to.Type.ToString(), to.Label, to.DiningArea?.Name, checkId, number, round, now);
 
     /// <summary>Lines with units guests have paid, or are paying, for by item: those payments belong to this bill.</summary>
     private static HashSet<Guid> PaidByItem(CheckState state) =>
         state.Claims.Where(c => c.Status != ItemClaimStatus.Held).Select(c => c.OrderLineId).ToHashSet();
-
-    private async Task<int> NextNumberAsync(Guid venueId, CancellationToken ct) =>
-        (await db.Orders.Where(o => o.VenueId == venueId).MaxAsync(o => (int?)o.Number, ct) ?? Order.FirstNumber - 1) + 1;
 
     private async Task<ServiceLocation> LocationAsync(Guid locationId, CancellationToken ct)
     {

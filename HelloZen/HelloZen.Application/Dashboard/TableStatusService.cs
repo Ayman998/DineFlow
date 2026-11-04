@@ -42,7 +42,7 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
 
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.CheckId != null && checkIds.Contains(o.CheckId.Value) && o.Status != OrderStatus.Rejected)
-            .Select(o => new { o.Id, CheckId = o.CheckId!.Value, o.Number, o.Status, o.CreatedAt, o.TotalMinor })
+            .Select(o => new { o.Id, CheckId = o.CheckId!.Value, o.Number, o.Round, o.Status, o.CreatedAt, o.TotalMinor })
             .ToListAsync(ct);
         var ledger = await db.LedgerEntries.AsNoTracking()
             .Where(e => e.CheckId != null && checkIds.Contains(e.CheckId.Value))
@@ -66,7 +66,7 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
         var result = locations.Select(location =>
         {
             var open = checks.FirstOrDefault(c => c.ServiceLocationId == location.Id);
-            var shown = open is null ? [] : orders.Where(o => o.CheckId == open.Id).OrderBy(o => o.Number).ToList();
+            var shown = open is null ? [] : orders.Where(o => o.CheckId == open.Id).OrderBy(o => o.Number).ThenBy(o => o.Round).ToList();
             var check = shown.Count > 0 ? open : null;
 
             var total = shown.Sum(o => o.TotalMinor);
@@ -101,7 +101,7 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
 
             return new TableStatusDto(location.Id, location.Type.ToString(), location.Label, location.DisplayName, location.DiningArea?.Name,
                 state, attention, check?.Currency ?? venue.Currency, total, paid, tips, remaining, lastActivity, check?.Id,
-                shown.Select(o => new TableOrderDto(o.Id, o.Number, o.Status, o.CreatedAt, o.TotalMinor)).ToList());
+                shown.Select(o => new TableOrderDto(o.Id, o.Number, o.Round, o.Status, o.CreatedAt, o.TotalMinor)).ToList());
         });
 
         // Areas in the order the venue set; then tables numerically (2 before 10).

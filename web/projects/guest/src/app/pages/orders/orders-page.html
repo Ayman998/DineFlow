@@ -34,7 +34,7 @@
     @for (order of orders() ?? []; track order.id) {
       <article class="mb-4 rounded-2xl border border-line p-4">
         <div class="flex items-baseline justify-between">
-          <h2 class="text-base font-extrabold">{{ t.orderNumber(order.number) }}</h2>
+          <h2 class="text-base font-extrabold">{{ t.orderNumber(order.number, order.round) }}</h2>
           <span class="text-[13px] text-ink-muted">{{ time(order) }}</span>
         </div>
 

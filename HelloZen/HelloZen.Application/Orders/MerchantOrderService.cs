@@ -43,8 +43,11 @@ public class MerchantOrderService(IAppDbContext db, IOrderNotifier notifier, Bil
 
         // The kitchen works oldest first; served, closed and rejected orders are looked back on, newest first.
         var skip = (request.Page - 1) * PageSize;
-        Task<List<Order>> Oldest(IQueryable<Order> orders) => orders.OrderBy(o => o.Number).Skip(skip).Take(PageSize).ToListAsync(ct);
-        Task<List<Order>> Newest(IQueryable<Order> orders) => orders.OrderByDescending(o => o.Number).Skip(skip).Take(PageSize).ToListAsync(ct);
+        // A table's later round shares its first one's number, so they go by when they were placed.
+        Task<List<Order>> Oldest(IQueryable<Order> orders) => orders
+            .OrderBy(o => o.CreatedAt).ThenBy(o => o.Number).ThenBy(o => o.Round).Skip(skip).Take(PageSize).ToListAsync(ct);
+        Task<List<Order>> Newest(IQueryable<Order> orders) => orders
+            .OrderByDescending(o => o.CreatedAt).ThenByDescending(o => o.Number).ThenByDescending(o => o.Round).Skip(skip).Take(PageSize).ToListAsync(ct);
 
         var orders = request.Filter switch
         {

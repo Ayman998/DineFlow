@@ -87,6 +87,7 @@ const en = {
       Submitted: 'Submitted', Accepted: 'Accepted', Preparing: 'Preparing', Ready: 'Ready', Completed: 'Served', Rejected: 'Rejected', Closed: 'Closed'
     } as Record<string, string>,
     viewOrder: (number: number) => `View order #${number}`,
+    round: (round: number) => `Round ${round}`,
     empty: 'No tables in this view.',
     justNow: 'just now',
     minutesAgo: (minutes: number) => `${minutes} min ago`,
@@ -193,6 +194,7 @@ export const TABLES: Lexicon<typeof en> = {
         Submitted: 'مُرسل', Accepted: 'مقبول', Preparing: 'قيد التحضير', Ready: 'جاهز', Completed: 'تم التقديم', Rejected: 'مرفوض', Closed: 'مغلق'
       },
       viewOrder: (number: number) => `عرض الطلب #${number}`,
+      round: (round: number) => `الجولة ${round}`,
       empty: 'لا توجد طاولات في هذا العرض.',
       justNow: 'الآن',
       minutesAgo: (minutes: number) => `قبل ${minutes} د`,

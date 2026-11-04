@@ -24,7 +24,9 @@ type Line = OrderDto['lines'][number];
     <div class="modal max-w-md" role="dialog" aria-modal="true" aria-labelledby="order-title" (keydown.escape)="closed.emit()">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 id="order-title" class="text-lg font-bold">{{ s.title(number()) }}</h2>
+          <h2 id="order-title" class="text-lg font-bold">
+            {{ s.title(number()) }}@if (round() > 1) { <span class="font-normal text-ink-muted"> · {{ strings().live.round(round()) }}</span> }
+          </h2>
           @if (o) { <p class="text-sm text-ink-muted">{{ place(o) }} · {{ s.placed(time(o.createdAt)) }}</p> }
         </div>
         @if (o) {
@@ -78,13 +80,15 @@ export class OrderDialog implements OnInit {
   private readonly live = inject(LiveOrders);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly i18n = inject(I18n);
-  private readonly strings = this.i18n.use(TABLES);
+  protected readonly strings = this.i18n.use(TABLES);
   protected readonly s = computed(() => this.strings().order);
   protected readonly statuses = computed(() => this.strings().live.orderStatuses);
 
   readonly orderId = input.required<string>();
   /** Shown in the title while the order loads. */
   readonly number = input.required<number>();
+  /** Which of the table's rounds it is; 1 for its first order. */
+  readonly round = input(1);
   readonly closed = output<void>();
 
   protected readonly order = signal<OrderDto | null>(null);

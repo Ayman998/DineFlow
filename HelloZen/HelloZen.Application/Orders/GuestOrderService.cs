@@ -32,21 +32,24 @@ public class GuestOrderService(IAppDbContext db, CartQuoteService quotes, IOrder
 
         for (var attempt = 1; ; attempt++)
         {
-            var number = (await db.Orders.Where(o => o.VenueId == venue.Id).MaxAsync(o => (int?)o.Number, ct) ?? Order.FirstNumber - 1) + 1;
-            var order = new Order(
-                venue.TenantId, venue.Id, location.Id, sessionId, request.ClientRequestId, number,
-                location.Type.ToString(), location.Label, location.DiningArea?.Name,
-                venue.Currency, venue.ServiceChargeBasisPoints, venue.TaxBasisPoints, venue.PricesIncludeTax,
-                priced.CreateLines(), request.Note, clock.GetUtcNow());
-
-            // The order joins the table's open bill; the first order at a table opens one.
+            // The order joins the table's open bill as its next round, with the bill's number; the
+            // first order at a table opens a bill with the venue's next number.
             var check = await db.Checks.SingleOrDefaultAsync(c => c.ServiceLocationId == location.Id && c.Status == CheckStatus.Open, ct);
             if (check is null)
             {
                 check = new Check(venue.TenantId, venue.Id, location.Id, venue.Currency, clock.GetUtcNow());
                 db.Checks.Add(check);
             }
-            order.AssignToCheck(check.Id);
+            if (check.Number is null) check.AssignNumber(await OrderNumbers.NextAsync(db, venue.Id, ct));
+            var round = await OrderNumbers.NextRoundAsync(db, check.Id, ct);
+            check.Touch(); // two rounds placed at once can't both save with the same round
+
+            var order = new Order(
+                venue.TenantId, venue.Id, location.Id, sessionId, request.ClientRequestId, check.Number!.Value,
+                location.Type.ToString(), location.Label, location.DiningArea?.Name,
+                venue.Currency, venue.ServiceChargeBasisPoints, venue.TaxBasisPoints, venue.PricesIncludeTax,
+                priced.CreateLines(), request.Note, clock.GetUtcNow());
+            order.AssignToCheck(check.Id, round);
 
             db.Orders.Add(order);
             try
@@ -55,8 +58,8 @@ public class GuestOrderService(IAppDbContext db, CartQuoteService quotes, IOrder
             }
             catch (DbUpdateException) when (attempt < NumberAttempts)
             {
-                // Either the same submission won a race (return it), or another order took this number or
-                // opened the table's bill at the same moment (try again with the latest of both).
+                // Either the same submission won a race (return it), or another table's new bill took this
+                // number, or the table's bill opened or took a round at the same moment (try again with the latest).
                 db.ChangeTracker.Clear();
                 if (await FindExistingAsync(sessionId, request.ClientRequestId, ct) is { } raced) return raced;
                 continue;
@@ -74,7 +77,7 @@ public class GuestOrderService(IAppDbContext db, CartQuoteService quotes, IOrder
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.GuestSessionId == sessionId)
             .Include(o => o.Lines)
-            .OrderByDescending(o => o.Number)
+            .OrderByDescending(o => o.Number).ThenByDescending(o => o.Round)
             .ToListAsync(ct);
         return orders.Select(o => o.ToDto()).ToList();
     }

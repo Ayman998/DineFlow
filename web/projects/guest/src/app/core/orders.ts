@@ -61,7 +61,10 @@ export interface CartQuote {
 
 export interface Order {
   id: string;
+  /** The table's order number, shared by everything it orders until the bill is paid. */
   number: number;
+  /** 1 for the table's first order, 2 for what it ordered next, and so on. */
+  round: number;
   status: OrderStatus;
   locationType: string;
   locationLabel: string;

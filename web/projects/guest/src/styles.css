@@ -55,6 +55,13 @@ html {
   .chip-on {
     @apply border-ink bg-ink text-white;
   }
+  /* Covers the end of the chip row with a fade, the arrow on top; the template sets the side and direction. */
+  .chip-arrow {
+    @apply absolute top-0 bottom-1 flex w-16 items-center from-white from-50% to-white/0;
+  }
+  .chip-arrow-button {
+    @apply flex size-9 items-center justify-center rounded-full border-[1.5px] border-[#D4D4D4] bg-white text-ink shadow-sm;
+  }
   .tag {
     @apply inline-block rounded-[10px] bg-surface px-2 py-0.5 text-[11px] font-semibold text-[#404040];
   }

@@ -15,6 +15,8 @@ const en = {
   /** Buttons that move an order on, by the status they move it to. */
   actions: { Ready: 'Mark ready', Completed: 'Mark served' } as Record<string, string>,
   nothingHere: 'Nothing here',
+  /** A table's later order: it carries the table's order number, as round 2, 3… */
+  round: (round: number) => `Round ${round}`,
   justNow: 'just now',
   minutesAgo: (minutes: number) => `${minutes} min ago`,
   note: (note: string) => `Note: ${note}`,
@@ -62,6 +64,7 @@ export const ORDERS: Lexicon<typeof en> = {
     },
     actions: { Ready: 'تحديد كجاهز', Completed: 'تأكيد التقديم' },
     nothingHere: 'لا توجد طلبات',
+    round: (round: number) => `الجولة ${round}`,
     justNow: 'الآن',
     minutesAgo: (minutes: number) =>
       minutes === 1 ? 'منذ دقيقة' : minutes === 2 ? 'منذ دقيقتين' : minutes <= 10 ? `منذ ${minutes} دقائق` : `منذ ${minutes} دقيقة`,

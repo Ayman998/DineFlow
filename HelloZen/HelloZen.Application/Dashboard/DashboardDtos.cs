@@ -52,7 +52,7 @@ public enum TableState
     Attention
 }
 
-public record TableOrderDto(Guid Id, int Number, OrderStatus Status, DateTimeOffset CreatedAt, long TotalMinor);
+public record TableOrderDto(Guid Id, int Number, int Round, OrderStatus Status, DateTimeOffset CreatedAt, long TotalMinor);
 
 public record TableStatusDto(
     Guid LocationId,

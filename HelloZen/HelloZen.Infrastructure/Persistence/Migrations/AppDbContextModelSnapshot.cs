@@ -75,6 +75,9 @@ namespace HelloZen.Infrastructure.Persistence.Migrations
                         .HasColumnType("nchar(3)")
                         .IsFixedLength();
 
+                    b.Property<int?>("Number")
+                        .HasColumnType("int");
+
                     b.Property<string>("PosCheckRef")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -108,7 +111,9 @@ namespace HelloZen.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("VenueId");
+                    b.HasIndex("VenueId", "Number")
+                        .IsUnique()
+                        .HasFilter("[Number] IS NOT NULL");
 
                     b.ToTable("Checks", (string)null);
                 });
@@ -952,6 +957,9 @@ namespace HelloZen.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("Round")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("ServedByStaffId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1004,8 +1012,7 @@ namespace HelloZen.Infrastructure.Persistence.Migrations
                     b.HasIndex("GuestSessionId", "ClientRequestId")
                         .IsUnique();
 
-                    b.HasIndex("VenueId", "Number")
-                        .IsUnique();
+                    b.HasIndex("VenueId", "Number");
 
                     b.HasIndex("VenueId", "Status", "CreatedAt");
 

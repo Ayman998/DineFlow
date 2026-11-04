@@ -354,7 +354,10 @@ export interface OrderModifierDto {
 
 export interface OrderDto {
   id: string;
+  /** The table's bill's number, shared by all its rounds. */
   number: number;
+  /** 1 for the table's first order, 2 for what it ordered next, and so on. */
+  round: number;
   status: OrderStatus;
   venueId: string;
   serviceLocationId: string;
@@ -670,7 +673,11 @@ export interface TransactionPage {
   total: number;
   page: number;
   pageSize: number;
-  totals: { count: number; grossMinor: number; tipsMinor: number; refundsMinor: number; netMinor: number };
+  /** count and grossMinor cover every successful payment; paid and partiallyPaid split them by whether their bill is now settled. */
+  totals: {
+    count: number; grossMinor: number; tipsMinor: number; refundsMinor: number; netMinor: number;
+    paidCount: number; paidMinor: number; partiallyPaidCount: number; partiallyPaidMinor: number;
+  };
 }
 
 export interface RefundRow {
@@ -701,7 +708,7 @@ export interface TransactionDetail {
   failureReason: string | null;
   reviewRating: number | null;
   reviewId: string | null;
-  orders: { id: string; number: number; status: string; createdAt: string; lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number }[];
+  orders: { id: string; number: number; round: number; status: string; createdAt: string; lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number }[];
   refunds: RefundRow[];
   timeline: TimelineEvent[];
 }
@@ -765,7 +772,7 @@ export interface TableStatus {
   remainingMinor: number;
   lastActivityAt: string | null;
   checkId: string | null;
-  orders: { id: string; number: number; status: string; createdAt: string; totalMinor: number }[];
+  orders: { id: string; number: number; round: number; status: string; createdAt: string; totalMinor: number }[];
 }
 
 /** A table's open bill line by line, for moving some of it to another table. */

@@ -453,13 +453,21 @@ public class FinanceTests : IDisposable
         Task<TransactionRowDto> Row(PaymentDto payment) => _host.Transactions.ListAsync(new TransactionQuery(f.Venue.Id), default)
             .ContinueWith(t => t.Result.Items.Single(r => r.Id == payment.Id));
 
+        async Task<(int, long, int, long)> Totals()
+        {
+            var t = (await _host.Transactions.ListAsync(new TransactionQuery(f.Venue.Id), default)).Totals;
+            return (t.PaidCount, t.PaidMinor, t.PartiallyPaidCount, t.PartiallyPaidMinor);
+        }
+
         var part = await PayAsync(guest, amount: 2000);
         Assert.Equal(OrderStatus.Completed, await Status(served)); // still owed: served, not closed
         Assert.Equal(TransactionBillState.PartiallyPaid, (await Row(part)).BillState);
+        Assert.Equal((0, 0L, 1, 2000L), await Totals());
 
         var rest = await PayAsync(guest);
         Assert.Equal((OrderStatus.Closed, OrderStatus.Submitted), (await Status(served), await Status(cooking))); // the kitchen still has the Coke
         Assert.Equal((TransactionBillState.Paid, TransactionBillState.Paid), ((await Row(part)).BillState, (await Row(rest)).BillState));
+        Assert.Equal((2, 6250L, 0, 0L), await Totals()); // Burger 50.00 + Coke 12.50, both now on a settled bill
         Assert.Contains(_host.Notifier.Events, e => e.Event == "changed" && e.Order.Id == served.Id && e.Order.Status == OrderStatus.Closed);
 
         await _host.MerchantOrders.ChangeStatusAsync(cooking.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);

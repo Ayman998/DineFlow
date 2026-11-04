@@ -85,6 +85,7 @@ type Filter = 'All' | 'Available' | 'Unpaid' | 'PartiallyPaid';
                     <tr class="border-t border-line">
                       <td class="py-1.5">
                         <button type="button" class="link" [attr.aria-label]="s.viewOrder(o.number)" (click)="viewing.set(o)">#{{ o.number }}</button>
+                        @if (o.round > 1) { <span class="ms-1 text-xs text-ink-muted">{{ s.round(o.round) }}</span> }
                       </td>
                       <td class="py-1.5 text-ink-muted">{{ time(o.createdAt) }}</td>
                       <td class="py-1.5">{{ s.orderStatuses[o.status] || o.status }}</td>
@@ -108,7 +109,7 @@ type Filter = 'All' | 'Available' | 'Unpaid' | 'PartiallyPaid';
       <hz-transfer-dialog [from]="from" [tables]="tables()" (moved)="moved(from, $event)" (cancelled)="moving.set(null)" />
     }
     @if (viewing(); as o) {
-      <hz-order-dialog [orderId]="o.id" [number]="o.number" (closed)="viewing.set(null)" />
+      <hz-order-dialog [orderId]="o.id" [number]="o.number" [round]="o.round" (closed)="viewing.set(null)" />
     }
   `
 })

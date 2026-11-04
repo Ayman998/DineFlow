@@ -41,7 +41,7 @@ public class MerchantReviewService(IAppDbContext db, ITenantContext tenant, Time
         var location = await db.ServiceLocations.AsNoTracking().Include(l => l.DiningArea).SingleAsync(l => l.Id == review.ServiceLocationId, ct);
         var orders = await db.Orders.AsNoTracking()
             .Where(o => o.CheckId == review.CheckId && o.Status != OrderStatus.Rejected)
-            .Include(o => o.Lines).OrderBy(o => o.Number).ToListAsync(ct);
+            .Include(o => o.Lines).OrderBy(o => o.Number).ThenBy(o => o.Round).ToListAsync(ct);
         var names = await StaffNamesAsync([review.StaffUserId, review.FollowedUpByStaffId], ct);
 
         return new ReviewDetailDto(review.Id, review.CreatedAt, review.Rating, review.Comment, review.IsPositive, review.HasContact,

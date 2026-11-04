@@ -179,14 +179,24 @@ public class OrderServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Orders_are_numbered_per_venue()
+    public async Task A_table_keeps_one_order_number_and_each_new_bill_takes_the_next()
     {
         var f = await CreateAsync();
+        Task<OrderDto> PlaceAsync(Guid sessionId) =>
+            _host.GuestOrders.PlaceAsync(sessionId, new PlaceOrderRequest(Guid.NewGuid(), [new(f.Shakshuka.Id, 1, [], null)], null, null), default);
 
-        var a = await _host.GuestOrders.PlaceAsync(f.SessionId, new PlaceOrderRequest(Guid.NewGuid(), [f.TwoBurgersWithCheese], null, null), default);
-        var b = await _host.GuestOrders.PlaceAsync(f.SessionId, new PlaceOrderRequest(Guid.NewGuid(), [new(f.Shakshuka.Id, 1, [], null)], null, null), default);
+        var a = await PlaceAsync(f.SessionId);
+        var b = await PlaceAsync(f.SessionId);
+        var eight = await _host.Tables.CreateLocationAsync(new CreateLocationRequest(f.Venue.Id, null, ServiceLocationType.Table, "8"), default);
+        var tenantId = _host.CurrentTenant;
+        _host.CurrentTenant = null;
+        var atEight = (await _host.Guests.ResolveQrAsync(TestHost.TokenFromUrl(eight.Qr!.Url), null, default)).Context.SessionId;
+        _host.CurrentTenant = tenantId;
+        var c = await PlaceAsync(atEight);
 
-        Assert.Equal([Order.FirstNumber, Order.FirstNumber + 1], new[] { a.Number, b.Number });
+        Assert.Equal((Order.FirstNumber, 1), (a.Number, a.Round));
+        Assert.Equal((Order.FirstNumber, 2), (b.Number, b.Round)); // more items at table 7: the same number, its second round
+        Assert.Equal((Order.FirstNumber + 1, 1), (c.Number, c.Round));
         Assert.Equal([b.Id, a.Id], (await _host.GuestOrders.ListAsync(f.SessionId, default)).Select(o => o.Id));
     }
 
@@ -253,7 +263,7 @@ public class OrderServiceTests : IDisposable
         Assert.Equal((2, 0), (await Count(OrderPeriod.Quarter, quarter.AddMonths(3).AddDays(-1)), await Count(OrderPeriod.Quarter, quarter.AddDays(-1))));
         Assert.Equal((2, 0), (await Count(OrderPeriod.Year, new(today.Year, 12, 31)), await Count(OrderPeriod.Year, new(today.Year - 1, 12, 31))));
         Assert.Equal((2, 0), (await Count(locationId: first.ServiceLocationId), await Count(locationId: Guid.NewGuid())));
-        Assert.Equal(second.Id, (await _host.MerchantOrders.ListAsync(f.Venue.Id, new OrderQuery(OrderFilter.New, Number: second.Number), default)).Single().Id);
+        Assert.Equal((2, 0), (await Count(number: second.Number), await Count(number: second.Number + 1))); // both rounds of the table's number
     }
 
     [Fact]
