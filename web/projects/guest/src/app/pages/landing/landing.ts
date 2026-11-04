@@ -3,6 +3,8 @@ import { RouterLink } from '@angular/router';
 
 import { GuestContext, GuestSession, errorCode } from '../../core/guest-session';
 import { I18n } from '../../core/i18n';
+import { formatMoney } from '../../core/menu';
+import { Bill, PaymentsApi } from '../../core/payments';
 
 type State =
   | { kind: 'loading' }
@@ -11,8 +13,8 @@ type State =
 
 /**
  * QR landing (blueprint 4.2 step 1, mockup "QR landing"): venue branding, table context and
- * the actions this venue supports. Invalid or paused QR codes get a recovery message instead
- * of a technical error.
+ * the actions this venue supports, with what the table still owes on Pay Bill. Invalid or paused
+ * QR codes get a recovery message instead of a technical error.
  */
 @Component({
   selector: 'hz-landing',
@@ -21,12 +23,20 @@ type State =
 })
 export class Landing implements OnInit {
   private readonly session = inject(GuestSession);
+  private readonly payments = inject(PaymentsApi);
   protected readonly i18n = inject(I18n);
 
   /** From the route: /q/:token */
   readonly token = input.required<string>();
 
   protected readonly state = signal<State>({ kind: 'loading' });
+  /** The table's bill while something is left to pay on it. */
+  private readonly owing = signal<Bill | null>(null);
+  /** What's left to pay, e.g. "JOD 12.500", in the guest's language; null when nothing is owed. */
+  protected readonly due = computed(() => {
+    const bill = this.owing();
+    return bill ? formatMoney(bill.remainingMinor, bill.currency, this.i18n.lang()) : null;
+  });
 
   protected readonly context = computed(() => {
     const state = this.state();
@@ -61,8 +71,16 @@ export class Landing implements OnInit {
       next: context => {
         this.i18n.useDefault(context.locale);
         this.state.set({ kind: 'ready', context });
+        if (context.features.payAtTable) this.loadBill(context);
       },
       error: error => this.state.set({ kind: 'error', code: errorCode(error) })
+    });
+  }
+
+  private loadBill(context: GuestContext): void {
+    this.payments.bill(context.sessionId).subscribe({
+      next: bill => this.owing.set(bill.status === 'Open' && bill.remainingMinor > 0 ? bill : null),
+      error: () => this.owing.set(null) // Pay Bill still works without the amount
     });
   }
 }
