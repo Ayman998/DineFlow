@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
@@ -25,7 +25,8 @@ const TAB_PATHS: readonly string[] = ['overview', 'orders', 'tables', 'transacti
 /**
  * Signed-in layout: sidebar navigation (blueprint 4.4), venue and user in the top bar, and live
  * alerts on every page: new orders (toast, chime, nav badge and tab title) and payments.
- * Below lg the sidebar becomes a drawer and a bottom tab bar holds the busiest areas.
+ * Below lg the sidebar becomes a drawer and a bottom tab bar holds the busiest areas. The top
+ * bar's height is kept in --shell-header, for page bars that stick just below it.
  */
 @Component({
   selector: 'hz-shell',
@@ -51,6 +52,19 @@ export class Shell implements OnInit {
   /** "Rana Haddad" → "RH", for the avatar in the top bar. */
   protected readonly initials = computed(() =>
     (this.auth.profile()?.displayName ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toUpperCase());
+
+  private readonly topBar = viewChild.required<ElementRef<HTMLElement>>('topBar');
+
+  constructor() {
+    afterNextRender(() => {
+      if (typeof ResizeObserver === 'undefined') return;
+      const bar = this.topBar().nativeElement;
+      const observer = new ResizeObserver(() =>
+        document.documentElement.style.setProperty('--shell-header', `${bar.getBoundingClientRect().height}px`));
+      observer.observe(bar);
+      this.destroyRef.onDestroy(() => observer.disconnect());
+    });
+  }
 
   ngOnInit(): void {
     this.currentVenue.load().subscribe(() => this.live.start());

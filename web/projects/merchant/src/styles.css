@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 /* helloZen design tokens, from the brand board: Zen yellow #FFD100, Zen black #111111 and white. */
+/* The signed-in top bar's height; the shell keeps it exact, so a page's own bar can stick just below it. */
+:root {
+  --shell-header: 61px;
+}
+
 @theme {
   --font-sans: "Plus Jakarta Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-logo: "Quicksand", "Plus Jakarta Sans", system-ui, sans-serif;

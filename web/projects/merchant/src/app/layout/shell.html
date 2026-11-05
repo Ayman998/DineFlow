@@ -54,7 +54,7 @@
   </aside>
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur sm:px-6 lg:px-8 lg:py-3 print:hidden">
+    <header #topBar class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur sm:px-6 lg:px-8 lg:py-3 print:hidden">
       <div class="flex min-w-0 items-center gap-1.5">
         <button type="button" class="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-lg hover:bg-surface lg:hidden" aria-controls="portal-nav"
                 [attr.aria-expanded]="menuOpen()" [attr.aria-label]="t().openMenu" (click)="menuOpen.set(true)">
