@@ -11,8 +11,8 @@ namespace HelloZen.Application.Onboarding;
 
 /// <summary>
 /// What the operator types to bring a restaurant onto helloZen. The defaults are a venue in Amman:
-/// JOD, Asia/Amman, Arabic first, Jordan's 16% general sales tax and a 10% service charge, all of
-/// which the owner can change in Settings afterwards.
+/// JOD, Asia/Amman, Arabic first, a 10% service charge and Jordan's 16% general sales tax added on
+/// top of the items and service, all of which the owner can change in Settings afterwards.
 /// </summary>
 public record ProvisionRequest(
     string BusinessName,
@@ -28,7 +28,7 @@ public record ProvisionRequest(
     string Locale = "ar",
     int TaxBasisPoints = 1600,
     int ServiceChargeBasisPoints = 1000,
-    bool PricesIncludeTax = true,
+    bool PricesIncludeTax = false,
     string? OwnerPassword = null);
 
 /// <param name="TemporaryPassword">The owner's first password, printed once; they change it under Settings → Team.

@@ -66,7 +66,7 @@ docker compose run --rm api provision \
   --owner-email owner@example.jo --owner-name "Lina Haddad" --tables 20
 ```
 
-The defaults suit Amman: JOD, Asia/Amman, Arabic first, 16% sales tax, 10% service charge and prices that include tax. Use `--tax`, `--service` and `--prices-exclude-tax` to change them. The owner can also change them later under Settings. The command prints a **temporary password once**. Hand it over privately.
+The defaults suit Amman: JOD, Asia/Amman, Arabic first, 10% service charge and 16% sales tax added on top of the items and service. Use `--tax`, `--service` and `--prices-include-tax` (for menus whose prices already include tax) to change them. The owner can also change them later under Settings. The command prints a **temporary password once**. Hand it over privately.
 
 The owner then:
 

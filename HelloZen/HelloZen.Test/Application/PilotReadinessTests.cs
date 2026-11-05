@@ -66,9 +66,11 @@ public class PilotReadinessTests : IDisposable
     public void Provision_command_line_is_parsed_with_Amman_defaults()
     {
         var request = AdminCommands.ParseProvision(["--business", "Hashem Kitchen", "--venue", "Abdoun", "--owner-email", "o@h.test",
-            "--owner-name", "Lina", "--tables", "12", "--prices-exclude-tax"]);
+            "--owner-name", "Lina", "--tables", "12"]);
+        var included = AdminCommands.ParseProvision(["--business", "X", "--venue", "Y", "--owner-email", "o@h.test", "--owner-name", "Z", "--prices-include-tax"]);
 
         Assert.Equal(("Hashem Kitchen", 12, "JOD", 1600, false), (request.BusinessName, request.Tables, request.Currency, request.TaxBasisPoints, request.PricesIncludeTax));
+        Assert.True(included.PricesIncludeTax);
         Assert.Contains("--owner-name", Assert.Throws<ArgumentException>(() => AdminCommands.ParseProvision(["--business", "X", "--venue", "Y", "--owner-email", "o@h.test"])).Message);
         Assert.Contains("--colour", Assert.Throws<ArgumentException>(() => AdminCommands.ParseProvision(["--colour", "red"])).Message);
     }

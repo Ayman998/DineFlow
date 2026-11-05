@@ -477,22 +477,22 @@ internal static class Receipt
                 var name = lines.FirstOrDefault(l => l.Id == group.Key) is { } line ? Name(line) : T("Item", "صنف");
                 rows.Add(($"{group.Count()} × {name}", Money(group.Sum(c => c.AmountMinor))));
             }
-            totals.Add((T("Your items (incl. service and VAT)", "أصنافك (شاملة رسوم الخدمة والضريبة)"), Money(payment.BillAmountMinor)));
+            totals.Add((T("Your items (incl. service and tax)", "أصنافك (شاملة رسوم الخدمة والضريبة)"), Money(payment.BillAmountMinor)));
         }
         else
         {
             foreach (var line in lines)
                 rows.Add(($"{line.Quantity} × {Name(line)}", Money(line.LineTotalMinor)));
 
-            // What the bill is made of, so the receipt shows the service charge and VAT.
+            // What the bill is made of, so the receipt shows the service charge and sales tax.
             totals.Add((T("Subtotal", "المجموع الفرعي"), Money(orders.Sum(o => o.SubtotalMinor))));
             var service = orders.Sum(o => o.ServiceChargeMinor);
             var tax = orders.Sum(o => o.TaxMinor);
             if (service > 0) totals.Add((T("Service charge", "رسوم الخدمة"), Money(service)));
             if (tax > 0)
                 totals.Add((orders.All(o => o.TaxIncluded)
-                    ? T("VAT (included)", "ضريبة القيمة المضافة (مشمولة)")
-                    : T("VAT", "ضريبة القيمة المضافة"), Money(tax)));
+                    ? T("Sales tax (included)", "ضريبة المبيعات (مشمولة)")
+                    : T("Sales tax", "ضريبة المبيعات"), Money(tax)));
             var billTotal = orders.Sum(o => o.TotalMinor);
             totals.Add((T("Bill total", "إجمالي الفاتورة"), Money(billTotal)));
             if (payment.BillAmountMinor != billTotal)

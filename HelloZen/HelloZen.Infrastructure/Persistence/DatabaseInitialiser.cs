@@ -92,9 +92,10 @@ public static class DatabaseInitialiser
         tenant.Activate();
         db.Tenants.Add(tenant);
 
-        // The demo venue is in Amman: JOD (3 decimals), Jordan's 16% general sales tax and a 10% service charge.
+        // The demo venue is in Amman: JOD (3 decimals), a 10% service charge and Jordan's 16% general sales
+        // tax added on top of the items and service.
         var venue = new Venue(tenant.Id, "Abdoun, Amman", "JOD", "Asia/Amman", "ar");
-        venue.SetCharges(serviceChargeBasisPoints: 1000, taxBasisPoints: 1600, pricesIncludeTax: true);
+        venue.SetCharges(serviceChargeBasisPoints: 1000, taxBasisPoints: 1600, pricesIncludeTax: false);
         db.Venues.Add(venue);
 
         var mainHall = new DiningArea(tenant.Id, venue.Id, "Main hall", 0);

@@ -38,9 +38,10 @@ public record VenueSettingsRequest(
     bool PayAtTableEnabled,
     /// <summary>Service charge in basis points: 1000 = 10%.</summary>
     [Range(0, 3000)] int ServiceChargeBasisPoints = 0,
-    /// <summary>VAT/sales tax in basis points: 500 = 5%.</summary>
+    /// <summary>Sales tax in basis points: 1600 = 16%.</summary>
     [Range(0, 3000)] int TaxBasisPoints = 0,
-    bool PricesIncludeTax = true,
+    /// <summary>False adds tax on top of the items and service charge; true treats it as inside menu prices.</summary>
+    bool PricesIncludeTax = false,
     bool TipsEnabled = true,
     /// <summary>One to four tip suggestions in basis points, e.g. [500, 1000, 1500].</summary>
     IReadOnlyList<int>? TipPresetsBasisPoints = null,

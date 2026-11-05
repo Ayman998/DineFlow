@@ -18,6 +18,15 @@ public class OrderPricingTests
     }
 
     [Fact]
+    public void A_Jordanian_bill_adds_16_percent_sales_tax_on_items_and_service()
+    {
+        // JOD 2.800 + 10% service = 3.080; + 16% sales tax = 0.4928, so 0.493; total 3.573.
+        var price = OrderPricing.Calculate(2_800, serviceChargeBasisPoints: 1000, taxBasisPoints: 1600, taxIncluded: false);
+
+        Assert.Equal((280L, 493L, 3_573L), (price.ServiceChargeMinor, price.TaxMinor, price.TotalMinor));
+    }
+
+    [Fact]
     public void Tax_inclusive_prices_show_the_tax_share_without_adding_it()
     {
         // 105.00 including 5% VAT: 5.00 of it is tax.

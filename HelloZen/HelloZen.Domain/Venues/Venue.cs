@@ -28,10 +28,13 @@ public class Venue : Entity, ITenantOwned
 
     /// <summary>Service charge added to the subtotal, in basis points (1000 = 10%).</summary>
     public int ServiceChargeBasisPoints { get; private set; }
-    /// <summary>VAT or sales tax rate in basis points (500 = 5%).</summary>
+    /// <summary>Sales tax rate in basis points (1600 = 16%).</summary>
     public int TaxBasisPoints { get; private set; }
-    /// <summary>True when menu prices already include tax (usual in the UAE), so tax is shown, not added.</summary>
-    public bool PricesIncludeTax { get; private set; } = true;
+    /// <summary>
+    /// True when menu prices already include tax, so tax is shown, not added. False (the default, as
+    /// on Jordanian bills) adds it on top of the items and service charge.
+    /// </summary>
+    public bool PricesIncludeTax { get; private set; }
 
     public const int MaxRateBasisPoints = 3000;
     /// <summary>The most a guest can tip: 20% of the amount they're paying.</summary>

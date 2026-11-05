@@ -29,7 +29,7 @@ public static class AdminCommands
                       --tables <n>             Numbered tables to create, 0-200 (default 10)
                       --tax <basis points>     Sales tax, 1600 = 16% (default 1600)
                       --service <basis points> Service charge, 1000 = 10% (default 1000)
-                      --prices-exclude-tax     Menu prices are before tax (default: they include it)
+                      --prices-include-tax     Menu prices already include tax (default: it's added on top)
           reset-password  Give someone who can't sign in a new password.
                       --email <address>        Their sign-in (required)
         Both take the password from the HELLOZEN_NEW_PASSWORD environment variable; without it a
@@ -127,7 +127,8 @@ public static class AdminCommands
         {
             if (!args[i].StartsWith("--")) throw new ArgumentException($"Unexpected argument '{args[i]}'.");
             var name = args[i][2..];
-            if (name == "prices-exclude-tax") { flags.Add(name); continue; }
+            // --prices-exclude-tax is the default now, still accepted from older runbooks.
+            if (name is "prices-include-tax" or "prices-exclude-tax") { flags.Add(name); continue; }
             if (i + 1 >= args.Length) throw new ArgumentException($"--{name} needs a value.");
             values[name] = args[++i];
         }
@@ -150,6 +151,6 @@ public static class AdminCommands
             Tables: Number("tables", 10),
             TaxBasisPoints: Number("tax", 1600),
             ServiceChargeBasisPoints: Number("service", 1000),
-            PricesIncludeTax: !flags.Contains("prices-exclude-tax"));
+            PricesIncludeTax: flags.Contains("prices-include-tax"));
     }
 }

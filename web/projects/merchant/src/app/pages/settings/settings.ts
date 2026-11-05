@@ -64,7 +64,7 @@ export class Settings implements OnInit {
     payAtTableEnabled: [true],
     serviceChargePercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],
     taxPercent: [0, [Validators.required, Validators.min(0), Validators.max(30)]],
-    pricesIncludeTax: [true],
+    pricesIncludeTax: [false],
     tipsEnabled: [true],
     /** Comma-separated percentages, e.g. "5, 10, 15". */
     tipPresets: ['5, 10, 15', [Validators.required, tipPresetsValidator]],

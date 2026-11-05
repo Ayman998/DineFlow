@@ -39,7 +39,7 @@ deploy/                     Docker images, Caddy, Compose, backups and the pilot
 dotnet run --project HelloZen/HelloZen.Api --launch-profile http
 ```
 
-In Development, the API creates the `DineFlow` database (it keeps its name from before the helloZen rename), applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Abdoun, Amman**, in JOD (3 decimals) and Arabic by default: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, a 10% service charge with Jordan's 16% sales tax included in prices, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `HelloZen/HelloZen.Api/appsettings.Development.json`.
+In Development, the API creates the `DineFlow` database (it keeps its name from before the helloZen rename), applies migrations and seeds a demo tenant on first start. The demo is **Demo Bistro, Abdoun, Amman**, in JOD (3 decimals) and Arabic by default: tables 1–8 in Main hall, 9–12 on the Terrace, a counter, an owner account, a 10% service charge and Jordan's 16% sales tax added on top of the items and service, and two bilingual menus. "All day" includes subcategories, modifiers, allergens and one sold-out item. "Breakfast" is served 07:00–11:30 only. The owner's sign-in details are under `Seed:Owner` in `HelloZen/HelloZen.Api/appsettings.Development.json`.
 
 The API listens on http://localhost:5266. Swagger is at `/swagger`, and readiness (SQL Server) is at `/health/ready`.
 
@@ -51,7 +51,7 @@ npm --prefix web ci
 npm --prefix web start
 ```
 
-That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (New → Ready → Served) updates the guest's tracker live. Group items under **Item Categories**, manage items with their prices, modifiers and photos under **Items**, and choose what each menu shows with **Link items** under **Menu** (one item can be on several menus), and service charge, VAT and tips under **Settings**. The Angular dev servers proxy `/v1`, `/health`, `/hubs`, `/media` and `/sandbox` to the API, so both apps call relative URLs.
+That serves both apps. Sign in to the merchant portal at http://localhost:4300, open **Tables**, and click **Open** on any table to see its guest landing page. From there, **View Menu** opens the e-menu. Add items, review the order and place it. The order appears instantly under **Orders** in the merchant portal, with a chime, a toast and a badge. Moving it along (New → Ready → Served) updates the guest's tracker live. Group items under **Item Categories**, manage items with their prices, modifiers and photos under **Items**, and choose what each menu shows with **Link items** under **Menu** (one item can be on several menus), and service charge, sales tax and tips under **Settings**. The Angular dev servers proxy `/v1`, `/health`, `/hubs`, `/media` and `/sandbox` to the API, so both apps call relative URLs.
 
 ### Paying the bill
 
@@ -98,10 +98,10 @@ Receipts aren't sent in Development. Each one is written as an `.eml` file to `H
 
 ### Splitting the bill
 
-**Split the bill** on the checkout screen lets each guest pay part of the bill. All amounts include service charge and VAT:
+**Split the bill** on the checkout screen lets each guest pay part of the bill. All amounts include service charge and sales tax:
 
 - **Equally:** set how many people are at the table and how many you're paying for. The head count is saved on the bill, so everyone at the table sees the same split. Shares round down, and whoever pays the last share pays exactly what's left.
-- **By item:** pick the items you had. Each portion of an order line is its own item (two Cokes are two items), priced with its share of service charge and VAT. Tapping an item holds it for you for 10 minutes. Other guests see "Being selected by another guest" and can't pay for it.
+- **By item:** pick the items you had. Each portion of an order line is its own item (two Cokes are two items), priced with its share of service charge and sales tax. Tapping an item holds it for you for 10 minutes. Other guests see "Being selected by another guest" and can't pay for it.
 - **Custom:** any amount up to what's left.
 - **Full:** everything that's left, apart from anything other guests have selected or are paying for.
 
@@ -368,7 +368,7 @@ npm --prefix web test
 | `POST /v1/merchant/menu/items`, `PUT`/`DELETE …/items/{id}` | manager | Items with modifiers, allergens and tags |
 | `PUT /v1/merchant/menu/items/{id}/availability` | merchant | Sold out / back in stock (any staff role) |
 | `POST /v1/merchant/menu/reorder`, `POST /v1/merchant/menu/images` | manager | Reordering and photo upload |
-| `POST /v1/public/sessions/{id}/cart/validate` | guest token | Server prices for a cart, with service charge, VAT and any problems per line |
+| `POST /v1/public/sessions/{id}/cart/validate` | guest token | Server prices for a cart, with service charge, sales tax and any problems per line |
 | `POST /v1/public/sessions/{id}/orders`, `GET …/orders` | guest token | Place an order (idempotent per `clientRequestId`); the table's orders |
 | `GET /v1/merchant/venues/{id}/orders?filter=Active\|New\|Ready\|Served\|Rejected`, `GET …/orders/counts` | merchant | The order queue and badge counts |
 | `POST /v1/merchant/orders/{id}/status` | merchant | Accept, reject (with reason), preparing, ready, served |

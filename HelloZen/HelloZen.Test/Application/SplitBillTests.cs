@@ -38,7 +38,7 @@ public class SplitBillTests : IDisposable
         var tenant = await _host.CreateTenantAsync();
         var venue = await _host.CreateVenueAsync("Marina");
         await _host.Venues.UpdateSettingsAsync(venue.Id, new VenueSettingsRequest("Marina", "AED", "Asia/Dubai", "en", null, "#0B3B38",
-            true, true, ServiceChargeBasisPoints: charges ? 1000 : 0, TaxBasisPoints: charges ? 500 : 0), default);
+            true, true, ServiceChargeBasisPoints: charges ? 1000 : 0, TaxBasisPoints: charges ? 500 : 0, PricesIncludeTax: true), default);
 
         var menu = await _host.Menus.CreateMenuAsync(venue.Id, new MenuRequest("All day", null, true, Enum.GetValues<DayOfWeek>(), null, null), default);
         var mains = await _host.Menus.CreateCategoryAsync(new CreateCategoryRequest(venue.Id, null, "Mains", null), default);
