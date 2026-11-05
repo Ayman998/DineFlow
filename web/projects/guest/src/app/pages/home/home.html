@@ -28,10 +28,11 @@
     }
   </ul>
 
-  <p class="relative z-10 mx-auto mt-4 mb-6 inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
+  <p class="relative z-10 mx-auto mt-4 mb-3 inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
     <span class="size-2 rounded-full" [class]="apiOnline() ? 'bg-emerald-400' : 'bg-accent'"></span>
     {{ t.api }}: {{ apiOnline() ? t.online : t.offline }}
   </p>
+  <hz-legal-links class="relative z-10 mb-4 block" [dark]="true" />
 
   <!-- The flowing lines from the brand board. -->
   <svg class="pointer-events-none absolute inset-x-0 bottom-0 h-64 w-full text-accent/20" viewBox="0 0 400 256" preserveAspectRatio="none" fill="none" stroke="currentColor" aria-hidden="true">

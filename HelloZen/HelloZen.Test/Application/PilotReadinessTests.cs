@@ -327,10 +327,43 @@ public class PilotReadinessTests : IDisposable
             ("Payments:TermsUrl", "https://hashem.jo/terms"),
             ("Guest:AppBaseUrl", "https://dine.hashem.jo"),
             ("Email:Provider", "smtp"),
-            ("WhatsApp:Provider", "meta")), isDevelopment: false);
+            ("WhatsApp:Provider", "meta"),
+            ("Legal:LegalName", "Hashem Kitchen LLC"),
+            ("Legal:Address", "Abdoun, Amman, Jordan"),
+            ("Legal:Email", "support@hashem.jo"),
+            ("Legal:Phone", "+962 6 555 0100")), isDevelopment: false);
 
         Assert.Empty(checks.Errors);
         Assert.Contains("test gateway", Assert.Single(checks.Warnings));
+    }
+
+    [Fact]
+    public void Terms_on_the_guest_apps_own_page_need_no_warning_but_missing_company_details_do()
+    {
+        var checks = ProductionChecks.Run(Config(
+            ("Payments:Provider", "mastercard"),
+            ("Payments:Mastercard:GatewayUrl", "https://na.gateway.mastercard.com"),
+            ("Payments:TermsUrl", "/terms"),
+            ("Guest:AppBaseUrl", "https://app.hello-zen.com"),
+            ("Email:Provider", "smtp"),
+            ("WhatsApp:Provider", "meta"),
+            ("Legal:LegalName", "helloZen LLC"),
+            ("Legal:Email", "support@hello-zen.com")), isDevelopment: false);
+
+        var warning = Assert.Single(checks.Warnings);
+        Assert.Contains("Legal:Address, Legal:Phone", warning);
+        Assert.DoesNotContain("TermsUrl", warning);
+
+        var placeholder = ProductionChecks.Run(Config(("Payments:TermsUrl", "https://hellozen.example/terms")), isDevelopment: false);
+        Assert.Contains(placeholder.Warnings, w => w.Contains("Payments:TermsUrl"));
+    }
+
+    [Fact]
+    public void Legal_details_leave_out_what_isnt_set()
+    {
+        var info = new LegalOptions { LegalName = " helloZen LLC ", Email = "support@hello-zen.com", Phone = "  " }.ToDto();
+
+        Assert.Equal(new LegalInfoDto("helloZen LLC", null, "support@hello-zen.com", null, null), info);
     }
 
     [Fact]

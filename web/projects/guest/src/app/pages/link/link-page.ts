@@ -10,6 +10,7 @@ import { LinkPayment, PaymentLink, PaymentLinksApi, linkEqualShare, pendingLinkP
 import { formatAmount, formatMoney } from '../../core/menu';
 import { CustomTip, METHOD_ORDER, PaymentMethod, isFinal, parseAmount, parseTip, percentOf, safeUrl } from '../../core/payments';
 import { readJson, writeJson } from '../../core/storage';
+import { LegalLinks } from '../../shared/legal-links';
 
 type Mode = 'Full' | 'Equal' | 'Custom';
 type TipChoice = { kind: 'none' } | { kind: 'preset'; basisPoints: number } | { kind: 'custom' };
@@ -26,6 +27,7 @@ const PATIENCE_MS = 60_000;
  */
 @Component({
   selector: 'hz-link-page',
+  imports: [LegalLinks],
   templateUrl: './link-page.html'
 })
 export class LinkPage implements OnInit {

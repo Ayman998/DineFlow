@@ -4,12 +4,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of } from 'rxjs';
 
 import { I18n } from '../../core/i18n';
+import { LegalLinks } from '../../shared/legal-links';
 import { Logo } from '../../shared/logo';
 
 /** Shown when the app is opened without a QR code. */
 @Component({
   selector: 'hz-home',
-  imports: [Logo],
+  imports: [LegalLinks, Logo],
   templateUrl: './home.html'
 })
 export class Home {

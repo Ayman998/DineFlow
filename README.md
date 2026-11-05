@@ -303,6 +303,14 @@ A batch that's already been imported is refused, so importing the same file twic
 
 The webhook check only counts the provider's signed webhook. A payment the status check settled first still turns it green once the webhook arrives, so a missing webhook setup in Merchant Administration shows up here. Alerts, reports, photos and the POS are recommended, not required.
 
+### Terms, privacy, refunds and contact
+
+The guest app has four policy pages in English and Arabic: `/terms`, `/privacy`, `/refunds` and `/contact`. Guests accept the terms when they pay; the payment page links them, and every guest page's footer links all four. Acquirers look for these pages, and for who runs the site, before approving a merchant.
+
+The texts live in `web/projects/guest/src/app/pages/legal/legal.i18n.ts` and describe how helloZen actually works, so change them with the product. They're a starting point drafted for the Amman pilot, not legal advice: have them reviewed by a Jordanian lawyer. When the terms change, update the date there and bump `Payments:TermsVersion`; each payment records the version the guest accepted. `Payments:TermsUrl` defaults to `/terms`, the guest app's own page.
+
+The company behind helloZen comes from the API's `Legal` settings (`LegalName`, `Address`, `Email`, `Phone`, `RegistrationNumber`), served at `GET /v1/public/legal`. Empty values are left off the pages. Outside Development, the API logs a startup warning until the name, address, e-mail and phone are set.
+
 ### Deploying
 
 [`deploy/README.md`](deploy/README.md) is the pilot runbook. It covers one Linux server with Docker Compose: SQL Server, the API, and Caddy serving both apps on their own domains with automatic HTTPS and forwarding the API's paths. It also covers creating a venue, the Mastercard Gateway test checklist, going live, updates and backups. Pushing a `v*` tag builds the `hellozen-api` and `hellozen-web` images to GitHub Container Registry.
@@ -355,6 +363,7 @@ npm --prefix web test
 | Endpoint | Who | Purpose |
 |---|---|---|
 | `GET /v1/public/qr/{token}` | anyone (rate limited) | Resolve a scanned QR and start a guest session |
+| `GET /v1/public/legal` | anyone | The company behind helloZen, for the policy pages |
 | `GET /v1/public/sessions/{id}` | guest token | Reload the guest's own session |
 | `POST /v1/merchant/auth/login`, `GET /v1/merchant/auth/me` | — / merchant | Sign in, current user |
 | `GET/POST /v1/merchant/venues`, `PUT /v1/merchant/venues/{id}/settings` | merchant / manager | Venues and settings |
@@ -448,3 +457,4 @@ Errors come back as ProblemDetails with a stable `code`, e.g. `qr_invalid`, `ven
 | 10 | Real payments for Jordan: Mastercard Gateway (MPGS) Hosted Checkout, verified webhooks plus status checks, refunds, JOD defaults (to verify with acquirer test credentials) ✅ | E8 |
 | 11 | Settlements and reconciliation: settlement CSV import, daily ledger vs settlement vs POS reconciliation, differences queue with resolve and audit, sandbox payout, ledger export ✅ | E12, E14 |
 | 12 | Pilot readiness for Amman: Docker + Caddy deployment, release images, production settings guard, SMTP e-mail, venue provisioning, team and passwords, go-live checklist with the Mastercard test script, backups ✅ | E15 |
+| 13 | Ready for real money: terms, privacy, refunds and contact pages in English and Arabic, company details setting, e-mail through MonsterASP's relay, backups on MonsterASP ✅ | E15 |

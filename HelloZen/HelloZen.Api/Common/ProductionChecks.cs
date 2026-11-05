@@ -36,8 +36,15 @@ public static class ProductionChecks
         if ((config["WhatsApp:Provider"] ?? "outbox") != "meta")
             warnings.Add("WhatsApp:Provider is 'outbox': payment alerts are written to files on the server, not sent.");
 
-        if (config["Payments:TermsUrl"] is not { } terms || terms.Contains("example", StringComparison.OrdinalIgnoreCase) || !IsHttps(terms))
-            warnings.Add("Payments:TermsUrl should be your published https terms page; guests accept it before paying.");
+        // "/terms" (the default) is the guest app's own page; an address elsewhere must be real and https.
+        if (config["Payments:TermsUrl"] is { } terms && !terms.StartsWith('/')
+            && (terms.Contains("example", StringComparison.OrdinalIgnoreCase) || !IsHttps(terms)))
+            warnings.Add("Payments:TermsUrl should be '/terms' (the guest app's page) or your published https terms page; guests accept it before paying.");
+
+        // Acquirers check that the website names the business behind it and how to reach it.
+        var missing = new[] { "LegalName", "Address", "Email", "Phone" }.Where(k => string.IsNullOrWhiteSpace(config[$"Legal:{k}"])).ToList();
+        if (missing.Count > 0)
+            warnings.Add($"Legal:{string.Join(", Legal:", missing)} not set: the terms, privacy and contact pages show the company behind helloZen and how to reach it.");
 
         if ((config.GetSection("Cors:Origins").Get<string[]>() ?? []).Any(o => o.Contains("localhost", StringComparison.OrdinalIgnoreCase)))
             warnings.Add("Cors:Origins still lists localhost. Behind the bundled Caddy proxy the apps call the API on their own origin, so the list can be empty.");

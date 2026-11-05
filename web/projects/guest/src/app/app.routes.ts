@@ -34,5 +34,11 @@ export const routes: Routes = [
     canActivate: [sessionGuard],
     loadComponent: () => import('./pages/pay/payment-page').then(m => m.PaymentPage)
   },
+  // Policies guests accept when paying, linked from the bill and every page's footer.
+  ...(['terms', 'privacy', 'refunds', 'contact'] as const).map(doc => ({
+    path: doc,
+    data: { doc },
+    loadComponent: () => import('./pages/legal/legal-page').then(m => m.LegalPage)
+  })),
   { path: '**', redirectTo: '' }
 ];

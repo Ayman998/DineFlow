@@ -30,6 +30,7 @@ builder.Services.AddScoped<IOrderNotifier, SignalROrderNotifier>();
 builder.Services.AddScoped<IPaymentNotifier, SignalRPaymentNotifier>();
 builder.Services.AddScoped<IReviewNotifier, SignalRReviewNotifier>();
 builder.Services.AddMemoryCache();
+builder.Services.Configure<LegalOptions>(builder.Configuration.GetSection(LegalOptions.Section));
 builder.Services.AddScoped<StaffAccess>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));

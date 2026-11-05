@@ -48,8 +48,6 @@ Open the website, then go to **Scripting → Advanced settings → Environment v
 | `Jwt__SigningKey` | A new key (see below) |
 | `Qr__TokenKey` | A new key. It signs every QR code: never change it once codes are printed, and keep a copy somewhere safe |
 | `Payments__Mastercard__MerchantId`, `__ApiPassword`, `__WebhookSecret` | From the acquirer (see [the gateway checklist](../README.md#4-mastercard-gateway-test-checklist)) |
-| `Email__Smtp__Host`, `__Port`, `__Security`, `__Username`, `__Password` | From the mail service that sends from `receipts@hello-zen.com`. MonsterASP's own **E-mails** service works, and the plan includes one |
-| `Payments__TermsUrl` | Your published terms page |
 
 For each key, run this from the repository root. It puts a new random key on the clipboard without showing it, ready to paste:
 
@@ -66,10 +64,31 @@ MonsterASP keeps these variables on the site's application pool, not in `web.con
 | `Payments__Provider` | `sandbox` |
 | `Payments__Sandbox__AllowOutsideDevelopment` | `true` |
 | `Payments__Sandbox__SecretKey` | A new key |
-| `Email__Provider` | `file` (only if SMTP isn't set up yet) |
+| `Email__Provider` | `file` (only until e-mail is set up, see below) |
 | `Email__AllowFileOutsideDevelopment` | `true` (only with `file`) |
 
 The sandbox marks bills as paid without moving money, so don't let real guests pay. Delete these variables when you go live.
+
+### E-mail
+
+Receipts, payment links and reports go out through MonsterASP's own mail relay, which Premium sites can use without a mailbox or password. Its settings are in `appsettings.MonsterAsp.json` (`Email:Smtp`: `site103877.siteasp.net`, port 25, no encryption), and they send as `receipts@hello-zen.com`. To switch it on:
+
+1. In Spaceship, open **hello-zen.com → Advanced DNS** and add two TXT records, so mail from the relay isn't marked as spam:
+
+   | Type | Host | Value |
+   |---|---|---|
+   | TXT | `@` | `v=spf1 a:site103877.siteasp.net ~all` |
+   | TXT | `_dmarc` | `v=DMARC1; p=none` |
+
+   A domain can have only one SPF record. If `@` already has a TXT starting with `v=spf1`, add `a:site103877.siteasp.net` to that one instead.
+2. In MonsterASP, delete the environment variables `Email__Provider` and `Email__AllowFileOutsideDevelopment`, then **Restart application**.
+3. Pay a demo bill, ask for the receipt, and check it arrives. `/health/ready` reports the e-mail outbox, and the site's logs show any SMTP error.
+
+The relay doesn't add a DKIM signature when the domain's DNS is elsewhere. If receipts still land in spam with the SPF record in place, open a MonsterASP support ticket and ask them to generate a DKIM record for `hello-zen.com`, then add it at Spaceship.
+
+### Company details
+
+The guest app's **Terms**, **Privacy**, **Refunds** and **Contact** pages (`/terms`, `/privacy`, `/refunds`, `/contact`) name the company behind helloZen and how to reach it. Acquirers check these before approving a merchant. Fill in `Legal` in `appsettings.MonsterAsp.json` (`LegalName`, `Address`, `Email`, `Phone`, and optionally `RegistrationNumber`) and push. Empty values are left off the pages, and the site logs a warning at startup until they're set. The repository is public, and so are these pages.
 
 ## 4. Publish
 
@@ -129,6 +148,10 @@ Setting it up once: in GitHub, open the repository's **Settings → Secrets and 
 
 To deploy without pushing, for example after changing a setting, open **Actions → Deploy → Run workflow**. Step 4 still works from your PC as a fallback.
 
-MonsterASP backs up the website's files every day and keeps 14 days. Check the database's backup options under **Databases**. Keep a copy of the environment variables somewhere safe: without `Qr__TokenKey` the printed QR codes stop working.
-
 For Mastercard, follow [the gateway checklist](../README.md#4-mastercard-gateway-test-checklist) with the webhook URL `https://app.hello-zen.com/v1/webhooks/payments/mastercard`.
+
+## 8. Backups
+
+- **Database:** Premium databases are backed up automatically once a day, to storage separate from the database server. Check that they're there under **Databases → db77252 → Backups → Daily backups**. **Upload** next to a daily backup copies it into **Backup files**, where it's kept until you delete it; do that before risky changes. **Create BAK file** makes one on the spot, and **Download** saves it to your PC.
+- **Website files:** MonsterASP backs up the website's files every day and keeps 14 days. They include `App_Data`: menu photos, and the Data Protection keys that decrypt stored POS access tokens.
+- **Settings:** keep a copy of the environment variables somewhere safe. Without `Qr__TokenKey` the printed QR codes stop working.

@@ -6,6 +6,7 @@ using HelloZen.Application.Orders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace HelloZen.Api.Controllers;
 
@@ -18,6 +19,11 @@ public class PublicController(GuestService guests) : ControllerBase
     [HttpGet("ping")]
     [AllowAnonymous]
     public IActionResult Ping() => Ok(new { service = "HelloZen.Api", time = DateTimeOffset.UtcNow });
+
+    /// <summary>The company behind helloZen and how to reach it, for the terms, privacy, refunds and contact pages.</summary>
+    [HttpGet("legal")]
+    [AllowAnonymous]
+    public LegalInfoDto Legal([FromServices] IOptions<LegalOptions> legal) => legal.Value.ToDto();
 
     /// <summary>
     /// Resolves a scanned QR token and starts a guest session. Returns the session token the
