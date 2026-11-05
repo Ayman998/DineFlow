@@ -7,7 +7,7 @@ import { errorCode } from '../../core/guest-session';
 import { I18n } from '../../core/i18n';
 import { newId } from '../../core/ids';
 import { LinkPayment, PaymentLink, PaymentLinksApi, linkEqualShare, pendingLinkPaymentKey } from '../../core/links';
-import { formatMoney } from '../../core/menu';
+import { formatAmount, formatMoney } from '../../core/menu';
 import { CustomTip, METHOD_ORDER, PaymentMethod, isFinal, parseAmount, parseTip, percentOf, safeUrl } from '../../core/payments';
 import { readJson, writeJson } from '../../core/storage';
 
@@ -69,7 +69,6 @@ export class LinkPage implements OnInit {
 
   private clientRequestId: string | null = null;
   private requestKey = '';
-  private defaulted = false;
   private polling: Subscription | null = null;
   private slowTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -134,6 +133,11 @@ export class LinkPage implements OnInit {
 
   protected money(minor: number): string {
     return formatMoney(minor, this.currency(), this.i18n.lang());
+  }
+
+  /** A tip button's amount: no currency, so five buttons fit across a phone. */
+  protected amount(minor: number): string {
+    return formatAmount(minor, this.currency(), this.i18n.lang());
   }
 
   protected percent(basisPoints: number): string {
@@ -294,12 +298,6 @@ export class LinkPage implements OnInit {
     this.link.set(link);
     this.i18n.useDefault(link.venue.defaultLocale);
 
-    if (!this.defaulted) {
-      this.defaulted = true;
-      // The venue's "Most common" tip starts selected (P1-PAY-11); the customer can pick "Not now".
-      if (link.tips.enabled && link.tips.mostCommonBasisPoints !== null)
-        this.tipChoice.set({ kind: 'preset', basisPoints: link.tips.mostCommonBasisPoints });
-    }
     if (!link.allowSplit) this.mode.set('Full');
 
     const pendingId = readJson<string>('session', pendingLinkPaymentKey(link.code));

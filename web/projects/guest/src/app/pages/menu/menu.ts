@@ -10,18 +10,19 @@ import { ItemSheet } from './item-sheet';
 
 type View = 'list' | 'grid';
 
+/** A top-level category: its own items first, then each subcategory's under the subcategory's name. */
 interface Section {
   id: string;
   title: string;
-  items: MenuItem[];
+  groups: { id: string; title: string | null; items: MenuItem[] }[];
 }
 
 const VIEW_KEY = 'df.menuView';
 
 /**
- * The e-menu (blueprint 4.2 steps 2–3, mockup "e-Menu home"): venue header, menu switcher,
- * grid/list toggle, search, category chips (with arrows when they run off the screen), items and
- * a sticky order bar.
+ * The e-menu (blueprint 4.2 steps 2–3, mockup "e-Menu home"): a header with the way back to the
+ * table's home page, menu switcher, grid/list toggle, search, category chips (with arrows when they
+ * run off the screen), the items category by category and a sticky order bar.
  */
 @Component({
   selector: 'hz-menu',
@@ -35,6 +36,11 @@ export class MenuPage implements OnInit {
   protected readonly i18n = inject(I18n);
 
   protected readonly context = computed(() => this.session.current()?.context ?? null);
+  /** The table's home page (the QR landing), which reopens the same session. */
+  protected readonly home = computed(() => {
+    const token = this.session.current()?.qrToken;
+    return token ? ['/q', token] : ['/'];
+  });
   protected readonly tree = signal<MenuTree | null>(null);
   protected readonly errorCode = signal<string | null>(null);
 
@@ -67,10 +73,14 @@ export class MenuPage implements OnInit {
 
     for (const category of this.categories()) {
       if (selected && category.id !== selected) continue;
-      for (const section of [category, ...category.subcategories]) {
-        const items = section.items.filter(item => !query || this.matches(item, query));
-        if (items.length) sections.push({ id: section.id, title: this.i18n.localize(section.name, section.nameAr), items });
-      }
+      const groups = [category, ...category.subcategories]
+        .map((part, i) => ({
+          id: part.id,
+          title: i === 0 ? null : this.i18n.localize(part.name, part.nameAr),
+          items: part.items.filter(item => !query || this.matches(item, query))
+        }))
+        .filter(group => group.items.length > 0);
+      if (groups.length) sections.push({ id: category.id, title: this.i18n.localize(category.name, category.nameAr), groups });
     }
     return sections;
   });

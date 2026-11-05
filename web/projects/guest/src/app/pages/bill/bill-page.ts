@@ -6,11 +6,11 @@ import { Router, RouterLink } from '@angular/router';
 import { GuestSession, errorCode } from '../../core/guest-session';
 import { I18n } from '../../core/i18n';
 import { newId } from '../../core/ids';
-import { formatMoney } from '../../core/menu';
+import { formatAmount, formatMoney } from '../../core/menu';
 import { OrderUpdates } from '../../core/orders';
 import {
   Bill, CustomTip, METHOD_ORDER, PENDING_PAYMENT_KEY, Payment, PaymentMethod, PaymentsApi, PromoQuote, Selection,
-  parseTip, percentOf, principalOf, safeUrl
+  parseTip, percentOf, principalOf, safeUrl, taxIn
 } from '../../core/payments';
 import { readJson, writeJson } from '../../core/storage';
 import { SplitSheet } from './split-sheet';
@@ -48,6 +48,7 @@ export class BillPage implements OnInit {
   protected readonly splitOpen = signal(false);
   protected readonly notice = signal<string | null>(null);
 
+  /** No tip until the guest picks one; "Most common" only marks the venue's usual choice. */
   protected readonly tipChoice = signal<TipChoice>({ kind: 'none' });
   protected readonly customText = signal('');
 
@@ -92,6 +93,11 @@ export class BillPage implements OnInit {
   });
 
   protected readonly total = computed(() => this.share() - this.discount() + this.tipMinor());
+  /** The sales tax inside this guest's share. */
+  protected readonly taxInShare = computed(() => {
+    const bill = this.bill();
+    return bill ? taxIn(bill, this.share()) : 0;
+  });
 
   protected readonly canPay = computed(() => {
     const bill = this.bill();
@@ -111,6 +117,11 @@ export class BillPage implements OnInit {
 
   protected money(minor: number): string {
     return formatMoney(minor, this.currency(), this.i18n.lang());
+  }
+
+  /** A tip button's amount: no currency, so five buttons fit across a phone. */
+  protected amount(minor: number): string {
+    return formatAmount(minor, this.currency(), this.i18n.lang());
   }
 
   protected percent(basisPoints: number): string {
@@ -293,9 +304,6 @@ export class BillPage implements OnInit {
 
     if (!this.defaulted) {
       this.defaulted = true;
-      // The venue's "Most common" tip starts selected (P1-PAY-11); the guest can pick "Not now".
-      if (bill.tips.enabled && bill.tips.mostCommonBasisPoints !== null)
-        this.tipChoice.set({ kind: 'preset', basisPoints: bill.tips.mostCommonBasisPoints });
       // Carry on with a split the guest (or their table) already started.
       if (bill.split.selectedMinor > 0) this.selection.set({ mode: 'Items' });
       else if (bill.split.equalAvailable && (bill.split.sharesLeft ?? 0) > 0) this.selection.set({ mode: 'Equal', shares: 1 });

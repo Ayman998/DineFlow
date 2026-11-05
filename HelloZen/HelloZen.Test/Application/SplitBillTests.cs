@@ -156,6 +156,20 @@ public class SplitBillTests : IDisposable
     }
 
     [Fact]
+    public async Task Each_payment_shows_the_sales_tax_in_its_part_of_the_bill()
+    {
+        var f = await CreateAsync(charges: true);
+        await OrderAsync(f.Guests[0], (f.Burger, 2)); // 100.00 + 10% service = 110.00, of which 5.24 is the 5% tax
+        await _host.Bills.SetSplitAsync(f.Guests[0], 2, default);
+        var bill = await BillAsync(f.Guests[0]);
+
+        var half = await PayAsync(Pay(f.Guests[0], PaymentMode.Equal, 5_500, shares: 1));
+        var rest = await PayAsync(Pay(f.Guests[1], PaymentMode.Equal, 5_500, shares: 1));
+
+        Assert.Equal((524L, 262L, 262L), (bill.TaxMinor, half.TaxMinor, rest.TaxMinor));
+    }
+
+    [Fact]
     public async Task A_guest_can_pay_for_several_people_and_tip_on_their_share()
     {
         var f = await CreateAsync();

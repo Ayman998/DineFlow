@@ -40,10 +40,11 @@ public record OverviewDto(
 /// <summary>A table's state on the live view (blueprint 4.4 "Tables", P1-MER-10).</summary>
 public enum TableState
 {
-    /// <summary>Nobody is at the table (no recent scan, nothing ordered).</summary>
+    /// <summary>Nothing is ordered at the table. Guests browsing the menu don't change that.</summary>
     Available,
-    /// <summary>Guests have scanned the QR code but haven't ordered yet.</summary>
+    /// <summary>Guests have ordered and some of it isn't served yet; nothing is paid.</summary>
     Ordering,
+    /// <summary>Everything ordered has been served and nothing is paid yet.</summary>
     Unpaid,
     PartiallyPaid,
     /// <summary>The table's bill has been settled recently.</summary>

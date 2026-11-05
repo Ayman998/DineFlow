@@ -37,6 +37,8 @@ public record PaymentDto(
     int ItemCount,
     string Currency,
     long BillAmountMinor,
+    /// <summary>The sales tax inside BillAmountMinor: the bill's tax, in proportion to the part this payment covers.</summary>
+    long TaxMinor,
     long DiscountMinor,
     long TipMinor,
     long AmountMinor,

@@ -414,12 +414,17 @@ public class FinanceTests : IDisposable
         Assert.Equal(TableState.Available, (await Table("7")).State);
 
         var guest = await GuestAsync(f, f.Table7);
-        Assert.Equal(TableState.Ordering, (await Table("7")).State);
+        Assert.Equal(TableState.Available, (await Table("7")).State); // looking at the menu isn't ordering
 
         var order = await OrderAsync(guest, (f.Burger, 2));
-        var unpaid = await Table("7");
-        Assert.Equal((TableState.Unpaid, 10_000L, 0L, 10_000L), (unpaid.State, unpaid.TotalMinor, unpaid.PaidMinor, unpaid.RemainingMinor));
-        Assert.Equal(order.Number, unpaid.Orders.Single().Number);
+        var ordering = await Table("7");
+        Assert.Equal((TableState.Ordering, 10_000L, 0L, 10_000L), (ordering.State, ordering.TotalMinor, ordering.PaidMinor, ordering.RemainingMinor));
+        Assert.Equal(order.Number, ordering.Orders.Single().Number);
+
+        await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Ready, null), default);
+        Assert.Equal(TableState.Ordering, (await Table("7")).State); // still on its way
+        await _host.MerchantOrders.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Completed, null), default);
+        Assert.Equal(TableState.Unpaid, (await Table("7")).State);
 
         await PayAsync(guest, amount: 3000, outcome: PaymentStatus.Failed);
         var attention = await Table("7");
@@ -435,8 +440,10 @@ public class FinanceTests : IDisposable
         Assert.Equal((TableState.Available, null, 0L), (paid.State, paid.CheckId, paid.TotalMinor)); // paid in full: free straight away
 
         _host.Clock.Advance(TimeSpan.FromMinutes(5));
-        await GuestAsync(f, f.Table7);
-        Assert.Equal(TableState.Ordering, (await Table("7")).State); // the next guests
+        var next = await GuestAsync(f, f.Table7);
+        Assert.Equal(TableState.Available, (await Table("7")).State); // the next guests, still choosing
+        await OrderAsync(next, (f.Burger, 1));
+        Assert.Equal(TableState.Ordering, (await Table("7")).State);
         Assert.Equal(TableState.Available, (await Table("8")).State);
     }
 

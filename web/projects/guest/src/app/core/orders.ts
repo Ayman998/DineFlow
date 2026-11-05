@@ -160,16 +160,16 @@ export class OrderUpdates implements OnDestroy {
   }
 }
 
-/** Order tracker stage (Selection, Checkout, Preparing, Delivered), 0-based; -1 when rejected. */
+/** Order journey stage (Selection, Ordered, Ready, Served, Check Out), 0-based; -1 when rejected. */
 export function trackerStage(status: OrderStatus | 'Cart'): number {
   switch (status) {
     case 'Cart': return 0;
-    case 'Submitted': return 1;
+    case 'Submitted':
     case 'Accepted':
-    case 'Preparing':
+    case 'Preparing': return 1;
     case 'Ready': return 2;
-    case 'Completed':
-    case 'Closed': return 3;
+    case 'Completed': return 3;
+    case 'Closed': return 4; // served and the bill is paid
     default: return -1;
   }
 }

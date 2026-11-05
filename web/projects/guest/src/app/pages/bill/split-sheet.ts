@@ -4,7 +4,7 @@ import { Component, OnInit, computed, inject, input, output, signal } from '@ang
 import { GuestSession, errorCode } from '../../core/guest-session';
 import { I18n } from '../../core/i18n';
 import { formatMoney, minorDigits } from '../../core/menu';
-import { Bill, BillUnit, PaymentMode, PaymentsApi, Selection, UnitRef, equalShare, parseAmount, sameUnit } from '../../core/payments';
+import { Bill, BillUnit, PaymentMode, PaymentsApi, Selection, UnitRef, equalShare, parseAmount, sameUnit, taxIn } from '../../core/payments';
 
 const MAX_PEOPLE = 50;
 
@@ -47,6 +47,9 @@ export class SplitSheet implements OnInit {
 
   protected readonly equalLocked = computed(() => !this.bill().split.equalAvailable);
   protected readonly itemsLocked = computed(() => !this.bill().split.itemsAvailable && this.bill().split.selectedMinor === 0);
+
+  /** The sales tax inside that share. */
+  protected readonly taxInShare = computed(() => taxIn(this.bill(), this.yourShare()));
 
   /** What Confirm would have this guest pay. */
   protected readonly yourShare = computed(() => {

@@ -212,7 +212,7 @@ export class LiveTables implements OnInit {
 
   /** An open bill with something on it can move to another table. */
   protected canMove(t: TableStatus): boolean {
-    return !!t.checkId && (t.state === 'Unpaid' || t.state === 'PartiallyPaid' || t.state === 'Attention');
+    return !!t.checkId && (t.state === 'Ordering' || t.state === 'Unpaid' || t.state === 'PartiallyPaid' || t.state === 'Attention');
   }
 
   protected moved(from: TableStatus, result: TransferResult): void {
@@ -242,7 +242,8 @@ export class LiveTables implements OnInit {
 
   private matches(t: TableStatus, filter: Filter): boolean {
     switch (filter) {
-      case 'Unpaid': return t.state === 'Unpaid' || t.state === 'Attention';
+      // Nothing paid yet, whether or not the food has been served.
+      case 'Unpaid': return t.state === 'Ordering' || t.state === 'Unpaid' || t.state === 'Attention';
       case 'PartiallyPaid': return t.state === 'PartiallyPaid';
       case 'Available': return t.state === 'Available';
       default: return true;

@@ -105,6 +105,7 @@
       <div class="mt-2 flex justify-between border-t border-line pt-3 text-xl font-extrabold">
         <span>{{ t.yourShare }}</span><span class="text-brand">{{ money(yourShare()) }}</span>
       </div>
+      @if (taxInShare(); as tax) { <div class="sum mt-1"><span>{{ t.ofWhichTax }}</span><span>{{ money(tax) }}</span></div> }
       <p class="mt-1 text-xs text-ink-muted">{{ t.inclusiveNote }}</p>
     </div>
 

@@ -1,9 +1,20 @@
-import { Bill, equalShare, parseAmount, parseTip, percentOf, principalOf } from './payments';
+import { Bill, equalShare, parseAmount, parseTip, percentOf, principalOf, taxIn } from './payments';
 
 describe('percentOf', () => {
   it('rounds a percentage of the bill to the nearest minor unit', () => {
     expect(percentOf(3_800, 1_000)).toBe(380);
     expect(percentOf(12_345, 1_500)).toBe(1_852);
+  });
+});
+
+describe('taxIn', () => {
+  it("gives a share the bill's sales tax in proportion, and the whole bill all of it", () => {
+    // JOD 2.800 + 10% service + 16% tax = 3.573, of which 0.493 is tax.
+    const bill = { taxMinor: 493, totalMinor: 3_573 };
+    expect(taxIn(bill, 3_573)).toBe(493);
+    expect(taxIn(bill, 1_787)).toBe(247); // half the bill: 246.57, rounded
+    expect(taxIn({ taxMinor: 0, totalMinor: 3_573 }, 3_573)).toBe(0);
+    expect(taxIn({ taxMinor: 0, totalMinor: 0 }, 0)).toBe(0);
   });
 });
 

@@ -85,6 +85,13 @@ export function formatMoney(minor: number, currency: string, lang: string): stri
   }).format(minor / 10 ** digits);
 }
 
+/** An amount without the currency, e.g. "0.308", where the currency is clear from the page. */
+export function formatAmount(minor: number, currency: string, lang: string): string {
+  const digits = minorDigits(currency);
+  return new Intl.NumberFormat(`${lang}-u-nu-latn`, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    .format(minor / 10 ** digits);
+}
+
 /** Decimal places of a currency: 2 for AED, 3 for KWD/BHD/OMR/JOD. */
 export function minorDigits(currency: string): number {
   return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;

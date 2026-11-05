@@ -13,16 +13,13 @@
   </main>
 } @else {
   <div class="flex min-h-dvh flex-col">
-    <!-- Header: venue, table, language, Pay bill shortcut (P1-QR-03) -->
-    <header class="flex items-center gap-3 px-5 pt-4 pb-3">
-      <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-extrabold text-white"
-           [style.background-color]="ctx.venue.brandColor" aria-hidden="true">
-        @if (ctx.venue.logoUrl) {
-          <img [src]="ctx.venue.logoUrl" alt="" class="size-full object-cover" />
-        } @else {
-          {{ initials(ctx.venue.brandName) }}
-        }
-      </div>
+    <!-- Header: back to the table's home page, venue, table, language, Pay bill shortcut (P1-QR-03) -->
+    <header class="flex items-center gap-2 px-5 pt-4 pb-3">
+      <a [routerLink]="home()" class="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface" [attr.aria-label]="t.backToHome">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h5v-6h4v6h5V9.5" />
+        </svg>
+      </a>
       <div class="min-w-0 flex-1">
         <h1 class="truncate text-base font-extrabold">{{ ctx.venue.brandName }}</h1>
         <p class="truncate text-[13px] text-ink-muted">
@@ -36,7 +33,7 @@
         {{ i18n.lang() === 'en' ? 'ع' : 'EN' }}
       </button>
       @if (ctx.features.payAtTable) {
-        <a routerLink="/bill" class="chip border-brand text-brand">{{ t.payBillShort }}</a>
+        <a routerLink="/bill" class="chip border-accent bg-accent px-3.5 text-ink">{{ t.payBillShort }}</a>
       }
     </header>
 
@@ -166,15 +163,24 @@
         <p class="py-12 text-center text-ink-muted">{{ search() ? t.noResults : t.emptyMenu }}</p>
       }
 
-      @for (section of sections(); track section.id) {
-        <section class="mt-5">
-          <h2 class="mb-1 text-lg font-extrabold">{{ section.title }}</h2>
+      <!-- Each category is a block of its own: a band between categories, its name with a yellow mark,
+           and its subcategories under smaller headings. -->
+      @for (section of sections(); track section.id; let first = $first) {
+        @if (!first) { <div class="-mx-5 mt-6 h-2 bg-surface" aria-hidden="true"></div> }
+        <section class="pt-5" [attr.aria-labelledby]="'category-' + section.id">
+          <h2 [id]="'category-' + section.id" class="flex items-center gap-2.5 text-lg font-extrabold">
+            <span class="h-5 w-1 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>{{ section.title }}
+          </h2>
+          @for (group of section.groups; track group.id) {
+          @if (group.title) {
+            <h3 class="mt-4 text-sm font-bold text-ink-muted">{{ group.title }}</h3>
+          }
           <div [class]="view() === 'grid' ? 'grid grid-cols-2 gap-3 pt-2' : ''">
-            @for (item of section.items; track item.id) {
+            @for (item of group.items; track item.id) {
               @let name = i18n.localize(item.name, item.nameAr);
               @let qty = cart.quantityOf(item.id);
               @if (view() === 'list') {
-                <article class="flex gap-3.5 border-b border-line py-4" [class.opacity-75]="!item.isAvailable">
+                <article class="flex gap-3.5 border-b border-line py-4 last:border-b-0" [class.opacity-75]="!item.isAvailable">
                   <div class="min-w-0 flex-1">
                     <button type="button" class="block w-full text-start" (click)="openItem.set(item)">
                       <h3 class="text-base font-bold">{{ name }}</h3>
@@ -242,6 +248,7 @@
               }
             }
           </div>
+          }
         </section>
       }
     </main>

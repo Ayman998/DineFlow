@@ -34,6 +34,7 @@
         </div>
         <div class="mt-2 flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.youPaid }}</span><span class="text-lg font-extrabold">{{ money(p.amountMinor) }}</span></div>
         @if (shareLabel(p); as label) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ label }}</span><span>{{ money(p.billAmountMinor) }}</span></div> }
+        @if (p.taxMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.ofWhichTax }}</span><span>{{ money(p.taxMinor) }}</span></div> }
         @if (p.tipMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.ofWhichTip }}</span><span>{{ money(p.tipMinor) }}</span></div> }
         @if (p.discountMinor) { <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.promotion }} {{ p.promoCode }}</span><span>−{{ money(p.discountMinor) }}</span></div> }
         <div class="flex justify-between py-1 text-sm"><span class="text-ink-muted">{{ t.remainingBalance }}</span><span class="font-bold">{{ money(p.remainingMinor ?? 0) }}</span></div>
@@ -45,7 +46,7 @@
       </section>
 
       <section class="mx-5 mt-3.5 rounded-[18px] border border-line bg-white px-3 pt-3.5 pb-3">
-        <hz-order-tracker [stage]="stage()" />
+        @if (stage() !== null) { <hz-order-tracker [stage]="stage()!" /> }
         <a routerLink="/orders" class="mt-1.5 flex min-h-11 items-center justify-between px-1.5 text-sm font-bold text-brand">
           {{ t.viewOrderSummary }}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="rtl:rotate-180" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>

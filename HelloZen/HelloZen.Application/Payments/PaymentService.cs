@@ -436,6 +436,16 @@ public class PaymentService(
             ? await db.ItemClaims.IgnoreQueryFilters().CountAsync(c => c.PaymentId == p.Id, ct)
             : 0;
 
+        // Items and shares are priced with their part of the service charge and tax, so the tax in
+        // a payment is the bill's tax in proportion; paying the whole bill gets all of it.
+        var bill = await db.Orders.IgnoreQueryFilters()
+            .Where(o => o.CheckId == p.CheckId && o.Status != OrderStatus.Rejected)
+            .GroupBy(o => o.CheckId)
+            .Select(g => new { Tax = g.Sum(o => o.TaxMinor), Total = g.Sum(o => o.TotalMinor) })
+            .SingleOrDefaultAsync(ct);
+        var tax = bill is null || bill.Total <= 0 ? 0
+            : Math.Min(bill.Tax, (long)Math.Round((decimal)p.BillAmountMinor * bill.Tax / bill.Total, MidpointRounding.AwayFromZero));
+
         var canReview = false;
         int? rating = null;
         if (p.Status == PaymentStatus.Succeeded)
@@ -445,7 +455,7 @@ public class PaymentService(
         }
 
         return new PaymentDto(p.Id, p.Reference, p.Status, p.Method, p.Mode, p.Shares, p.SplitPeople, itemCount,
-            p.Currency, p.BillAmountMinor, p.DiscountMinor, p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4,
+            p.Currency, p.BillAmountMinor, tax, p.DiscountMinor, p.TipMinor, p.AmountMinor, p.PromoCode, p.CardBrand, p.CardLast4,
             p.FailureReason, p.Status == PaymentStatus.RequiresAction ? p.CheckoutUrl : null,
             location.Type.ToString(), location.Label, location.DiningArea?.Name, location.DiningArea?.NameAr,
             p.CreatedAt, p.SucceededAt, remaining, fullyPaid, offer, canReview, rating);

@@ -6,7 +6,7 @@ import { Observable, filter, switchMap, takeWhile, timer } from 'rxjs';
 import { GuestSession, errorCode } from '../../core/guest-session';
 import { I18n } from '../../core/i18n';
 import { formatMoney } from '../../core/menu';
-import { OrderUpdates, OrdersApi } from '../../core/orders';
+import { OrderUpdates, OrdersApi, trackerStage } from '../../core/orders';
 import { PENDING_PAYMENT_KEY, Payment, PaymentsApi, isFinal, safeUrl } from '../../core/payments';
 import { readJson, writeJson } from '../../core/storage';
 import { ReviewResult } from '../../core/reviews';
@@ -42,7 +42,8 @@ export class PaymentPage implements OnInit {
   protected readonly payment = signal<Payment | null>(null);
   protected readonly notFound = signal(false);
   protected readonly slow = signal(false);
-  protected readonly stage = signal(2);
+  /** Where the table's orders are on the journey, once they've loaded. */
+  protected readonly stage = signal<number | null>(null);
   protected readonly copied = signal(false);
 
   protected readonly email = signal('');
@@ -161,12 +162,13 @@ export class PaymentPage implements OnInit {
       setTimeout(() => this.reviewOpen.set(true), 600);
     if (isFinal(payment.status)) writeJson('session', PENDING_PAYMENT_KEY, null);
 
-    // After paying, the tracker shows Checkout done; Delivered once every order has been served.
+    // After paying, the journey shows the least advanced order: Check Out once everything has been
+    // served and the bill is paid in full, Served while others still have their part to pay.
     const sessionId = this.context()?.sessionId;
     if (payment.status === 'Succeeded' && !wasSucceeded && sessionId) {
       this.orders.list(sessionId).subscribe(orders => {
-        const live = orders.filter(o => o.status !== 'Rejected');
-        this.stage.set(live.length && live.every(o => o.status === 'Completed' || o.status === 'Closed') ? 3 : 2);
+        const stages = orders.filter(o => o.status !== 'Rejected').map(o => trackerStage(o.status));
+        this.stage.set(stages.length ? Math.min(...stages) : 4);
       });
     }
   }

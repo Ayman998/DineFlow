@@ -98,6 +98,15 @@ export interface Bill {
   termsUrl: string;
 }
 
+/**
+ * The sales tax inside part of the bill. Shares and items carry their part of the tax, so it's the
+ * bill's tax in proportion, as the API works it out for a payment; the whole bill gets all of it.
+ */
+export function taxIn(bill: Pick<Bill, 'taxMinor' | 'totalMinor'>, amountMinor: number): number {
+  if (bill.totalMinor <= 0 || bill.taxMinor <= 0) return 0;
+  return Math.min(bill.taxMinor, Math.round((amountMinor * bill.taxMinor) / bill.totalMinor));
+}
+
 export interface PromoQuote {
   code: string;
   headline: string;
@@ -115,6 +124,8 @@ export interface Payment {
   itemCount: number;
   currency: string;
   billAmountMinor: number;
+  /** The sales tax inside billAmountMinor. */
+  taxMinor: number;
   discountMinor: number;
   tipMinor: number;
   amountMinor: number;

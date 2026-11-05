@@ -150,7 +150,7 @@ export class TransferDialog implements OnInit {
 
   /** Has an open bill with orders on it, which what's moved will join. */
   protected hasBill(t: TableStatus): boolean {
-    return t.state === 'Unpaid' || t.state === 'PartiallyPaid' || t.state === 'Attention';
+    return t.state === 'Ordering' || t.state === 'Unpaid' || t.state === 'PartiallyPaid' || t.state === 'Attention';
   }
 
   /** "Table 12" in the portal's language. */

@@ -9,13 +9,15 @@ namespace HelloZen.Application.Dashboard;
 
 /// <summary>
 /// The live table view (blueprint 4.4 "Tables", P1-MER-10, mockup "Merchant table view"): every
-/// table with what's been paid against its bill and a state staff can act on. A table whose bill
-/// is paid in full is available again straight away.
+/// table with what's been paid against its bill and a state staff can act on. A table is flagged
+/// once guests place an order, not when they scan the QR code to look at the menu: Ordering while
+/// food is on its way, then Unpaid once it's all served. A table whose bill is paid in full is
+/// available again straight away.
 /// </summary>
 public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimeProvider clock)
 {
-    /// <summary>A scan this recent with nothing ordered yet (or since the last bill was paid) means guests are choosing.</summary>
-    public static readonly TimeSpan OrderingWindow = TimeSpan.FromMinutes(60);
+    /// <summary>A bill paid in full this recently shows as the free table's last activity.</summary>
+    public static readonly TimeSpan RecentlyPaid = TimeSpan.FromMinutes(60);
     /// <summary>A failed payment this recent, with money still owed, needs a member of staff.</summary>
     public static readonly TimeSpan FailedPaymentAttention = TimeSpan.FromMinutes(30);
 
@@ -28,14 +30,14 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
 
         var locations = await db.ServiceLocations.AsNoTracking().Include(l => l.DiningArea)
             .Where(l => l.VenueId == venueId && l.IsActive).ToListAsync(ct);
-        var scannedSince = now - OrderingWindow;
+        var paidSince = now - RecentlyPaid;
         var checks = await db.Checks.AsNoTracking()
             .Where(c => c.VenueId == venueId && c.Status == CheckStatus.Open)
             .ToListAsync(ct);
         var checkIds = checks.Select(c => c.Id).ToList();
-        // When each table's last bill was paid in full, if that was within the ordering window.
+        // When each table's last bill was paid in full, if that was recent.
         var closedAt = await db.Checks.AsNoTracking()
-            .Where(c => c.VenueId == venueId && c.Status == CheckStatus.Closed && c.ClosedAt >= scannedSince)
+            .Where(c => c.VenueId == venueId && c.Status == CheckStatus.Closed && c.ClosedAt >= paidSince)
             .GroupBy(c => c.ServiceLocationId)
             .Select(g => new { LocationId = g.Key, Last = g.Max(c => c.ClosedAt) })
             .ToListAsync(ct);
@@ -52,12 +54,6 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
         var payments = await db.Payments.AsNoTracking()
             .Where(p => p.CheckId != null && checkIds.Contains(p.CheckId.Value))
             .Select(p => new { p.CheckId, p.Status, p.CreatedAt, p.UpdatedAt })
-            .ToListAsync(ct);
-        var locationIds = locations.Select(l => l.Id).ToList();
-        var scans = await db.GuestSessions.AsNoTracking()
-            .Where(s => locationIds.Contains(s.ServiceLocationId) && s.CreatedAt >= scannedSince)
-            .GroupBy(s => s.ServiceLocationId)
-            .Select(g => new { LocationId = g.Key, Last = g.Max(s => s.CreatedAt) })
             .ToListAsync(ct);
 
         long Ledger(Guid checkId, params LedgerEntryType[] types) =>
@@ -76,7 +72,6 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
             // The latest attempt decides (a success wins a tie with a failure from the same moment).
             var lastPayment = check is null ? null : payments.Where(p => p.CheckId == check.Id)
                 .MaxBy(p => (p.CreatedAt, p.Status == PaymentStatus.Failed ? 0 : 1));
-            var scan = scans.FirstOrDefault(s => s.LocationId == location.Id)?.Last;
             var paidAt = closedAt.FirstOrDefault(c => c.LocationId == location.Id)?.Last;
 
             TableState state;
@@ -84,7 +79,11 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
             DateTimeOffset? lastActivity;
             if (check is not null)
             {
-                state = remaining == 0 ? TableState.Paid : paid == 0 ? TableState.Unpaid : TableState.PartiallyPaid;
+                var onItsWay = shown.Any(o => o.Status is not (OrderStatus.Completed or OrderStatus.Closed));
+                state = remaining == 0 ? TableState.Paid
+                    : paid > 0 ? TableState.PartiallyPaid
+                    : onItsWay ? TableState.Ordering
+                    : TableState.Unpaid;
                 if (remaining > 0 && lastPayment is { Status: PaymentStatus.Failed } failed && failed.UpdatedAt >= now - FailedPaymentAttention)
                 {
                     state = TableState.Attention;
@@ -94,9 +93,8 @@ public class TableStatusService(IAppDbContext db, ITenantContext tenant, TimePro
             }
             else
             {
-                // Guests who scanned before the last bill was paid in full have paid and gone.
-                state = scan is not null && !(paidAt >= scan) ? TableState.Ordering : TableState.Available;
-                lastActivity = Latest(scan, paidAt);
+                state = TableState.Available;
+                lastActivity = paidAt;
             }
 
             return new TableStatusDto(location.Id, location.Type.ToString(), location.Label, location.DisplayName, location.DiningArea?.Name,
